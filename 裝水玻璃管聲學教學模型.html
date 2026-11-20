@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>裝水玻璃管聲學探究模擬器 - 敲擊 vs 吹氣</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1' },
+            water: { 400: '#38bdf8', 500: '#0284c7' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      user-select: none;
+    }
+    .custom-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #0284c7;
+      cursor: pointer;
+      border: 3px solid #ffffff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .tube-glass-gloss {
+      background: linear-gradient(90deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.05) 30%, rgba(255,255,255,0.2) 75%, rgba(255,255,255,0.5) 100%);
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col antialiased">
+
+  <header class="bg-slate-800/90 border-b border-slate-700/80 sticky top-0 z-40 backdrop-blur px-4 py-3 shadow-md">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg md:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            裝水玻璃管聲學探究模擬器
+            <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">物理可視化</span>
+          </h1>
+          <p class="text-xs text-slate-400">探討敲擊（質量負載）與吹氣（空氣柱駐波）的音頻逆轉現象</p>
+        </div>
+      </div>
+
+      <!-- Mode selection navigation tabs -->
+      <div class="flex bg-slate-950/60 p-1 rounded-xl border border-slate-700/60 text-xs sm:text-sm font-medium">
+        <button id="tabSingle" onclick="switchMode('single')" class="px-3.5 py-1.5 rounded-lg transition-all text-white bg-cyan-600 shadow-sm">
+          🔬 單管微觀探究
+        </button>
+        <button id="tabCompare" onclick="switchMode('compare')" class="px-3.5 py-1.5 rounded-lg transition-all text-slate-400 hover:text-slate-200">
+          ⚖️ 雙管對比驗證
+        </button>
+        <button id="tabScale" onclick="switchMode('scale')" class="px-3.5 py-1.5 rounded-lg transition-all text-slate-400 hover:text-slate-200">
+          🎵 八音瓶演奏琴
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl w-full mx-auto p-3 sm:p-5 flex-1 flex flex-col gap-5">
+
+    <!-- Top Physics Principle Concept Banner -->
+    <div class="bg-gradient-to-r from-slate-800 via-slate-800/90 to-slate-800 border border-slate-700 rounded-2xl p-4 shadow-lg">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 divide-y md:divide-y-0 md:divide-x divide-slate-700/80">
+        <!-- 敲擊原理簡說 -->
+        <div class="flex items-start gap-3.5 pr-2">
+          <div class="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex-shrink-0">
+            <span class="text-2xl">🔨</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-bold text-amber-300">敲擊玻璃管 (Strike / Tap)</h2>
+              <span class="text-[11px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200">主振動體：玻璃瓶＋水</span>
+            </div>
+            <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+              敲擊主要使<strong>管壁與管內液體整體振動</strong>。水越多，振動質量 $M$ 越大，慣性越強，震動頻率越慢：
+              <span class="text-amber-400 font-semibold block mt-0.5">➔ 水位越高，音調越低！(f ∝ 1/√M)</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- 吹氣原理簡說 -->
+        <div class="flex items-start gap-3.5 pt-3 md:pt-0 md:pl-4">
+          <div class="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex-shrink-0">
+            <span class="text-2xl">🌬️</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-bold text-cyan-300">吹過管口 (Blow Across)</h2>
+              <span class="text-[11px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-200">主振動體：管內空氣柱</span>
+            </div>
+            <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+              氣流在管口產生邊緣音，激發<strong>閉管空氣柱駐波</strong>（水面為節點，管口為波腹，λ ≈ 4L）。水越多，空氣柱長度 $L$ 越短：
+              <span class="text-cyan-400 font-semibold block mt-0.5">➔ 水位越高，音調越高！(f = v / 4L)</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="modeSingle" class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- Left Panel: Interactive Simulation Canvas -->
+      <div class="lg:col-span-7 bg-slate-800/60 border border-slate-700/80 rounded-2xl p-4 flex flex-col relative overflow-hidden shadow-xl">
+        
+        <!-- Controls overlay on canvas -->
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 z-10">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold text-slate-400">可視化濾鏡：</span>
+            <button id="toggleStandingWave" onclick="toggleOption('wave')" class="text-xs px-2.5 py-1 rounded-md bg-cyan-600/40 text-cyan-200 border border-cyan-500/50 hover:bg-cyan-600/60 transition">
+              🌊 空氣柱駐波圖: 開
+            </button>
+            <button id="toggleParticles" onclick="toggleOption('particles')" class="text-xs px-2.5 py-1 rounded-md bg-cyan-600/40 text-cyan-200 border border-cyan-500/50 hover:bg-cyan-600/60 transition">
+              💨 空氣分子密疏波: 開
+            </button>
+            <button id="toggleWallVib" onclick="toggleOption('wall')" class="text-xs px-2.5 py-1 rounded-md bg-amber-600/40 text-amber-200 border border-amber-500/50 hover:bg-amber-600/60 transition">
+              🔊 管壁振動波形: 開
+            </button>
+          </div>
+          <button onclick="resetSingleTube()" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-slate-700/50">
+            重設狀態
+          </button>
+        </div>
+
+        <!-- The Canvas Display -->
+        <div class="relative flex-1 min-h-[380px] w-full bg-slate-950/70 rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden">
+          <canvas id="simCanvas" class="w-full h-full block"></canvas>
+          
+          <!-- Quick action buttons overlay bottom center -->
+          <div class="absolute bottom-4 inset-x-0 flex justify-center items-center gap-4 z-20 pointer-events-auto">
+            <button id="btnStrike" onclick="triggerAction('strike')" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold shadow-lg shadow-amber-500/30 transition">
+              <span class="text-lg">🔨</span> 敲擊玻璃管
+            </button>
+            <button id="btnBlow" onclick="triggerAction('blow')" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 active:scale-95 text-slate-950 font-bold shadow-lg shadow-cyan-500/30 transition">
+              <span class="text-lg">🌬️</span> 吹過管口
+            </button>
+          </div>
+        </div>
+
+        <!-- Status Legend & Real-time Readout -->
+        <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+          <div class="bg-slate-900/70 p-2 rounded-lg border border-slate-800">
+            <div class="text-slate-400">目前水位比例</div>
+            <div id="statWaterPercent" class="text-cyan-400 font-bold text-base mt-0.5">50 %</div>
+          </div>
+          <div class="bg-slate-900/70 p-2 rounded-lg border border-slate-800">
+            <div class="text-slate-400">空氣柱長度 (L)</div>
+            <div id="statAirLength" class="text-cyan-400 font-bold text-base mt-0.5">15.0 cm</div>
+          </div>
+          <div class="bg-slate-900/70 p-2 rounded-lg border border-slate-800">
+            <div class="text-slate-400">敲擊基頻 (f敲)</div>
+            <div id="statStrikeFreq" class="text-amber-400 font-bold text-base mt-0.5">720 Hz</div>
+          </div>
+          <div class="bg-slate-900/70 p-2 rounded-lg border border-slate-800">
+            <div class="text-slate-400">吹氣基頻 (f吹)</div>
+            <div id="statBlowFreq" class="text-cyan-400 font-bold text-base mt-0.5">548 Hz</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-5 flex flex-col gap-4">
+        <!-- Interactive Controls Card -->
+        <div class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 shadow-xl">
+          <h3 class="font-bold text-white text-sm mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+            管內水量調節滑桿
+          </h3>
+
+          <div class="space-y-4">
+            <div>
+              <div class="flex justify-between text-xs text-slate-300 font-medium mb-1">
+                <span>乾涸 (0%)</span>
+                <span class="text-cyan-300 font-semibold" id="sliderValueText">水位：50% (半滿)</span>
+                <span>全滿 (100%)</span>
+              </div>
+              <input type="range" id="waterSlider" min="5" max="95" value="50" class="custom-slider w-full h-2.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+            </div>
+
+            <!-- Preset shortcut buttons -->
+            <div class="flex items-center justify-between gap-1.5 text-xs">
+              <span class="text-slate-400 text-[11px]">快捷高度：</span>
+              <button onclick="setWaterLevel(15)" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-200">15% 低水位</button>
+              <button onclick="setWaterLevel(50)" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-200">50% 中水位</button>
+              <button onclick="setWaterLevel(85)" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-200">85% 高水位</button>
+            </div>
+          </div>
+
+          <!-- Volume and damping controls -->
+          <div class="mt-5 pt-4 border-t border-slate-700/60 grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <label class="text-slate-400 block mb-1">音量控制</label>
+              <input type="range" id="volumeSlider" min="0" max="100" value="75" class="w-full h-1.5 bg-slate-700 rounded accent-slate-400">
+            </div>
+            <div>
+              <label class="text-slate-400 block mb-1">物理常數：管高</label>
+              <div class="text-slate-200 font-mono py-1 px-2 bg-slate-900 rounded border border-slate-700 text-center">30.0 cm</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex-1 flex flex-col justify-between">
+          <div>
+            <h3 class="font-bold text-white text-sm mb-3 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+              聲學公式與原理推導
+            </h3>
+
+            <!-- Realtime dynamic formula cards -->
+            <div class="space-y-3 text-xs">
+              <!-- Blow formula -->
+              <div class="p-3 bg-cyan-950/40 border border-cyan-800/50 rounded-xl">
+                <div class="flex justify-between font-bold text-cyan-300">
+                  <span>吹氣：閉管駐波 (Quarter-Wave Resonator)</span>
+                  <span id="blowPitchNote" class="text-cyan-200 font-mono">C5</span>
+                </div>
+                <div class="font-mono text-cyan-400/90 text-sm mt-1.5 bg-slate-950/60 p-1.5 rounded text-center">
+                  f<sub>吹</sub> = v / [ 4 × (L + 0.6r) ]
+                </div>
+                <p class="text-slate-300 text-[11px] mt-1.5">
+                  水面為位移<strong>節點 (Node)</strong>，管口為位移<strong>波腹 (Antinode)</strong>。空氣柱 $L$ 越短，波長 $\lambda$ 越短，<strong>頻率越高</strong>。
+                </p>
+              </div>
+
+              <!-- Strike formula -->
+              <div class="p-3 bg-amber-950/30 border border-amber-800/50 rounded-xl">
+                <div class="flex justify-between font-bold text-amber-300">
+                  <span>敲擊：液體負載彈性管共振</span>
+                  <span id="strikePitchNote" class="text-amber-200 font-mono">F5</span>
+                </div>
+                <div class="font-mono text-amber-400/90 text-sm mt-1.5 bg-slate-950/60 p-1.5 rounded text-center">
+                  f<sub>敲</sub> ∝ 1 / √( M<sub>管</sub> + α·M<sub>水</sub> )
+                </div>
+                <p class="text-slate-300 text-[11px] mt-1.5">
+                  玻璃管壁受撞擊產生彎曲撓度振動。加水相當於增加了振動體的<strong>等效慣性質量</strong>，使共振頻率下降，<strong>頻率越低</strong>。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thought Experiment Prompt -->
+          <div class="mt-4 p-3 bg-slate-900/80 rounded-xl border border-slate-700/60 text-xs text-slate-300">
+            <span class="text-amber-400 font-bold">💡 課堂探究思考：</span>
+            如果往瓶子裡注水時「持續在管口吹氣」，聽到的聲音音調會如何變化？那如果注水時「拿湯匙持續敲擊瓶身」呢？
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="modeCompare" class="hidden flex-1 flex-col gap-4">
+      <div class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 shadow-xl">
+        <div class="text-center max-w-2xl mx-auto mb-6">
+          <h2 class="text-lg font-bold text-white">⚖️ 雙管即時對比實驗 (低水位 vs 高水位)</h2>
+          <p class="text-xs text-slate-400 mt-1">
+            同時排列「水少」與「水多」兩支玻璃管，切換操作模式，直接聽覺驗證與觀察聲波差異。
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          <!-- Bottle A (Low Water) -->
+          <div class="bg-slate-900/80 border border-slate-700 rounded-xl p-5 flex flex-col items-center">
+            <div class="inline-block px-3 py-1 bg-cyan-900/50 text-cyan-300 rounded-full text-xs font-semibold mb-3">
+              試管 A：水少 (20% 水位，長空氣柱)
+            </div>
+            
+            <div class="relative w-28 h-64 border-4 border-slate-400 border-t-0 rounded-b-3xl bg-slate-950/60 overflow-hidden flex flex-col justify-end p-1 shadow-inner my-2">
+              <div class="w-full bg-gradient-to-t from-cyan-600 to-sky-400 rounded-b-2xl transition-all duration-300" style="height: 20%;">
+                <div class="w-full h-1 bg-white/40"></div>
+              </div>
+              <div class="absolute inset-x-0 top-6 text-center text-xs text-slate-400 font-mono">
+                L<sub>air</sub> = 24 cm
+              </div>
+            </div>
+
+            <div class="w-full mt-4 space-y-2">
+              <button onclick="comparePlay('A', 'strike')" class="w-full py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex justify-between items-center transition shadow">
+                <span>🔨 敲擊管 A</span>
+                <span class="font-mono text-amber-950 bg-amber-300 px-2 py-0.5 rounded text-[11px]" id="cA_strike">高音 (860 Hz)</span>
+              </button>
+              <button onclick="comparePlay('A', 'blow')" class="w-full py-2 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex justify-between items-center transition shadow">
+                <span>🌬️ 吹氣管 A</span>
+                <span class="font-mono text-cyan-950 bg-cyan-200 px-2 py-0.5 rounded text-[11px]" id="cA_blow">低音 (345 Hz)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Bottle B (High Water) -->
+          <div class="bg-slate-900/80 border border-slate-700 rounded-xl p-5 flex flex-col items-center">
+            <div class="inline-block px-3 py-1 bg-indigo-900/50 text-indigo-300 rounded-full text-xs font-semibold mb-3">
+              試管 B：水多 (80% 水位，短空氣柱)
+            </div>
+            
+            <div class="relative w-28 h-64 border-4 border-slate-400 border-t-0 rounded-b-3xl bg-slate-950/60 overflow-hidden flex flex-col justify-end p-1 shadow-inner my-2">
+              <div class="w-full bg-gradient-to-t from-cyan-600 to-sky-400 rounded-b-2xl transition-all duration-300" style="height: 80%;">
+                <div class="w-full h-1 bg-white/40"></div>
+              </div>
+              <div class="absolute inset-x-0 top-6 text-center text-xs text-slate-400 font-mono">
+                L<sub>air</sub> = 6 cm
+              </div>
+            </div>
+
+            <div class="w-full mt-4 space-y-2">
+              <button onclick="comparePlay('B', 'strike')" class="w-full py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex justify-between items-center transition shadow">
+                <span>🔨 敲擊管 B</span>
+                <span class="font-mono text-amber-950 bg-amber-300 px-2 py-0.5 rounded text-[11px]" id="cB_strike">低音 (510 Hz)</span>
+              </button>
+              <button onclick="comparePlay('B', 'blow')" class="w-full py-2 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex justify-between items-center transition shadow">
+                <span>🌬️ 吹氣管 B</span>
+                <span class="font-mono text-cyan-950 bg-cyan-200 px-2 py-0.5 rounded text-[11px]" id="cB_blow">高音 (1380 Hz)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Comparative verdict summary -->
+        <div class="mt-6 max-w-2xl mx-auto p-4 bg-slate-950/80 rounded-xl border border-slate-800 text-xs">
+          <div class="font-bold text-cyan-300 mb-1">🎯 聽覺對比總結：</div>
+          <ul class="list-disc pl-5 space-y-1 text-slate-300">
+            <li>連續點擊兩邊的「🔨 敲擊」：你會發現 <strong>A (水少) 比 B (水多) 音調更高更清脆</strong>。</li>
+            <li>連續點擊兩邊的「🌬️ 吹氣」：你會發現 <strong>B (水多) 比 A (水少) 音調顯著飆高</strong>。</li>
+            <li>這正是因為兩者引發震盪的<strong>力學主體本質完全相反</strong>！</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="modeScale" class="hidden flex-1 flex-col gap-4">
+      <div class="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+        <div>
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 class="text-lg font-bold text-white">🎵 八音瓶演奏樂團 (C4 ~ C5 大調)</h2>
+              <p class="text-xs text-slate-400">
+                觀察若要排出一套 Do-Re-Mi-Fa-Sol-La-Si-Do 音階，敲擊模式與吹氣模式的<strong>水量排列方向是完全相反的</strong>！
+              </p>
+            </div>
+            
+            <!-- Tuning Switch: Tuned for Strike vs Tuned for Blow -->
+            <div class="flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-slate-700">
+              <span class="text-xs text-slate-300 font-medium pl-1">定音基準：</span>
+              <button id="tuneModeStrike" onclick="setScaleTuning('strike')" class="px-3 py-1 rounded-lg text-xs font-bold bg-amber-500 text-slate-950">
+                🔨 敲擊排列 (水多➔水少)
+              </button>
+              <button id="tuneModeBlow" onclick="setScaleTuning('blow')" class="px-3 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-200">
+                🌬️ 吹氣排列 (水少➔水多)
+              </button>
+            </div>
+          </div>
+
+          <!-- 8 Water Tubes Rack -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 sm:p-6 my-2 overflow-x-auto">
+            <div class="flex items-end justify-around gap-2 sm:gap-4 min-w-[580px] h-72 pb-2" id="scaleRack">
+              <!-- Dynamically rendered bottles -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Song play / teaching prompt -->
+        <div class="mt-4 p-3 bg-slate-900/60 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="text-slate-300">
+            <span class="text-cyan-400 font-bold">小童謠挑戰：</span>
+            試著用滑鼠點擊各瓶或點擊鍵盤數字鍵 <span class="font-mono bg-slate-800 px-1 py-0.5 rounded text-white">1 ~ 8</span> 彈奏《小星星》：
+            <span class="font-mono text-cyan-300 ml-1">1 1 5 5 6 6 5 - 4 4 3 3 2 2 1 -</span>
+          </div>
+          <button onclick="playSongDemo()" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium transition flex items-center gap-1.5">
+            ▶️ 自動試奏示範
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    /* ========================================================
+     * 1. 物理常數與數學模型
+     * ======================================================== */
+    const TUBE_HEIGHT_CM = 30.0;    // 玻璃管全長 30 公分
+    const TUBE_RADIUS_CM = 1.6;     // 玻璃管內半徑
+    const SPEED_OF_SOUND = 34300;   // 聲速 (cm/s，20°C 常溫)
+    
+    // 敲擊振動參數：玻璃本體重量與液體阻尼負載效應
+    // 依據結構聲學中板/管受液體質量負載公式：f ≈ f0 / sqrt(1 + alpha * (m_water / m_tube))
+    const STRIKE_F0 = 1050; // 空瓶時的敲擊固有頻率 (Hz)
+    const GLASS_MASS_FACTOR = 1.0;
+    const WATER_COUPLING_ALPHA = 2.8;
+
+    // 狀態變數
+    let state = {
+      waterPercent: 50,       // 0 ~ 100
+      activeMode: 'single',   // 'single', 'compare', 'scale'
+      showWave: true,
+      showParticles: true,
+      showWall: true,
+      isActionActive: false,
+      currentAction: null,    // 'strike' | 'blow'
+      actionProgress: 0,
+      scaleTuning: 'strike',  // 'strike' | 'blow'
+      volume: 0.75
+    };
+
+    /* ========================================================
+     * 2. Web Audio API 真實聲學合成器
+     * ======================================================== */
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    // 計算特定水位下的物理敲擊頻率 (Hz)
+    function calcStrikeFreq(waterPercent) {
+      const frac = waterPercent / 100.0;
+      // 水越多，質量慣性越大，頻率越低
+      const f = STRIKE_F0 / Math.sqrt(GLASS_MASS_FACTOR + WATER_COUPLING_ALPHA * frac);
+      return Math.round(f);
+    }
+
+    // 計算特定水位下的物理吹氣基頻 (Hz) - 閉管駐波
+    function calcBlowFreq(waterPercent) {
+      const airHeightCm = Math.max(1.0, TUBE_HEIGHT_CM * (1 - waterPercent / 100.0));
+      // 開口端修正 delta L ≈ 0.61 * r
+      const effectiveLength = airHeightCm + 0.61 * TUBE_RADIUS_CM;
+      // 閉管基頻 f = v / (4 * L)
+      const f = SPEED_OF_SOUND / (4 * effectiveLength);
+      return Math.round(f);
+    }
+
+    // 敲擊音效：金屬/玻璃瞬態敲擊，包含基頻與非整數泛音（貝塞爾環模態），並快速衰減
+    function playStrikeSound(freq, duration = 1.5) {
+      const ctx = getAudioContext();
+      const now = ctx.currentTime;
+      const masterVol = state.volume;
+
+      // 主輸出增益
+      const mainGain = ctx.createGain();
+      mainGain.gain.setValueAtTime(masterVol * 0.8, now);
+      mainGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      mainGain.connect(ctx.destination);
+
+      // 瞬態敲擊脈衝 (Transient Click)
+      const clickOsc = ctx.createOscillator();
+      const clickGain = ctx.createGain();
+      clickOsc.type = 'triangle';
+      clickOsc.frequency.setValueAtTime(freq * 2.5, now);
+      clickOsc.frequency.exponentialRampToValueAtTime(80, now + 0.05);
+      clickGain.gain.setValueAtTime(masterVol * 0.9, now);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      clickOsc.connect(clickGain);
+      clickGain.connect(ctx.destination);
+      clickOsc.start(now);
+      clickOsc.stop(now + 0.05);
+
+      // 玻璃共振主頻 (正弦波 + 輕微方波混合)
+      const partials = [
+        { mult: 1.0, gain: 0.65, decay: duration },
+        { mult: 2.32, gain: 0.25, decay: duration * 0.6 },  // 玻璃板非諧波泛音
+        { mult: 4.15, gain: 0.12, decay: duration * 0.35 }
+      ];
+
+      partials.forEach(p => {
+        const osc = ctx.createOscillator();
+        const pGain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq * p.mult, now);
+        
+        pGain.gain.setValueAtTime(p.gain * masterVol, now);
+        pGain.gain.exponentialRampToValueAtTime(0.00001, now + p.decay);
+
+        osc.connect(pGain);
+        pGain.connect(mainGain);
+        osc.start(now);
+        osc.stop(now + p.decay);
+      });
+    }
+
+    // 吹氣音效：長笛/排笛空氣柱共振，三角波 + 帶通濾波白噪音（模擬嘴唇氣流摩擦聲）
+    function playBlowSound(freq, duration = 1.2) {
+      const ctx = getAudioContext();
+      const now = ctx.currentTime;
+      const masterVol = state.volume;
+
+      const mainGain = ctx.createGain();
+      // 緩起音 (Soft attack) 與漸弱
+      mainGain.gain.setValueAtTime(0.001, now);
+      mainGain.gain.linearRampToValueAtTime(masterVol * 0.7, now + 0.15);
+      mainGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      mainGain.connect(ctx.destination);
+
+      // 空氣柱諧波 (閉管主要含奇數諧波 1f, 3f, 5f)
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(freq, now);
+
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(freq * 3, now); // 第三諧波
+      const osc2Gain = ctx.createGain();
+      osc2Gain.gain.setValueAtTime(0.18, now);
+
+      osc1.connect(mainGain);
+      osc2.connect(osc2Gain);
+      osc2Gain.connect(mainGain);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + duration);
+      osc2.stop(now + duration);
+
+      // 吹氣的白噪音磨擦聲 (Breath Wind Noise)
+      const bufferSize = ctx.sampleRate * duration;
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      const whiteNoise = ctx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+
+      // 帶通濾波器，讓氣流聲聚焦在共振腔頻率附近
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(freq, now);
+      filter.Q.setValueAtTime(3.5, now);
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.001, now);
+      noiseGain.gain.linearRampToValueAtTime(masterVol * 0.22, now + 0.1);
+      noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      whiteNoise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+
+      whiteNoise.start(now);
+      whiteNoise.stop(now + duration);
+    }
+
+    // 頻率換算成最近音名
+    function freqToPitchName(freq) {
+      const A4 = 440;
+      const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+      const semi = Math.round(12 * Math.log2(freq / A4)) + 69;
+      const octave = Math.floor(semi / 12) - 1;
+      const name = noteNames[semi % 12];
+      return `${name}${octave}`;
+    }
+
+    /* ========================================================
+     * 3. 畫布渲染引擎 (Canvas Physics Visualization)
+     * ======================================================== */
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    let animTime = 0;
+    let particles = [];
+
+    // 初始化微觀空氣粒子
+    function initAirParticles(count = 120) {
+      particles = [];
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          relX: (Math.random() - 0.5) * 0.85, // -0.425 ~ +0.425
+          relY: Math.random(),               // 0 (管口) ~ 1 (水面)
+          seed: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      initAirParticles();
+      updateInfoDisplays();
+      requestAnimationFrame(renderLoop);
+    });
+
+    function renderLoop(timestamp) {
+      animTime = timestamp * 0.001;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      // 管身幾何位置設定
+      const tubeW = Math.min(130, w * 0.28);
+      const tubeH = Math.min(320, h * 0.72);
+      const tubeX = (w - tubeW) / 2;
+      const tubeY = (h - tubeH) / 2 + 15;
+
+      const waterFrac = state.waterPercent / 100.0;
+      const waterHeight = tubeH * waterFrac;
+      const airHeight = tubeH - waterHeight;
+      const waterTopY = tubeY + airHeight;
+
+      // 動作動畫衰減處理
+      if (state.isActionActive) {
+        state.actionProgress += 0.035;
+        if (state.actionProgress >= 1.0) {
+          state.isActionActive = false;
+          state.actionProgress = 0;
+          state.currentAction = null;
+        }
+      }
+      const vibDecay = state.isActionActive ? Math.sin((1 - state.actionProgress) * Math.PI) : 0;
+
+      // 繪製背景參考標尺
+      drawRuler(tubeX - 45, tubeY, tubeH);
+
+      // 繪製管內空氣分子密疏運動 (Longitudinal Sound Wave)
+      if (state.showParticles && airHeight > 10) {
+        drawAirMolecules(tubeX, tubeY, tubeW, airHeight, vibDecay);
+      }
+
+      // 繪製空氣柱駐波曲線 (Standing Wave Mode)
+      if (state.showWave && airHeight > 15) {
+        drawStandingWaveCurve(tubeX, tubeY, tubeW, airHeight, vibDecay);
+      }
+
+      // 繪製水體
+      drawWaterBody(tubeX, waterTopY, tubeW, waterHeight, vibDecay);
+
+      // 繪製玻璃管外壁 (含敲擊振動形變)
+      drawGlassTube(tubeX, tubeY, tubeW, tubeH, vibDecay);
+
+      // 繪製敲擊錘子或吹氣氣流動畫
+      if (state.currentAction === 'strike') {
+        drawHammerAnimation(tubeX, tubeY + tubeH * 0.65, state.actionProgress);
+      } else if (state.currentAction === 'blow') {
+        drawBlowingBreathAnimation(tubeX - 25, tubeY - 8, state.actionProgress);
+      }
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    // 繪製刻度尺與長度標記
+    function drawRuler(rx, ry, rh) {
+      ctx.save();
+      ctx.strokeStyle = '#475569';
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px Inter, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.lineWidth = 1;
+
+      // 尺身垂直線
+      ctx.beginPath();
+      ctx.moveTo(rx, ry);
+      ctx.lineTo(rx, ry + rh);
+      ctx.stroke();
+
+      for (let i = 0; i <= 6; i++) {
+        const y = ry + (rh / 6) * i;
+        const cm = (30 - i * 5);
+        ctx.beginPath();
+        ctx.moveTo(rx, y);
+        ctx.lineTo(rx + 8, y);
+        ctx.stroke();
+        ctx.fillText(`${cm}cm`, rx - 4, y + 3);
+      }
+      ctx.restore();
+    }
+
+    // 繪製閉管空氣駐波 (波節 Node 在水面，波腹 Antinode 在管口)
+    function drawStandingWaveCurve(tx, ty, tw, ah, vibIntensity) {
+      ctx.save();
+      const midX = tx + tw / 2;
+      const baseAmp = (tw * 0.42);
+      // 動態振幅
+      const amp = baseAmp * (0.35 + 0.65 * (state.currentAction === 'blow' ? vibIntensity : 0.2));
+      const phase = Math.sin(animTime * 14);
+
+      // 漸層色填充駐波包絡線
+      const grad = ctx.createLinearGradient(0, ty, 0, ty + ah);
+      grad.addColorStop(0, 'rgba(14, 165, 233, 0.45)');
+      grad.addColorStop(1, 'rgba(14, 165, 233, 0.05)');
+
+      ctx.beginPath();
+      ctx.moveTo(midX, ty);
+      // 繪製右側包絡
+      for (let y = 0; y <= ah; y += 4) {
+        // 基頻：y=0(管口)為 1 (波腹)，y=ah(水面)為 0 (波節)
+        const envelope = Math.cos((y / ah) * (Math.PI / 2));
+        const xOffset = envelope * amp * phase;
+        ctx.lineTo(midX + xOffset, ty + y);
+      }
+      // 繪製左側包絡
+      for (let y = ah; y >= 0; y -= 4) {
+        const envelope = Math.cos((y / ah) * (Math.PI / 2));
+        const xOffset = envelope * amp * phase;
+        ctx.lineTo(midX - xOffset, ty + y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // 繪製中央駐波骨架線
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 標註「波腹 (Antinode)」與「波節 (Node)」文字
+      ctx.font = '11px Noto Sans TC, sans-serif';
+      ctx.fillStyle = '#38bdf8';
+      ctx.textAlign = 'left';
+      ctx.fillText('⚡ 波腹 (Antinode，氣流振幅最大)', tx + tw + 14, ty + 12);
+      ctx.fillText('🛑 波節 (Node，水面束縛振幅為0)', tx + tw + 14, ty + ah - 2);
+      
+      // 輔助指示線
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+      ctx.beginPath();
+      ctx.moveTo(tx + tw - 5, ty);
+      ctx.lineTo(tx + tw + 10, ty + 9);
+      ctx.moveTo(tx + tw - 5, ty + ah);
+      ctx.lineTo(tx + tw + 10, ty + ah - 5);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // 繪製空氣粒子（疏密縱波位移示意）
+    function drawAirMolecules(tx, ty, tw, ah, vibIntensity) {
+      ctx.save();
+      const midX = tx + tw / 2;
+      const isBlow = state.currentAction === 'blow';
+      const amp = (isBlow ? 14 : 3) * (0.3 + 0.7 * vibIntensity);
+      const freqFactor = isBlow ? 16 : 4;
+
+      ctx.fillStyle = 'rgba(186, 230, 253, 0.8)';
+
+      particles.forEach(p => {
+        // 沿 Y 方向的靜態位置 (0 管口 ~ 1 水面)
+        const curY = ty + p.relY * ah;
+        // 閉管位移：管口 (relY=0) 位移最大，水面 (relY=1) 位移為 0
+        const dispFactor = Math.cos(p.relY * (Math.PI / 2));
+        const dy = Math.sin(animTime * freqFactor + p.seed) * dispFactor * amp;
+        const dx = (p.relX * tw);
+
+        ctx.beginPath();
+        ctx.arc(midX + dx, curY + dy, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    // 繪製玻璃管內水體
+    function drawWaterBody(tx, wy, tw, wh, vibIntensity) {
+      if (wh <= 0) return;
+      ctx.save();
+
+      // 水波漣漪振幅
+      const isStrike = state.currentAction === 'strike';
+      const rippleAmp = isStrike ? (Math.sin(animTime * 28) * 4 * vibIntensity) : 1;
+
+      // 水體漸層
+      const waterGrad = ctx.createLinearGradient(tx, wy, tx + tw, wy + wh);
+      waterGrad.addColorStop(0, 'rgba(14, 165, 233, 0.75)');
+      waterGrad.addColorStop(1, 'rgba(3, 105, 161, 0.92)');
+
+      ctx.beginPath();
+      // 水面波浪
+      ctx.moveTo(tx + 4, wy);
+      ctx.bezierCurveTo(
+        tx + tw * 0.3, wy - rippleAmp,
+        tx + tw * 0.7, wy + rippleAmp,
+        tx + tw - 4, wy
+      );
+      // 水體底部（圓弧管底）
+      ctx.lineTo(tx + tw - 4, wy + wh - 18);
+      ctx.quadraticCurveTo(tx + tw - 4, wy + wh, tx + tw / 2, wy + wh);
+      ctx.quadraticCurveTo(tx + 4, wy + wh, tx + 4, wy + wh - 18);
+      ctx.closePath();
+
+      ctx.fillStyle = waterGrad;
+      ctx.fill();
+
+      // 水面高光線條
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 水中氣泡微小裝飾
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      const bY1 = wy + wh * 0.4 + Math.sin(animTime * 2) * 5;
+      const bY2 = wy + wh * 0.75 + Math.cos(animTime * 1.5) * 8;
+      ctx.beginPath();
+      ctx.arc(tx + tw * 0.35, bY1, 2.5, 0, Math.PI * 2);
+      ctx.arc(tx + tw * 0.68, bY2, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // 繪製玻璃管外殼
+    function drawGlassTube(tx, ty, tw, th, vibIntensity) {
+      ctx.save();
+      const isStrike = state.currentAction === 'strike';
+      // 敲擊時管壁撓曲振動可視化放大
+      const wallFlex = isStrike ? Math.sin(animTime * 35) * 4 * vibIntensity : 0;
+
+      // 玻璃厚壁
+      ctx.strokeStyle = 'rgba(226, 232, 240, 0.85)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+
+      // 左壁 (含振動)
+      ctx.moveTo(tx - wallFlex, ty);
+      ctx.lineTo(tx + wallFlex, ty + th - 20);
+      ctx.quadraticCurveTo(tx, ty + th, tx + tw / 2, ty + th);
+      // 右壁 (含振動反相)
+      ctx.quadraticCurveTo(tx + tw, ty + th, tx + tw - wallFlex, ty + th - 20);
+      ctx.lineTo(tx + tw + wallFlex, ty);
+      ctx.stroke();
+
+      // 管口邊緣凸緣 (Lip)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.ellipse(tx + tw / 2, ty, tw / 2 + 3, 7, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 玻璃反光條 (Glass Highlights)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(tx + 12, ty + 10);
+      ctx.lineTo(tx + 12, ty + th - 25);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // 敲擊錘子動畫
+    function drawHammerAnimation(tx, ty, progress) {
+      ctx.save();
+      // 0 ~ 0.3 揮下，0.3 ~ 1 回彈
+      const angle = progress < 0.35 
+        ? (-0.5 + (progress / 0.35) * 0.6) 
+        : (0.1 - (progress - 0.35) * 0.4);
+
+      ctx.translate(tx - 35, ty);
+      ctx.rotate(angle);
+
+      // 木柄
+      ctx.fillStyle = '#b45309';
+      ctx.fillRect(-65, -4, 60, 8);
+      // 敲擊橡膠/金屬頭
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.roundRect(-5, -14, 20, 28, 4);
+      ctx.fill();
+
+      // 碰撞火花聲波放射
+      if (progress > 0.28 && progress < 0.6) {
+        ctx.strokeStyle = '#fef08a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(15, 0, 16 * (progress - 0.28) * 3, -Math.PI / 2, Math.PI / 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 吹氣氣流嘴部示意動畫
+    function drawBlowingBreathAnimation(tx, ty, progress) {
+      ctx.save();
+      const alpha = Math.sin(progress * Math.PI);
+      ctx.fillStyle = `rgba(56, 189, 248, ${alpha * 0.8})`;
+
+      // 噴出的氣流粒子線
+      for (let i = 0; i < 4; i++) {
+        const offset = i * 6;
+        ctx.beginPath();
+        ctx.ellipse(tx + (progress * 50) + offset, ty + (i % 2 === 0 ? -1 : 2), 12, 3, 0.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 「氣流」文字標註
+      ctx.font = 'bold 11px Noto Sans TC, sans-serif';
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.fillText('氣流 ➔ 激發管口切線邊緣音', tx - 60, ty - 12);
+      ctx.restore();
+    }
+
+    /* ========================================================
+     * 4. 介面互動與數值即時更新
+     * ======================================================== */
+    const waterSlider = document.getElementById('waterSlider');
+    const sliderValueText = document.getElementById('sliderValueText');
+    const statWaterPercent = document.getElementById('statWaterPercent');
+    const statAirLength = document.getElementById('statAirLength');
+    const statStrikeFreq = document.getElementById('statStrikeFreq');
+    const statBlowFreq = document.getElementById('statBlowFreq');
+    const blowPitchNote = document.getElementById('blowPitchNote');
+    const strikePitchNote = document.getElementById('strikePitchNote');
+    const volumeSlider = document.getElementById('volumeSlider');
+
+    waterSlider.addEventListener('input', (e) => {
+      state.waterPercent = parseInt(e.target.value);
+      updateInfoDisplays();
+    });
+
+    volumeSlider.addEventListener('input', (e) => {
+      state.volume = parseInt(e.target.value) / 100;
+    });
+
+    function setWaterLevel(val) {
+      waterSlider.value = val;
+      state.waterPercent = val;
+      updateInfoDisplays();
+    }
+
+    function updateInfoDisplays() {
+      sliderValueText.textContent = `水位：${state.waterPercent}%`;
+      statWaterPercent.textContent = `${state.waterPercent} %`;
+      
+      const airL = (TUBE_HEIGHT_CM * (1 - state.waterPercent / 100)).toFixed(1);
+      statAirLength.textContent = `${airL} cm`;
+
+      const fStrike = calcStrikeFreq(state.waterPercent);
+      const fBlow = calcBlowFreq(state.waterPercent);
+
+      statStrikeFreq.textContent = `${fStrike} Hz`;
+      statBlowFreq.textContent = `${fBlow} Hz`;
+
+      strikePitchNote.textContent = freqToPitchName(fStrike);
+      blowPitchNote.textContent = freqToPitchName(fBlow);
+    }
+
+    function triggerAction(actionType) {
+      state.currentAction = actionType;
+      state.isActionActive = true;
+      state.actionProgress = 0;
+
+      if (actionType === 'strike') {
+        const freq = calcStrikeFreq(state.waterPercent);
+        playStrikeSound(freq);
+      } else if (actionType === 'blow') {
+        const freq = calcBlowFreq(state.waterPercent);
+        playBlowSound(freq);
+      }
+    }
+
+    function toggleOption(opt) {
+      if (opt === 'wave') {
+        state.showWave = !state.showWave;
+        document.getElementById('toggleStandingWave').textContent = `🌊 空氣柱駐波圖: ${state.showWave ? '開' : '關'}`;
+        document.getElementById('toggleStandingWave').className = `text-xs px-2.5 py-1 rounded-md border transition ${state.showWave ? 'bg-cyan-600/40 text-cyan-200 border-cyan-500/50' : 'bg-slate-700/40 text-slate-400 border-slate-600'}`;
+      } else if (opt === 'particles') {
+        state.showParticles = !state.showParticles;
+        document.getElementById('toggleParticles').textContent = `💨 空氣分子密疏波: ${state.showParticles ? '開' : '關'}`;
+        document.getElementById('toggleParticles').className = `text-xs px-2.5 py-1 rounded-md border transition ${state.showParticles ? 'bg-cyan-600/40 text-cyan-200 border-cyan-500/50' : 'bg-slate-700/40 text-slate-400 border-slate-600'}`;
+      } else if (opt === 'wall') {
+        state.showWall = !state.showWall;
+        document.getElementById('toggleWallVib').textContent = `🔊 管壁振動波形: ${state.showWall ? '開' : '關'}`;
+        document.getElementById('toggleWallVib').className = `text-xs px-2.5 py-1 rounded-md border transition ${state.showWall ? 'bg-amber-600/40 text-amber-200 border-amber-500/50' : 'bg-slate-700/40 text-slate-400 border-slate-600'}`;
+      }
+    }
+
+    function resetSingleTube() {
+      setWaterLevel(50);
+      state.showWave = true;
+      state.showParticles = true;
+      state.showWall = true;
+    }
+
+    // 切換教學模式
+    function switchMode(mode) {
+      state.activeMode = mode;
+      
+      const modes = ['single', 'compare', 'scale'];
+      modes.forEach(m => {
+        const el = document.getElementById(`mode${m.charAt(0).toUpperCase() + m.slice(1)}`);
+        const tab = document.getElementById(`tab${m.charAt(0).toUpperCase() + m.slice(1)}`);
+        if (m === mode) {
+          el.classList.remove('hidden');
+          if (m === 'single') el.classList.add('grid');
+          else el.classList.add('flex');
+          tab.className = "px-3.5 py-1.5 rounded-lg transition-all text-white bg-cyan-600 shadow-sm";
+        } else {
+          el.classList.add('hidden');
+          el.classList.remove('grid', 'flex');
+          tab.className = "px-3.5 py-1.5 rounded-lg transition-all text-slate-400 hover:text-slate-200";
+        }
+      });
+
+      if (mode === 'single') {
+        setTimeout(resizeCanvas, 50);
+      } else if (mode === 'scale') {
+        renderScaleBottles();
+      }
+    }
+
+    // 雙管對比發聲
+    function comparePlay(bottleId, action) {
+      const waterPct = bottleId === 'A' ? 20 : 80;
+      if (action === 'strike') {
+        const f = calcStrikeFreq(waterPct);
+        playStrikeSound(f);
+      } else {
+        const f = calcBlowFreq(waterPct);
+        playBlowSound(f);
+      }
+    }
+
+    /* ========================================================
+     * 5. 八音瓶演奏琴邏輯 (C大調音階)
+     * ======================================================== */
+    const scaleNotes = [
+      { solfege: '1 (Do)', note: 'C', freq: 523.25 },
+      { solfege: '2 (Re)', note: 'D', freq: 587.33 },
+      { solfege: '3 (Mi)', note: 'E', freq: 659.25 },
+      { solfege: '4 (Fa)', note: 'F', freq: 698.46 },
+      { solfege: '5 (Sol)', note: 'G', freq: 783.99 },
+      { solfege: '6 (La)', note: 'A', freq: 880.00 },
+      { solfege: '7 (Si)', note: 'B', freq: 987.77 },
+      { solfege: 'i (高Do)', note: 'C5', freq: 1046.50 }
+    ];
+
+    function setScaleTuning(type) {
+      state.scaleTuning = type;
+      const bStrike = document.getElementById('tuneModeStrike');
+      const bBlow = document.getElementById('tuneModeBlow');
+
+      if (type === 'strike') {
+        bStrike.className = "px-3 py-1 rounded-lg text-xs font-bold bg-amber-500 text-slate-950";
+        bBlow.className = "px-3 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-200";
+      } else {
+        bBlow.className = "px-3 py-1 rounded-lg text-xs font-bold bg-cyan-500 text-slate-950";
+        bStrike.className = "px-3 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-200";
+      }
+      renderScaleBottles();
+    }
+
+    function renderScaleBottles() {
+      const rack = document.getElementById('scaleRack');
+      rack.innerHTML = '';
+
+      scaleNotes.forEach((n, idx) => {
+        // 水位高低：
+        // 敲擊定音：想要音調從低到高 (Do->高Do)，質量必須由大變小，所以「水多 -> 水少」
+        // 吹氣定音：想要音調從低到高 (Do->高Do)，空氣柱必須由長變短，所以「水少 -> 水多」
+        let waterPct;
+        if (state.scaleTuning === 'strike') {
+          // Do(水最多 85%) -> 高Do(水最少 10%)
+          waterPct = Math.round(85 - idx * (75 / 7));
+        } else {
+          // Do(水最少 15%) -> 高Do(水最多 85%)
+          waterPct = Math.round(15 + idx * (70 / 7));
+        }
+
+        const col = document.createElement('div');
+        col.className = 'flex flex-col items-center group cursor-pointer';
+        col.title = `點擊敲擊或吹奏 ${n.solfege}`;
+        col.onclick = () => playScaleBottle(idx, waterPct, n.freq);
+
+        col.innerHTML = `
+          <div class="text-[11px] font-mono text-slate-400 mb-1">瓶 ${idx + 1}</div>
+          <div class="relative w-11 sm:w-14 h-48 border-2 border-slate-400 border-t-0 rounded-b-xl bg-slate-900/90 overflow-hidden flex flex-col justify-end shadow hover:border-cyan-400 transition-all">
+            <div class="w-full ${state.scaleTuning === 'strike' ? 'bg-gradient-to-t from-amber-600 to-amber-400' : 'bg-gradient-to-t from-cyan-600 to-sky-400'} rounded-b-lg transition-all duration-300" style="height: ${waterPct}%;">
+              <div class="w-full h-0.5 bg-white/60"></div>
+            </div>
+            <div class="absolute inset-x-0 bottom-2 text-center text-[10px] font-mono text-white/80 font-bold">
+              ${waterPct}%
+            </div>
+          </div>
+          <div class="mt-2 text-center">
+            <div class="text-xs font-bold text-white group-hover:text-cyan-400 transition">${n.solfege}</div>
+            <div class="text-[10px] text-slate-400 font-mono">${n.note}</div>
+          </div>
+        `;
+
+        rack.appendChild(col);
+      });
+    }
+
+    function playScaleBottle(index, waterPct, freq) {
+      if (state.scaleTuning === 'strike') {
+        playStrikeSound(freq, 1.2);
+      } else {
+        playBlowSound(freq, 0.9);
+      }
+    }
+
+    // 鍵盤數字鍵快速彈奏八音瓶
+    window.addEventListener('keydown', (e) => {
+      if (state.activeMode !== 'scale') return;
+      const key = parseInt(e.key);
+      if (key >= 1 && key <= 8) {
+        const idx = key - 1;
+        let waterPct = state.scaleTuning === 'strike' ? Math.round(85 - idx * (75 / 7)) : Math.round(15 + idx * (70 / 7));
+        playScaleBottle(idx, waterPct, scaleNotes[idx].freq);
+      }
+    });
+
+    // 小星星童謠自動示範演奏
+    function playSongDemo() {
+      // 1 1 5 5 6 6 5, 4 4 3 3 2 2 1
+      const songNotes = [1, 1, 5, 5, 6, 6, 5, null, 4, 4, 3, 3, 2, 2, 1];
+      const tempo = 450; // ms
+
+      songNotes.forEach((pitch, i) => {
+        setTimeout(() => {
+          if (pitch !== null) {
+            const idx = pitch - 1;
+            let waterPct = state.scaleTuning === 'strike' ? Math.round(85 - idx * (75 / 7)) : Math.round(15 + idx * (70 / 7));
+            playScaleBottle(idx, waterPct, scaleNotes[idx].freq);
+          }
+        }, i * tempo);
+      });
+    }
+  </script>
+</body>
+</html>

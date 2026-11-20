@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>0-20,000 Hz 樂音頻率探索實驗室</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Custom slider track */
+    input[type=range] {
+      -webkit-appearance: none;
+      background: transparent;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 22px;
+      width: 22px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+      margin-top: -8px;
+      border: 2px solid #ffffff;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.95);
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 6px;
+      cursor: pointer;
+      background: #334155;
+      border-radius: 9999px;
+    }
+    .glow-cyan {
+      box-shadow: 0 0 25px -5px rgba(56, 189, 248, 0.35);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-cyan-500 selection:text-white">
+
+  <!-- Top Navigation & Header -->
+  <header class="border-b border-slate-800 bg-slate-900/70 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <i class="fa-solid fa-wave-square text-white text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg md:text-xl font-bold bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-300 bg-clip-text text-transparent">
+            0 - 20,000 Hz 樂音頻率實驗室
+          </h1>
+          <p class="text-xs text-slate-400">人類聽覺極限與樂理聲學互動教學模型</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <span id="hearing-tip" class="hidden sm:inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-slate-800 text-amber-300 border border-amber-500/30">
+          <i class="fa-solid fa-triangle-exclamation mr-1.5"></i> 請先以小音量開始探索
+        </span>
+        <button id="master-mute-btn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition-all flex items-center gap-1.5 border border-slate-700">
+          <i id="mute-icon" class="fa-solid fa-volume-high"></i>
+          <span id="mute-text">靜音</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-1 flex flex-col gap-6">
+
+    <!-- Interactive Top Panel: Visualizer & Real-time Pitch Readout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- Frequency Display and Primary Wave Scope -->
+      <div class="lg:col-span-8 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 glow-cyan relative overflow-hidden flex flex-col justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4 z-10">
+          <div>
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">當前頻率 (Frequency)</span>
+            <div class="flex items-baseline gap-2 mt-0.5">
+              <span id="freq-display" class="font-mono text-4xl md:text-5xl font-extrabold text-cyan-400 tracking-tight">440.0</span>
+              <span class="text-xl font-semibold text-slate-400">Hz</span>
+              <span id="note-badge" class="ml-3 px-3 py-1 rounded-md text-sm font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                A4 (440 Hz)
+              </span>
+            </div>
+          </div>
+          <!-- Waveform Mode Selector -->
+          <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-medium">
+            <button data-type="sine" class="wave-type-btn active px-3 py-1.5 rounded-lg bg-cyan-600 text-white transition-all">正弦波 (純音)</button>
+            <button data-type="triangle" class="wave-type-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">三角波</button>
+            <button data-type="square" class="wave-type-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">方波</button>
+            <button data-type="sawtooth" class="wave-type-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">鋸齒波</button>
+          </div>
+        </div>
+
+        <!-- Sound Softener / Warmth Filter Bar -->
+        <div class="mb-3 p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input id="soften-toggle" type="checkbox" checked class="w-4 h-4 accent-cyan-400 rounded cursor-pointer">
+              <span class="font-semibold text-cyan-300 flex items-center gap-1.5">
+                <i class="fa-solid fa-feather-pointed"></i> 聲音柔化濾波 (Acoustic Softener)
+              </span>
+            </label>
+            <span class="text-[11px] text-slate-400 hidden sm:inline">消除方波/鋸齒波的尖銳高頻泛音與刺耳稜角</span>
+          </div>
+
+          <div class="flex items-center gap-2 flex-1 sm:flex-initial justify-end">
+            <span class="text-slate-400 text-[11px]">溫潤柔化度:</span>
+            <input id="soften-cutoff-slider" type="range" min="300" max="10000" step="100" value="2400" class="w-28 sm:w-36">
+            <span id="soften-value-text" class="font-mono text-cyan-400 text-[11px] w-14 text-right">2,400 Hz</span>
+            <div class="flex gap-1 ml-1">
+              <button id="soft-mild-btn" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 border border-slate-700">微柔</button>
+              <button id="soft-deep-btn" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 border border-slate-700">絲滑深柔</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Oscilloscope & Spectrum Canvas -->
+        <div class="relative w-full h-52 md:h-64 bg-slate-950/90 rounded-xl overflow-hidden border border-slate-800/80 flex items-center justify-center">
+          <canvas id="visualizer-canvas" class="w-full h-full block"></canvas>
+          <div id="stopped-overlay" class="absolute inset-0 bg-slate-950/70 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none transition-opacity duration-300">
+            <i class="fa-solid fa-play text-4xl text-cyan-400/80 mb-2"></i>
+            <span class="text-sm font-medium text-slate-300">點擊下方按鈕啟動發聲與聲波視覺化</span>
+          </div>
+        </div>
+
+        <!-- Scope Controls Bar -->
+        <div class="flex items-center justify-between text-xs text-slate-400 mt-3 pt-2 border-t border-slate-800/60">
+          <div class="flex items-center gap-4">
+            <span class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block animate-pulse"></span>
+              時域示波圖 (Oscilloscope)
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-indigo-400 inline-block"></span>
+              頻域分析 (FFT Spectrum)
+            </span>
+          </div>
+          <div id="wavelength-display" class="font-mono text-slate-400">
+            波長: ≈ 0.78 m (空氣中 340 m/s)
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Control & Audio Power Center -->
+      <div class="lg:col-span-4 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-5">
+        <div>
+          <h2 class="text-base font-semibold text-white flex items-center gap-2 mb-4">
+            <i class="fa-solid fa-sliders text-cyan-400"></i> 主控制台
+          </h2>
+
+          <!-- Main Start / Stop Button -->
+          <button id="toggle-audio-btn" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-base shadow-lg shadow-cyan-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-play"></i>
+            <span>開始播放 (Start Sound)</span>
+          </button>
+
+          <!-- Volume Slider -->
+          <div class="mt-6">
+            <div class="flex justify-between items-center text-xs font-semibold text-slate-400 mb-2">
+              <span>音量輸出 (Volume)</span>
+              <span id="vol-text" class="font-mono text-cyan-300">25%</span>
+            </div>
+            <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.25" class="w-full">
+            <p class="text-[11px] text-slate-500 mt-1.5">保護聽力提醒：極高頻 (12k-20kHz) 及次聲波建議維持在 30% 以下。</p>
+          </div>
+
+          <!-- Fine Tuning Step Buttons -->
+          <div class="mt-5">
+            <span class="text-xs font-semibold text-slate-400 block mb-2">頻率微調 (Fine Tune)</span>
+            <div class="grid grid-cols-4 gap-1.5">
+              <button data-delta="-10" class="step-btn py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono font-medium text-slate-200 transition-colors">-10Hz</button>
+              <button data-delta="-1" class="step-btn py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono font-medium text-slate-200 transition-colors">-1Hz</button>
+              <button data-delta="1" class="step-btn py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono font-medium text-slate-200 transition-colors">+1Hz</button>
+              <button data-delta="10" class="step-btn py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono font-medium text-slate-200 transition-colors">+10Hz</button>
+            </div>
+            <div class="grid grid-cols-2 gap-1.5 mt-2">
+              <button id="octave-down" class="py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-indigo-300 border border-slate-700">
+                <i class="fa-solid fa-angles-down mr-1"></i> 低八度 (÷2)
+              </button>
+              <button id="octave-up" class="py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-indigo-300 border border-slate-700">
+                高八度 (×2) <i class="fa-solid fa-angles-up ml-1"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hearing Category Card -->
+        <div id="hearing-zone-card" class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+          <div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">當前聽覺區間</div>
+          <div id="zone-title" class="text-sm font-bold text-sky-400 mt-1">中音音域 (Human Midrange)</div>
+          <div id="zone-desc" class="text-xs text-slate-400 mt-0.5 leading-relaxed">
+            人聲最清晰、音樂旋律主要發展區段，耳朵感知最靈敏。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logarithmic Frequency Continuous Slider Component -->
+    <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+        <div>
+          <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+            <i class="fa-solid fa-ruler-horizontal text-cyan-400"></i>
+            對數頻率滑桿 (Logarithmic Spectrum Scale: 0 Hz ~ 20,000 Hz)
+          </h3>
+          <p class="text-xs text-slate-400">採用對數曲線模擬人耳對音高變化的倍頻感知特性 (每八度距離均等)</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-slate-400">輸入具體頻率:</span>
+          <input id="freq-number-input" type="number" min="0" max="20000" step="0.1" value="440" class="w-24 px-2 py-1 rounded bg-slate-950 border border-slate-700 text-cyan-400 font-mono text-right focus:outline-none focus:border-cyan-500">
+          <span class="text-slate-400">Hz</span>
+        </div>
+      </div>
+
+      <!-- Slider input (value 0 to 1000 representing log space) -->
+      <div class="relative py-3">
+        <input id="log-freq-slider" type="range" min="0" max="1000" value="480" class="w-full relative z-10">
+        
+        <!-- Frequency scale guide markers -->
+        <div class="relative w-full h-8 mt-1 text-[11px] font-mono text-slate-400 select-none">
+          <div class="absolute left-0 -translate-x-0 flex flex-col items-center">
+            <span class="h-2 w-px bg-slate-700"></span>
+            <span class="mt-1">0Hz</span>
+          </div>
+          <div class="absolute left-[15%] -translate-x-1/2 flex flex-col items-center">
+            <span class="h-2 w-px bg-slate-700"></span>
+            <span class="mt-1">20Hz</span>
+          </div>
+          <div class="absolute left-[33%] -translate-x-1/2 flex flex-col items-center">
+            <span class="h-2 w-px bg-slate-700"></span>
+            <span class="mt-1">100Hz</span>
+          </div>
+          <div class="absolute left-[52%] -translate-x-1/2 flex flex-col items-center">
+            <span class="h-2 w-px bg-slate-700"></span>
+            <span class="mt-1">1kHz</span>
+          </div>
+          <div class="absolute left-[78%] -translate-x-1/2 flex flex-col items-center">
+            <span class="h-2 w-px bg-slate-700"></span>
+            <span class="mt-1">10kHz</span>
+          </div>
+          <div class="absolute right-0 translate-x-0 flex flex-col items-center">
+            <span class="h-2 w-px bg-slate-700"></span>
+            <span class="mt-1">20kHz</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Band Preset Badges -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2 pt-2 border-t border-slate-800">
+        <button data-zone="sub" class="band-tag text-left p-2 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+          <span class="block text-[11px] text-slate-400">&lt; 20 Hz</span>
+          <span class="text-xs font-semibold text-rose-400">次聲波 (不可聞)</span>
+        </button>
+        <button data-zone="bass" class="band-tag text-left p-2 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+          <span class="block text-[11px] text-slate-400">20 ~ 250 Hz</span>
+          <span class="text-xs font-semibold text-amber-400">低音域 (Bass)</span>
+        </button>
+        <button data-zone="mid" class="band-tag text-left p-2 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+          <span class="block text-[11px] text-slate-400">250 ~ 2k Hz</span>
+          <span class="text-xs font-semibold text-emerald-400">中音域 (Mid)</span>
+        </button>
+        <button data-zone="presence" class="band-tag text-left p-2 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+          <span class="block text-[11px] text-slate-400">2k ~ 6k Hz</span>
+          <span class="text-xs font-semibold text-sky-400">臨場高音 (Presence)</span>
+        </button>
+        <button data-zone="brilliance" class="band-tag text-left p-2 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+          <span class="block text-[11px] text-slate-400">6k ~ 20k Hz</span>
+          <span class="text-xs font-semibold text-purple-400">極高音 (Air / Treble)</span>
+        </button>
+        <button data-zone="ultra" class="band-tag text-left p-2 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+          <span class="block text-[11px] text-slate-400">&gt; 20k Hz</span>
+          <span class="text-xs font-semibold text-fuchsia-400">超聲波 (蝙蝠/海豚)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Musical Keyboard & Pitch Education Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- Interactive Mini Keyboard -->
+      <div class="lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-music text-indigo-400"></i> 十二平均律標準音琴鍵 (Standard Octave C4 ~ C5)
+            </h3>
+            <span class="text-xs text-slate-400">點擊鍵盤發聲並同步頻率</span>
+          </div>
+          <!-- Piano Keys Container -->
+          <div class="relative w-full h-36 bg-slate-950 p-2 rounded-xl flex items-stretch select-none border border-slate-800 shadow-inner">
+            <!-- White Keys -->
+            <button data-note="C4" data-hz="261.63" class="piano-key flex-1 bg-white hover:bg-slate-200 text-slate-900 rounded-b-md mx-0.5 pt-20 pb-1 text-center font-bold text-xs shadow transition-colors flex flex-col justify-end">C4<span class="text-[9px] font-normal text-slate-600 block">261.6</span></button>
+            <button data-note="D4" data-hz="293.66" class="piano-key flex-1 bg-white hover:bg-slate-200 text-slate-900 rounded-b-md mx-0.5 pt-20 pb-1 text-center font-bold text-xs shadow transition-colors flex flex-col justify-end">D4<span class="text-[9px] font-normal text-slate-600 block">293.7</span></button>
+            <button data-note="E4" data-hz="329.63" class="piano-key flex-1 bg-white hover:bg-slate-200 text-slate-900 rounded-b-md mx-0.5 pt-20 pb-1 text-center font-bold text-xs shadow transition-colors flex flex-col justify-end">E4<span class="text-[9px] font-normal text-slate-600 block">329.6</span></button>
+            <button data-note="F4" data-hz="349.23" class="piano-key flex-1 bg-white hover:bg-slate-200 text-slate-900 rounded-b-md mx-0.5 pt-20 pb-1 text-center font-bold text-xs shadow transition-colors flex flex-col justify-end">F4<span class="text-[9px] font-normal text-slate-600 block">349.2</span></button>
+            <button data-note="G4" data-hz="392.00" class="piano-key flex-1 bg-white hover:bg-slate-200 text-slate-900 rounded-b-md mx-0.5 pt-20 pb-1 text-center font-bold text-xs shadow transition-colors flex flex-col justify-end">G4<span class="text-[9px] font-normal text-slate-600 block">392.0</span></button>
+            <button data-note="A4" data-hz="440.00" class="piano-key flex-1 bg-white hover:bg-slate-200 text-slate-900 rounded-b-md mx-0.5 pt-20 pb-1 text-center font-bold text-xs shadow transition-colors flex flex-col justify-end">A4<span class="text-[9px] font-normal text-slate-600 block">440.0</span></button>
+            <button data-note="B4" data-hz="493.88" class="piano-key flex-1 bg-white hover:bg-slate-200 text-slate-900 rounded-b-md mx-0.5 pt-20 pb-1 text-center font-bold text-xs shadow transition-colors flex flex-col justify-end">B4<span class="text-[9px] font-normal text-slate-600 block">493.9</span></button>
+            <button data-note="C5" data-hz="523.25" class="piano-key flex-1 bg-white hover:bg-slate-200 text-slate-900 rounded-b-md mx-0.5 pt-20 pb-1 text-center font-bold text-xs shadow transition-colors flex flex-col justify-end">C5<span class="text-[9px] font-normal text-slate-600 block">523.3</span></button>
+
+            <!-- Black Keys (Positioned absolutely over white keys) -->
+            <button data-note="C#4" data-hz="277.18" class="piano-key absolute bg-slate-900 hover:bg-slate-800 text-white rounded-b-md text-[10px] pb-1 font-mono left-[10.5%] w-[6%] h-20 shadow-md border-b-2 border-cyan-500 transition-colors z-20 flex flex-col justify-end items-center">C#</button>
+            <button data-note="D#4" data-hz="311.13" class="piano-key absolute bg-slate-900 hover:bg-slate-800 text-white rounded-b-md text-[10px] pb-1 font-mono left-[23%] w-[6%] h-20 shadow-md border-b-2 border-cyan-500 transition-colors z-20 flex flex-col justify-end items-center">D#</button>
+            <button data-note="F#4" data-hz="369.99" class="piano-key absolute bg-slate-900 hover:bg-slate-800 text-white rounded-b-md text-[10px] pb-1 font-mono left-[48%] w-[6%] h-20 shadow-md border-b-2 border-cyan-500 transition-colors z-20 flex flex-col justify-end items-center">F#</button>
+            <button data-note="G#4" data-hz="415.30" class="piano-key absolute bg-slate-900 hover:bg-slate-800 text-white rounded-b-md text-[10px] pb-1 font-mono left-[60.5%] w-[6%] h-20 shadow-md border-b-2 border-cyan-500 transition-colors z-20 flex flex-col justify-end items-center">G#</button>
+            <button data-note="A#4" data-hz="466.16" class="piano-key absolute bg-slate-900 hover:bg-slate-800 text-white rounded-b-md text-[10px] pb-1 font-mono left-[73%] w-[6%] h-20 shadow-md border-b-2 border-cyan-500 transition-colors z-20 flex flex-col justify-end items-center">A#</button>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between">
+          <span>西洋標準調音基準：國際音高 A4 = 440.0 Hz</span>
+          <span class="text-indigo-400 font-mono">1 個半音比例 ≈ 2^(1/12) ≈ 1.05946</span>
+        </div>
+      </div>
+
+      <!-- Typical Life & Acoustic Milestones -->
+      <div class="lg:col-span-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+        <h3 class="text-sm font-semibold text-white flex items-center gap-2 mb-3">
+          <i class="fa-solid fa-graduation-cap text-emerald-400"></i>
+          代表性聲學地標 (Acoustic Landmarks)
+        </h3>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button data-hz="16" class="preset-btn p-2 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 text-left transition-all">
+            <div class="text-rose-400 font-mono font-bold">16 Hz</div>
+            <div class="text-slate-300 font-medium">管風琴最深低音</div>
+            <div class="text-[10px] text-slate-500">接近人耳聽覺下限，身體有震撼感</div>
+          </button>
+          <button data-hz="60" class="preset-btn p-2 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 text-left transition-all">
+            <div class="text-amber-400 font-mono font-bold">60 Hz</div>
+            <div class="text-slate-300 font-medium">市電交流電嗡聲</div>
+            <div class="text-[10px] text-slate-500">電源接地不良產生的低沉嗡嗡聲</div>
+          </button>
+          <button data-hz="1000" class="preset-btn p-2 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 text-left transition-all">
+            <div class="text-emerald-400 font-mono font-bold">1,000 Hz (1 kHz)</div>
+            <div class="text-slate-300 font-medium">電視檢驗圖嗶聲</div>
+            <div class="text-[10px] text-slate-500">廣播與電視校準用標準千赫音</div>
+          </button>
+          <button data-hz="3500" class="preset-btn p-2 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 text-left transition-all">
+            <div class="text-sky-400 font-mono font-bold">3,500 Hz</div>
+            <div class="text-slate-300 font-medium">耳道共振敏感峰值</div>
+            <div class="text-[10px] text-slate-500">嬰兒哭聲、危險警報常見頻段</div>
+          </button>
+          <button data-hz="8000" class="preset-btn p-2 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 text-left transition-all">
+            <div class="text-purple-400 font-mono font-bold">8,000 Hz</div>
+            <div class="text-slate-300 font-medium">鈸金屬殘響 / 嘶聲</div>
+            <div class="text-[10px] text-slate-500">樂曲中高音通透感、齒音</div>
+          </button>
+          <button data-hz="15000" class="preset-btn p-2 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 text-left transition-all">
+            <div class="text-fuchsia-400 font-mono font-bold">15,000 Hz</div>
+            <div class="text-slate-300 font-medium">青年蚊子音 (Mosquito)</div>
+            <div class="text-[10px] text-slate-500">隨年齡毛細胞老化通常最先衰退</div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sound Science & Acoustics Knowledge Guide -->
+    <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 mb-4">
+      <h3 class="text-base font-bold text-white flex items-center gap-2 mb-3">
+        <i class="fa-solid fa-lightbulb text-amber-400"></i>
+        聲學與聽力小知識 (Acoustics & Audiology Insights)
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs leading-relaxed text-slate-300">
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+          <div class="font-bold text-sky-400 mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-ear-listen"></i> 人類 20 - 20,000 Hz 聽覺極限
+          </div>
+          正常年輕健康人耳可感知 20Hz 至 20,000Hz。隨著年齡增長或長時間暴露高音量，耳蝸高頻感音毛細胞逐漸耗損，多數成年人上限會降至 14,000 ~ 16,000 Hz。
+        </div>
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+          <div class="font-bold text-indigo-400 mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-arrow-up-right-dots"></i> 為什麼琴鍵音高不是等差而是等比？
+          </div>
+          人類對「音高差距」的知覺是依對數關係運作的。頻率加倍（例如 220Hz 到 440Hz，或 440Hz 到 880Hz）人耳聽起來都是升高一個「八度 (Octave)」。
+        </div>
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+          <div class="font-bold text-emerald-400 mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-line"></i> 等響度曲線 (Fletcher-Munson)
+          </div>
+          在相同的物理振幅下，人耳對 20Hz 低音非常不敏感，需要極大聲壓才能察覺；但對 2,000 ~ 4,000Hz 卻極其敏銳，這是人類演化聽辨同伴求救與嬰兒哭叫的機制。
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800/80 bg-slate-950 py-4 text-center text-xs text-slate-400">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <span>0 - 20,000 Hz 物理聲學與樂理互動教學模型</span>
+      <span>基於 Web Audio API 及 HTML5 Canvas 實時物理合成</span>
+    </div>
+  </footer>
+
+  <!-- Notification Toast Modal -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300 text-xs">
+    <i id="toast-icon" class="fa-solid fa-circle-info text-cyan-400"></i>
+    <span id="toast-msg">通知提示</span>
+  </div>
+
+  <script>
+    // Audio Engine State
+    let audioCtx = null;
+    let masterGain = null;
+    let osc = null;
+    let softFilter = null; // Biquad Low-pass Filter for softening
+    let isSoftEnabled = true;
+    let softCutoff = 2400; // Hz
+    let isPlaying = false;
+    let isMuted = false;
+    let currentFrequency = 440.0;
+    let currentWaveType = 'sine';
+    let currentVolume = 0.25;
+
+    // Analyzer & Visualization State
+    let analyzer = null;
+    let canvas = document.getElementById('visualizer-canvas');
+    let ctx = canvas.getContext('2d');
+    let animId = null;
+
+    // DOM References
+    const toggleBtn = document.getElementById('toggle-audio-btn');
+    const freqDisplay = document.getElementById('freq-display');
+    const noteBadge = document.getElementById('note-badge');
+    const wavelengthDisplay = document.getElementById('wavelength-display');
+    const volumeSlider = document.getElementById('volume-slider');
+    const volText = document.getElementById('vol-text');
+    const logSlider = document.getElementById('log-freq-slider');
+    const freqNumInput = document.getElementById('freq-number-input');
+    const stoppedOverlay = document.getElementById('stopped-overlay');
+    const masterMuteBtn = document.getElementById('master-mute-btn');
+    const muteIcon = document.getElementById('mute-icon');
+    const muteText = document.getElementById('mute-text');
+    const zoneTitle = document.getElementById('zone-title');
+    const zoneDesc = document.getElementById('zone-desc');
+    const softenToggle = document.getElementById('soften-toggle');
+    const softenCutoffSlider = document.getElementById('soften-cutoff-slider');
+    const softenValueText = document.getElementById('soften-value-text');
+    const softMildBtn = document.getElementById('soft-mild-btn');
+    const softDeepBtn = document.getElementById('soft-deep-btn');
+
+    // Mathematical frequency mapping: Slider 0~1000 to Log Frequency 0 ~ 20000 Hz
+    // To allow 0 Hz, we define:
+    // slider value = 0 => 0 Hz
+    // slider value > 0 => maps logarithmically from 10 Hz to 20000 Hz
+    function sliderToFreq(val) {
+      if (val <= 0) return 0;
+      // Exponential curve: 10 * (20000 / 10) ^ ((val) / 1000)
+      const minF = 10;
+      const maxF = 20000;
+      const f = minF * Math.pow(maxF / minF, val / 1000);
+      return Math.round(f * 10) / 10;
+    }
+
+    function freqToSlider(f) {
+      if (f <= 0) return 0;
+      if (f < 10) return 1;
+      const minF = 10;
+      const maxF = 20000;
+      const ratio = Math.log(f / minF) / Math.log(maxF / minF);
+      return Math.min(1000, Math.max(0, ratio * 1000));
+    }
+
+    // Western Equal Temperament Pitch Mapping
+    const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    function hzToNote(hz) {
+      if (hz < 15) return { note: '極低頻 (次聲波)', cents: 0, standardHz: 0 };
+      if (hz > 20000) return { note: '極高頻 (超聲波)', cents: 0, standardHz: 0 };
+      
+      // A4 is 440 Hz, MIDI note 69
+      const noteNum = 12 * (Math.log2(hz / 440)) + 69;
+      const rounded = Math.round(noteNum);
+      const noteIndex = (rounded % 12 + 12) % 12;
+      const octave = Math.floor(rounded / 12) - 1;
+      const standardHz = 440 * Math.pow(2, (rounded - 69) / 12);
+      const cents = Math.round((noteNum - rounded) * 100);
+
+      const noteName = `${NOTE_NAMES[noteIndex]}${octave}`;
+      return { note: noteName, cents: cents, standardHz: standardHz };
+    }
+
+    // Audio Initialization
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+
+        // 1. Create Softening Low-Pass Filter
+        softFilter = audioCtx.createBiquadFilter();
+        softFilter.type = 'lowpass';
+        softFilter.frequency.setValueAtTime(isSoftEnabled ? softCutoff : 22000, audioCtx.currentTime);
+        softFilter.Q.setValueAtTime(0.707, audioCtx.currentTime); // Butterworth Q-factor for transparent curve
+
+        // 2. Master Gain
+        masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(currentVolume, audioCtx.currentTime);
+
+        // 3. Spectrum Analyzer
+        analyzer = audioCtx.createAnalyser();
+        analyzer.fftSize = 2048;
+        analyzer.smoothingTimeConstant = 0.85;
+
+        // Routing: [Oscillator] -> softFilter -> masterGain -> analyzer -> audio destination
+        softFilter.connect(masterGain);
+        masterGain.connect(analyzer);
+        analyzer.connect(audioCtx.destination);
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // Start Oscillator Sound
+    function startSound() {
+      initAudio();
+      if (osc) {
+        try { osc.stop(); osc.disconnect(); } catch (e) {}
+      }
+
+      osc = audioCtx.createOscillator();
+      osc.type = currentWaveType;
+      // Handle zero Hz cleanly
+      const targetHz = Math.max(0.0001, currentFrequency);
+      osc.frequency.setValueAtTime(targetHz, audioCtx.currentTime);
+
+      // Connect to softening filter (which routes through gain and visualizer)
+      osc.connect(softFilter);
+
+      // Smooth attack ramp to prevent click sound
+      masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+      masterGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      masterGain.gain.exponentialRampToValueAtTime(isMuted ? 0.0001 : currentVolume, audioCtx.currentTime + 0.04);
+
+      osc.start();
+      isPlaying = true;
+
+      // Update UI button
+      toggleBtn.classList.remove('from-cyan-500', 'to-blue-600', 'hover:from-cyan-400', 'hover:to-blue-500', 'shadow-cyan-500/25');
+      toggleBtn.classList.add('from-rose-500', 'to-red-600', 'hover:from-rose-400', 'hover:to-red-500', 'shadow-rose-500/25');
+      toggleBtn.innerHTML = '<i class="fa-solid fa-stop"></i> 停止播放 (Stop Sound)';
+      stoppedOverlay.style.opacity = '0';
+      stoppedOverlay.style.pointerEvents = 'none';
+
+      startVisualizer();
+    }
+
+    // Stop Oscillator Sound
+    function stopSound() {
+      if (osc) {
+        try {
+          // Ramp down slightly to avoid pops
+          if (masterGain && audioCtx) {
+            masterGain.gain.setValueAtTime(masterGain.gain.value, audioCtx.currentTime);
+            masterGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
+            setTimeout(() => {
+              try { osc.stop(); osc.disconnect(); } catch (err) {}
+              osc = null;
+              if (masterGain && audioCtx) {
+                masterGain.gain.setValueAtTime(isMuted ? 0 : currentVolume, audioCtx.currentTime);
+              }
+            }, 60);
+          } else {
+            osc.stop();
+            osc.disconnect();
+            osc = null;
+          }
+        } catch (e) {}
+      }
+      isPlaying = false;
+      toggleBtn.classList.add('from-cyan-500', 'to-blue-600', 'hover:from-cyan-400', 'hover:to-blue-500', 'shadow-cyan-500/25');
+      toggleBtn.classList.remove('from-rose-500', 'to-red-600', 'hover:from-rose-400', 'hover:to-red-500', 'shadow-rose-500/25');
+      toggleBtn.innerHTML = '<i class="fa-solid fa-play"></i> 開始播放 (Start Sound)';
+      stoppedOverlay.style.opacity = '1';
+      stoppedOverlay.style.pointerEvents = 'auto';
+    }
+
+    // Update Frequency & Sync across sliders, badges, and sounds
+    function updateFrequency(hz, source) {
+      hz = Math.max(0, Math.min(20000, hz));
+      currentFrequency = hz;
+
+      // Update text and input fields
+      freqDisplay.textContent = hz.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      if (source !== 'input') {
+        freqNumInput.value = hz.toFixed(1);
+      }
+      if (source !== 'slider') {
+        logSlider.value = freqToSlider(hz);
+      }
+
+      // Calculate wavelength in air (approx speed of sound = 343 m/s)
+      if (hz > 0.5) {
+        const lambda = 343 / hz;
+        if (lambda >= 1) {
+          wavelengthDisplay.textContent = `波長: ≈ ${lambda.toFixed(2)} m (空氣 20°C)`;
+        } else {
+          wavelengthDisplay.textContent = `波長: ≈ ${(lambda * 100).toFixed(1)} cm (空氣 20°C)`;
+        }
+      } else {
+        wavelengthDisplay.textContent = `波長: 無窮大 (直流態 / 0 Hz)`;
+      }
+
+      // Note Pitch Detection
+      const noteInfo = hzToNote(hz);
+      if (hz < 16) {
+        noteBadge.textContent = '次聲波 (不可聞)';
+        noteBadge.className = 'ml-3 px-3 py-1 rounded-md text-xs font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30';
+      } else if (hz > 18000) {
+        noteBadge.textContent = '極高音域 (極限)';
+        noteBadge.className = 'ml-3 px-3 py-1 rounded-md text-xs font-mono font-bold bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30';
+      } else {
+        const centsStr = noteInfo.cents > 0 ? `+${noteInfo.cents}分` : `${noteInfo.cents}分`;
+        noteBadge.textContent = `${noteInfo.note} (${noteInfo.cents === 0 ? '標準準位' : centsStr})`;
+        noteBadge.className = 'ml-3 px-3 py-1 rounded-md text-xs font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30';
+      }
+
+      // Hearing Zone Classification
+      updateHearingZone(hz);
+
+      // Realtime Audio Node Frequency Update
+      if (isPlaying && osc && audioCtx) {
+        const safeHz = Math.max(0.0001, hz);
+        osc.frequency.setTargetAtTime(safeHz, audioCtx.currentTime, 0.015);
+      }
+    }
+
+    function updateHearingZone(hz) {
+      if (hz < 20) {
+        zoneTitle.textContent = "次聲波區 (Infrasound < 20 Hz)";
+        zoneTitle.className = "text-sm font-bold text-rose-400 mt-1";
+        zoneDesc.textContent = "低於人耳可聽下限。雖聽不見清晰音調，但極大能量會引起胸腔震顫與壓力感，地震與大象溝通以此為主。";
+      } else if (hz >= 20 && hz < 250) {
+        zoneTitle.textContent = "低音域 (Bass: 20 ~ 250 Hz)";
+        zoneTitle.className = "text-sm font-bold text-amber-400 mt-1";
+        zoneDesc.textContent = "厚重、震撼的低頻。涵蓋大提琴、電貝斯、底鼓及男性沉穩嗓音的基音，奠定音樂的骨架與律動。";
+      } else if (hz >= 250 && hz < 2000) {
+        zoneTitle.textContent = "中音域 (Midrange: 250 ~ 2,000 Hz)";
+        zoneTitle.className = "text-sm font-bold text-emerald-400 mt-1";
+        zoneDesc.textContent = "人耳主要對話感知核心。絕大部分樂器基頻（鋼琴中央C為261Hz）與人類聲帶母音音色集結在此。";
+      } else if (hz >= 2000 && hz < 6000) {
+        zoneTitle.textContent = "臨場感與清晰度 (Presence: 2,000 ~ 6,000 Hz)";
+        zoneTitle.className = "text-sm font-bold text-sky-400 mt-1";
+        zoneDesc.textContent = "人耳道共振最敏感的區域（3.5kHz附近）。影響言語子音辨識度及咬字清晰度，過強容易造成聽覺疲勞。";
+      } else if (hz >= 6000 && hz <= 20000) {
+        zoneTitle.textContent = "極高音與氣息感 (Brilliance: 6,000 ~ 20,000 Hz)";
+        zoneTitle.className = "text-sm font-bold text-purple-400 mt-1";
+        zoneDesc.textContent = "三角鐵、金屬鈸泛音、空氣飄逸感。15kHz 以上隨著年齡聽力自然老化最先減弱，青年蚊子器即利用此原理。";
+      } else {
+        zoneTitle.textContent = "超聲波區 (Ultrasound > 20,000 Hz)";
+        zoneTitle.className = "text-sm font-bold text-fuchsia-400 mt-1";
+        zoneDesc.textContent = "高於人耳正常感知極限。廣泛應用於醫學超音波掃描、倒車雷達，蝙蝠、海豚使用此頻段回聲定位。";
+      }
+    }
+
+    // Canvas Oscilloscope & Frequency Spectrum Rendering
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function startVisualizer() {
+      if (animId) cancelAnimationFrame(animId);
+
+      const bufferLength = analyzer ? analyzer.frequencyBinCount : 1024;
+      const timeData = new Uint8Array(bufferLength);
+      const freqData = new Uint8Array(bufferLength);
+
+      function draw() {
+        animId = requestAnimationFrame(draw);
+
+        const w = canvas.getBoundingClientRect().width;
+        const h = canvas.getBoundingClientRect().height;
+
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.45)';
+        ctx.fillRect(0, 0, w, h);
+
+        // Draw Center Zero Grid Line
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(0, h / 2);
+        ctx.lineTo(w, h / 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        if (!isPlaying || !analyzer) {
+          // Flat horizontal idle line
+          ctx.beginPath();
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2;
+          ctx.moveTo(0, h / 2);
+          ctx.lineTo(w, h / 2);
+          ctx.stroke();
+          return;
+        }
+
+        // Fetch Realtime WebAudio Data
+        analyzer.getByteTimeDomainData(timeData);
+        analyzer.getByteFrequencyData(freqData);
+
+        // 1. Draw Spectrum Bars in background (Indigo/Purple)
+        const barWidth = (w / 120);
+        let barX = 0;
+        for (let i = 0; i < 120; i++) {
+          const val = freqData[i * 4] / 255.0;
+          const barHeight = val * (h * 0.7);
+
+          const grad = ctx.createLinearGradient(0, h, 0, h - barHeight);
+          grad.addColorStop(0, 'rgba(99, 102, 241, 0.05)');
+          grad.addColorStop(1, 'rgba(168, 85, 247, 0.45)');
+
+          ctx.fillStyle = grad;
+          ctx.fillRect(barX, h - barHeight, barWidth - 1, barHeight);
+          barX += barWidth;
+        }
+
+        // 2. Draw Oscilloscope Waveform (Cyan glow line)
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.shadowColor = 'rgba(56, 189, 248, 0.6)';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+
+        const sliceWidth = w * 1.0 / bufferLength;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+          const v = timeData[i] / 128.0;
+          const y = v * (h / 2);
+
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+          x += sliceWidth;
+        }
+
+        ctx.lineTo(w, h / 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0; // reset shadow
+      }
+
+      draw();
+    }
+
+    // Event Listeners: Audio Start / Stop
+    toggleBtn.addEventListener('click', () => {
+      if (isPlaying) {
+        stopSound();
+      } else {
+        startSound();
+      }
+    });
+
+    // Volume Slider Control
+    volumeSlider.addEventListener('input', (e) => {
+      currentVolume = parseFloat(e.target.value);
+      volText.textContent = `${Math.round(currentVolume * 100)}%`;
+      if (masterGain && audioCtx && !isMuted) {
+        masterGain.gain.setValueAtTime(currentVolume, audioCtx.currentTime);
+      }
+    });
+
+    // Mute Button Toggle
+    masterMuteBtn.addEventListener('click', () => {
+      isMuted = !isMuted;
+      if (isMuted) {
+        if (masterGain && audioCtx) {
+          masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        }
+        muteIcon.className = 'fa-solid fa-volume-xmark text-rose-400';
+        muteText.textContent = '已靜音';
+        showToast('音效輸出已靜音', 'fa-volume-xmark');
+      } else {
+        if (masterGain && audioCtx) {
+          masterGain.gain.setValueAtTime(currentVolume, audioCtx.currentTime);
+        }
+        muteIcon.className = 'fa-solid fa-volume-high text-cyan-400';
+        muteText.textContent = '靜音';
+        showToast('音效輸出恢復', 'fa-volume-high');
+      }
+    });
+
+    // Frequency Slider Interaction
+    logSlider.addEventListener('input', (e) => {
+      const hz = sliderToFreq(parseFloat(e.target.value));
+      updateFrequency(hz, 'slider');
+    });
+
+    // Frequency Numerical Input Interaction
+    freqNumInput.addEventListener('change', (e) => {
+      const hz = parseFloat(e.target.value) || 0;
+      updateFrequency(hz, 'input');
+    });
+
+    // Step Buttons (+10, +1, -1, -10 Hz)
+    document.querySelectorAll('.step-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const delta = parseFloat(btn.getAttribute('data-delta'));
+        updateFrequency(currentFrequency + delta, 'step');
+      });
+    });
+
+    // Sound Softening Controls
+    function updateSoftener() {
+      if (!audioCtx || !softFilter) return;
+      const targetCutoff = isSoftEnabled ? softCutoff : 22000;
+      softFilter.frequency.setTargetAtTime(targetCutoff, audioCtx.currentTime, 0.02);
+    }
+
+    softenToggle.addEventListener('change', (e) => {
+      isSoftEnabled = e.target.checked;
+      updateSoftener();
+      showToast(isSoftEnabled ? '聲音柔化已啟用 (已濾除尖銳高頻泛音)' : '柔化已關閉 (原始尖銳泛音輸出)', isSoftEnabled ? 'fa-feather-pointed' : 'fa-bolt');
+    });
+
+    softenCutoffSlider.addEventListener('input', (e) => {
+      softCutoff = parseFloat(e.target.value);
+      softenValueText.textContent = `${softCutoff.toLocaleString('en-US')} Hz`;
+      if (isSoftEnabled) {
+        updateSoftener();
+      }
+    });
+
+    softMildBtn.addEventListener('click', () => {
+      softCutoff = 4500;
+      softenCutoffSlider.value = 4500;
+      softenValueText.textContent = '4,500 Hz';
+      if (!isSoftEnabled) {
+        softenToggle.checked = true;
+        isSoftEnabled = true;
+      }
+      updateSoftener();
+      showToast('已切換為：微柔模式 (4,500 Hz)', 'fa-feather-pointed');
+    });
+
+    softDeepBtn.addEventListener('click', () => {
+      softCutoff = 1200;
+      softenCutoffSlider.value = 1200;
+      softenValueText.textContent = '1,200 Hz';
+      if (!isSoftEnabled) {
+        softenToggle.checked = true;
+        isSoftEnabled = true;
+      }
+      updateSoftener();
+      showToast('已切換為：絲滑深柔模式 (1,200 Hz)', 'fa-spa');
+    });
+
+    // Octave Jump Buttons
+    document.getElementById('octave-down').addEventListener('click', () => {
+      updateFrequency(currentFrequency / 2, 'octave');
+    });
+    document.getElementById('octave-up').addEventListener('click', () => {
+      updateFrequency(currentFrequency * 2, 'octave');
+    });
+
+    // Waveform Type Switcher
+    document.querySelectorAll('.wave-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.wave-type-btn').forEach(b => {
+          b.classList.remove('bg-cyan-600', 'text-white');
+          b.classList.add('text-slate-400');
+        });
+        btn.classList.add('bg-cyan-600', 'text-white');
+        btn.classList.remove('text-slate-400');
+
+        currentWaveType = btn.getAttribute('data-type');
+        if (osc) {
+          osc.type = currentWaveType;
+        }
+        showToast(`已切換波形為：${btn.textContent}`, 'fa-wave-square');
+      });
+    });
+
+    // Piano Keyboard Keys
+    document.querySelectorAll('.piano-key').forEach(key => {
+      key.addEventListener('click', () => {
+        const hz = parseFloat(key.getAttribute('data-hz'));
+        const note = key.getAttribute('data-note');
+        updateFrequency(hz, 'piano');
+        if (!isPlaying) {
+          startSound();
+        }
+        showToast(`琴鍵選取：${note} (${hz.toFixed(1)} Hz)`, 'fa-music');
+      });
+    });
+
+    // Presets Click Handler
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const hz = parseFloat(btn.getAttribute('data-hz'));
+        updateFrequency(hz, 'preset');
+        if (!isPlaying) {
+          startSound();
+        }
+        showToast(`已載入聲學指標：${hz} Hz`, 'fa-bullseye');
+      });
+    });
+
+    // Hearing Band Presets
+    document.querySelectorAll('.band-tag').forEach(tag => {
+      tag.addEventListener('click', () => {
+        const zone = tag.getAttribute('data-zone');
+        let targetHz = 440;
+        if (zone === 'sub') targetHz = 12;
+        else if (zone === 'bass') targetHz = 120;
+        else if (zone === 'mid') targetHz = 500;
+        else if (zone === 'presence') targetHz = 3500;
+        else if (zone === 'brilliance') targetHz = 12000;
+        else if (zone === 'ultra') targetHz = 20000;
+
+        updateFrequency(targetHz, 'band');
+        if (!isPlaying) {
+          startSound();
+        }
+      });
+    });
+
+    // Toast Notification Utility
+    let toastTimer = null;
+    function showToast(msg, icon = 'fa-info-circle') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-msg');
+      const toastIcon = document.getElementById('toast-icon');
+
+      toastMsg.textContent = msg;
+      toastIcon.className = `fa-solid ${icon} text-cyan-400`;
+
+      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+      }, 2400);
+    }
+
+    // Initial state trigger
+    window.addEventListener('DOMContentLoaded', () => {
+      updateFrequency(440.0, 'init');
+      startVisualizer();
+    });
+  </script>
+</body>
+</html>
