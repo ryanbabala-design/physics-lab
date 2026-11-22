@@ -7,7 +7,8 @@ const EXT = ["https://cdn.tailwindcss.com", "https://cdnjs.cloudflare.com/ajax/l
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    await c.addAll(PAGES);
+    // cache: 'reload'：一定向網站拿最新版，避免存到瀏覽器裡的舊檔
+    await c.addAll(PAGES.map((u) => new Request(u, { cache: 'reload' })));
     await Promise.all(EXT.map(async (u) => {
       try {
         // 樣式表另外抓出裡面引用的字型檔，離線時圖示和字型才不會消失
@@ -45,7 +46,7 @@ self.addEventListener('fetch', (e) => {
     e.respondWith((async () => {
       const c = await caches.open(CACHE);
       const hit = await c.match(req, { ignoreSearch: true });
-      const net = fetch(req).then((r) => { if (r.ok) c.put(url.pathname.endsWith('/') ? req : new Request(url.origin + url.pathname), r.clone()); return r; }).catch(() => null);
+      const net = fetch(req, { cache: 'no-cache' }).then((r) => { if (r.ok) c.put(url.pathname.endsWith('/') ? req : new Request(url.origin + url.pathname), r.clone()); return r; }).catch(() => null);
       return hit || (await net) || new Response('目前沒有網路，這一頁還沒存到裝置上。', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
     })());
   } else {
