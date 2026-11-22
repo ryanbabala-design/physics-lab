@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>國中理化：人眼成像機制與視力矯正實驗室</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    #simCanvas {
+      touch-action: none;
+    }
+    input[type=range] {
+      accent-color: #0284c7;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #0284c7;
+      border: 3px solid #ffffff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- 主體區域：9:1 左右並列佈局（已移除頂部大標題列，最大化畫布垂直空間） -->
+  <main class="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 flex flex-col lg:flex-row gap-4">
+    
+    <!-- 左側展示區 (佔 90% 寬度) -->
+    <section class="w-full lg:w-[90%] flex flex-col gap-4">
+      
+      <!-- 主眼球光路畫布卡片 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 sm:p-5 shadow-md flex flex-col">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2.5">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span id="badge-eye-dot" class="inline-block w-4 h-4 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="canvas-title" class="font-black text-2xl sm:text-3xl text-slate-900">17. 正常眼：光線精確聚焦於視網膜</span>
+            <span id="badge-vision-state" class="text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300">
+              清晰視野
+            </span>
+          </div>
+
+          <!-- 顯示開關 ＋ 下放的測驗與重置按鈕 -->
+          <div class="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-700 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer bg-amber-50 px-3 py-2 rounded-2xl border-2 border-amber-300">
+              <input type="checkbox" id="chk-autofocus" checked class="w-5 h-5 rounded text-amber-600 focus:ring-0">
+              <span class="text-amber-950 font-black">自動對焦</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-2 rounded-2xl border border-slate-300">
+              <input type="checkbox" id="chk-grid" checked class="w-5 h-5 rounded text-sky-700 focus:ring-0">
+              <span>格線</span>
+            </label>
+
+            <button id="btn-quiz" class="flex items-center gap-1.5 px-4 py-2 text-base sm:text-lg font-black rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white transition shadow-md active:scale-95">
+              <span>🏆</span>
+              <span>測驗</span>
+            </button>
+            <button id="btn-reset" class="flex items-center gap-1.5 px-3.5 py-2 text-base sm:text-lg font-black rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border-2 border-slate-300 transition shadow-sm active:scale-95">
+              <span>🔄</span>
+              <span>重置</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 畫布本體 -->
+        <div class="relative w-full aspect-[16/10] min-h-[500px] bg-white rounded-2xl border-2 border-slate-300 overflow-hidden cursor-grab active:cursor-grabbing touch-none">
+          <canvas id="simCanvas" class="w-full h-full block bg-white"></canvas>
+          
+          <div class="absolute bottom-3 left-3 pointer-events-none text-sm sm:text-base font-black text-slate-700 flex items-center gap-2 bg-white/95 px-4 py-2 rounded-xl border-2 border-slate-300 shadow-md">
+            <span>👉</span>
+            <span>手指或滑鼠可直接左右拖曳左側「景物目標」或右側「視網膜（改變眼軸）」</span>
+          </div>
+
+          <div id="glasses-badge" class="absolute top-3 right-3 text-base sm:text-lg font-black px-4 py-1.5 rounded-xl border-2 shadow-sm bg-slate-100 text-slate-700 border-slate-300">
+            👓 未配戴眼鏡
+          </div>
+        </div>
+
+        <!-- 特大字體數據看板 -->
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-center">
+          <div class="bg-amber-50 p-4 sm:p-5 rounded-2xl border-2 border-amber-300 shadow-sm">
+            <div class="text-amber-950 font-black text-xl sm:text-2xl">觀測物距 (p)</div>
+            <div id="stat-dobj" class="text-3xl sm:text-5xl font-black text-amber-700 mt-1 font-mono tracking-tight">35 cm</div>
+            <div id="stat-dobj-desc" class="text-sm sm:text-base font-bold text-amber-800 mt-1">一般看書閱讀距離</div>
+          </div>
+
+          <div class="bg-sky-50 p-4 sm:p-5 rounded-2xl border-2 border-sky-300 shadow-sm">
+            <div class="text-sky-950 font-black text-xl sm:text-2xl">眼軸前後長度</div>
+            <div id="stat-eye-axis" class="text-3xl sm:text-5xl font-black text-sky-700 mt-1 font-mono tracking-tight">24.0 mm</div>
+            <div id="stat-axis-desc" class="text-sm sm:text-base font-bold text-sky-800 mt-1">標準正常眼軸長度</div>
+          </div>
+
+          <div class="bg-indigo-50 p-4 sm:p-5 rounded-2xl border-2 border-indigo-300 shadow-sm">
+            <div class="text-indigo-950 font-black text-xl sm:text-2xl">成像焦點位置</div>
+            <div id="stat-focus-pos" class="text-2xl sm:text-3xl font-black text-indigo-700 mt-2 font-mono tracking-tight">恰在視網膜</div>
+            <div id="stat-focus-desc" class="text-sm sm:text-base font-bold text-indigo-800 mt-1">聚焦點距離誤差: 0.0 mm</div>
+          </div>
+
+          <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-sm">
+            <div class="text-emerald-950 font-black text-xl sm:text-2xl">視網膜視覺清晰度</div>
+            <div id="stat-sharpness" class="text-2xl sm:text-3xl font-black text-emerald-800 mt-2">100% 銳利清晰</div>
+            <div id="stat-solution" class="text-sm sm:text-base font-bold text-emerald-800 mt-1">無需配戴眼鏡矯正</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心觀念解說卡 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-5 shadow-md flex flex-col gap-3.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">💡</span>
+            <span class="font-black text-2xl sm:text-3xl text-slate-900">會考必殺口訣：近視與遠視的成因與光學矯正原理</span>
+          </div>
+          <span class="text-sm sm:text-base font-black text-indigo-800 bg-indigo-100 border border-indigo-300 px-3.5 py-1 rounded-xl">高頻考點</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-base sm:text-lg font-bold">
+          <div class="bg-rose-50 p-4 rounded-2xl border-2 border-rose-200 flex flex-col justify-between">
+            <div>
+              <div class="text-rose-950 font-black text-lg sm:text-xl mb-1.5">
+                🔴 近視眼：成像落在視網膜「前方」
+              </div>
+              <p class="text-slate-700 leading-relaxed text-sm sm:text-base">
+                • <strong>成因：</strong>眼軸<strong>前後過長</strong>，或水晶體折光力<strong>過強（過凸）</strong>，遠處景物過早匯聚。<br>
+                • <strong>矯正：</strong>配戴<strong>「凹透鏡」</strong>發散光線，使焦點後退精確落在視網膜上！
+              </p>
+            </div>
+            <div class="text-sm sm:text-base font-black text-rose-900 bg-rose-200/80 px-3 py-2 rounded-xl mt-3">
+              🎯 口訣：近視眼軸長、成像在膜前 ➔ 配凹透鏡發散
+            </div>
+          </div>
+
+          <div class="bg-sky-50 p-4 rounded-2xl border-2 border-sky-200 flex flex-col justify-between">
+            <div>
+              <div class="text-sky-950 font-black text-lg sm:text-xl mb-1.5">
+                🔵 遠視眼與老花眼：成像落在視網膜「後方」
+              </div>
+              <p class="text-slate-700 leading-relaxed text-sm sm:text-base">
+                • <strong>成因：</strong>眼軸<strong>前後過短</strong>，或水晶體折光力<strong>不足（太扁平或睫狀肌退化）</strong>。<br>
+                • <strong>矯正：</strong>配戴<strong>「凸透鏡」</strong>會聚光線，預先將光束收攏、使焦點提前拉回視網膜上！
+              </p>
+            </div>
+            <div class="text-sm sm:text-base font-black text-sky-900 bg-sky-200/80 px-3 py-2 rounded-xl mt-3">
+              🎯 口訣：遠視眼軸短、成像在膜後 ➔ 配凸透鏡會聚
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 右側極簡大字體控制面板 (佔 10% 寬度) -->
+    <aside class="w-full lg:w-[10%] lg:min-w-[230px] flex flex-col gap-4">
+      
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5">
+        
+        <!-- 上方觀測視窗：大腦主觀所見景物 -->
+        <div class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-2.5 flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <span class="font-black text-slate-800 text-base">👁️ 主觀視野</span>
+            <span id="label-retina-vision" class="text-xs font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">清晰</span>
+          </div>
+          <div class="relative w-full h-[95px] bg-slate-900 rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center">
+            <canvas id="viewCanvas" width="240" height="95" class="w-full h-full block"></canvas>
+          </div>
+        </div>
+
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>⚙️</span>
+          視力情境
+        </h2>
+
+        <!-- 四大視力情境按鈕 -->
+        <div class="grid grid-cols-2 lg:grid-cols-1 gap-2">
+          <button id="btn-state-normal" class="py-3 px-2 rounded-2xl bg-emerald-700 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95">
+            ✨ 正常眼
+          </button>
+          <button id="btn-state-myopia" class="py-3 px-2 rounded-2xl bg-white text-rose-700 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95">
+            👓 近視眼
+          </button>
+          <button id="btn-state-hyperopia" class="py-3 px-2 rounded-2xl bg-white text-sky-700 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95">
+            🔍 遠視眼
+          </button>
+          <button id="btn-state-presbyopia" class="py-3 px-2 rounded-2xl bg-white text-amber-700 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95">
+            👴 老花眼
+          </button>
+        </div>
+
+        <!-- 眼鏡配戴矯正控制 -->
+        <div class="space-y-2 bg-indigo-50/80 p-3 rounded-2xl border-2 border-indigo-200">
+          <div class="text-base sm:text-lg font-black text-indigo-950">配鏡矯正：</div>
+          <div class="grid grid-cols-3 lg:grid-cols-1 gap-1.5">
+            <button id="btn-glass-none" class="py-2.5 px-2 rounded-xl bg-indigo-700 text-white font-black text-lg shadow-xs transition active:scale-95">
+              不戴鏡
+            </button>
+            <button id="btn-glass-concave" class="py-2.5 px-2 rounded-xl bg-white text-rose-700 border border-slate-300 font-black text-lg hover:bg-slate-100 transition active:scale-95">
+              凹透鏡
+            </button>
+            <button id="btn-glass-convex" class="py-2.5 px-2 rounded-xl bg-white text-sky-700 border border-slate-300 font-black text-lg hover:bg-slate-100 transition active:scale-95">
+              凸透鏡
+            </button>
+          </div>
+
+          <div id="box-glass-power" class="space-y-1.5 pt-2 border-t border-indigo-200 hidden">
+            <div class="flex justify-between text-base font-black text-slate-700">
+              <span>度數</span>
+              <span id="val-glass-power" class="font-mono text-indigo-800 font-black">950度</span>
+            </div>
+            <input type="range" id="range-glass-power" min="1" max="15" value="9.5" step="0.5" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+          </div>
+        </div>
+
+        <!-- 物理參數滑桿 -->
+        <div class="space-y-2.5 pt-1">
+          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1">
+            <div class="flex justify-between text-base font-black text-slate-700">
+              <span>物距 p</span>
+              <span id="val-dobj-slider" class="font-mono text-amber-700 font-black">35cm</span>
+            </div>
+            <input type="range" id="range-dobj-slider" min="15" max="120" value="35" step="5" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1">
+            <div class="flex justify-between text-base font-black text-slate-700">
+              <span>眼軸長</span>
+              <span id="val-axis-slider" class="font-mono text-sky-700 font-black">24.0mm</span>
+            </div>
+            <input type="range" id="range-axis-slider" min="18" max="30" value="24" step="0.2" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1">
+            <div class="flex justify-between text-base font-black text-slate-700">
+              <span>水晶體</span>
+              <span id="val-lens-power" class="font-mono text-indigo-700 font-black">1.00x</span>
+            </div>
+            <input type="range" id="range-lens-power" min="0.75" max="1.50" value="1.0" step="0.05" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+          </div>
+        </div>
+
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- 隨堂測驗 Modal -->
+  <div id="quiz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border-2 border-slate-300 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-sky-700 text-white flex items-center justify-center font-black">
+            🏆
+          </div>
+          <h3 class="font-black text-xl sm:text-2xl text-slate-900">人眼成像與視力矯正素養測驗</h3>
+        </div>
+        <button id="btn-close-quiz" class="text-slate-400 hover:text-slate-700 p-2 text-2xl font-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto max-h-[75vh] flex flex-col gap-4" id="quiz-content"></div>
+
+      <div class="px-6 py-4 border-t-2 border-slate-100 bg-slate-50 flex justify-between items-center">
+        <span id="quiz-progress" class="text-base font-bold text-slate-500">第 1 / 4 題</span>
+        <div class="flex gap-3">
+          <button id="btn-prev-quiz" class="px-5 py-2.5 rounded-xl bg-white border-2 border-slate-300 text-base font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40">上一題</button>
+          <button id="btn-next-quiz" class="px-6 py-2.5 rounded-xl bg-sky-700 text-base font-bold text-white hover:bg-sky-800 shadow-md">下一題</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl text-base font-bold flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300">
+    <span class="text-emerald-400 text-xl">✓</span>
+    <span id="toast-text">已更新</span>
+  </div>
+
+  <script>
+    const state = {
+      visionMode: 'normal',
+      dobj: 35.0,
+      eyeAxisMm: 24.0,
+      lensPowerMult: 1.0,
+      autoFocus: true,
+      glasses: 'none',
+      glassesPower: 9.5,
+      showGrid: true
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const viewCanvas = document.getElementById('viewCanvas');
+    const viewCtx = viewCanvas.getContext('2d');
+
+    const canvasTitle = document.getElementById('canvas-title');
+    const badgeEyeDot = document.getElementById('badge-eye-dot');
+    const badgeVisionState = document.getElementById('badge-vision-state');
+    const glassesBadge = document.getElementById('glasses-badge');
+    const labelRetinaVision = document.getElementById('label-retina-vision');
+
+    const statDobj = document.getElementById('stat-dobj');
+    const statDobjDesc = document.getElementById('stat-dobj-desc');
+    const statEyeAxis = document.getElementById('stat-eye-axis');
+    const statAxisDesc = document.getElementById('stat-axis-desc');
+    const statFocusPos = document.getElementById('stat-focus-pos');
+    const statFocusDesc = document.getElementById('stat-focus-desc');
+    const statSharpness = document.getElementById('stat-sharpness');
+    const statSolution = document.getElementById('stat-solution');
+
+    const btnStateNormal = document.getElementById('btn-state-normal');
+    const btnStateMyopia = document.getElementById('btn-state-myopia');
+    const btnStateHyperopia = document.getElementById('btn-state-hyperopia');
+    const btnStatePresbyopia = document.getElementById('btn-state-presbyopia');
+
+    const btnGlassNone = document.getElementById('btn-glass-none');
+    const btnGlassConcave = document.getElementById('btn-glass-concave');
+    const btnGlassConvex = document.getElementById('btn-glass-convex');
+    const boxGlassPower = document.getElementById('box-glass-power');
+    const rangeGlassPower = document.getElementById('range-glass-power');
+    const valGlassPower = document.getElementById('val-glass-power');
+
+    const rangeDobjSlider = document.getElementById('range-dobj-slider');
+    const valDobjSlider = document.getElementById('val-dobj-slider');
+    const rangeAxisSlider = document.getElementById('range-axis-slider');
+    const valAxisSlider = document.getElementById('val-axis-slider');
+    const rangeLensPower = document.getElementById('range-lens-power');
+    const valLensPower = document.getElementById('val-lens-power');
+    const chkAutofocus = document.getElementById('chk-autofocus');
+    const chkGrid = document.getElementById('chk-grid');
+    const btnReset = document.getElementById('btn-reset');
+
+    function safeRoundRect(c, x, y, w, h, r) {
+      if (typeof c.roundRect === 'function') {
+        c.beginPath();
+        c.roundRect(x, y, w, h, r);
+      } else {
+        c.beginPath();
+        c.moveTo(x + r, y);
+        c.lineTo(x + w - r, y);
+        c.quadraticCurveTo(x + w, y, x + w, y + r);
+        c.lineTo(x + w, y + h - r);
+        c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        c.lineTo(x + r, y + h);
+        c.quadraticCurveTo(x, y + h, x, y + h - r);
+        c.lineTo(x, y + r);
+        c.quadraticCurveTo(x, y, x + r, y);
+        c.closePath();
+      }
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const W = rect.width || canvas.parentElement.clientWidth || 800;
+      const H = rect.height || canvas.parentElement.clientHeight || 500;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+
+      canvas.width = Math.max(300, W) * dpr;
+      canvas.height = Math.max(300, H) * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      renderSimulation();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function computeOptics() {
+      const basePowerD = 1000.0 / 24.0;
+      const objVergenceD = -100.0 / state.dobj;
+      const manualLensDeltaD = (state.lensPowerMult - 1.0) * 14.0;
+
+      let glassesD = 0;
+      if (state.glasses === 'concave') {
+        glassesD = -state.glassesPower;
+      } else if (state.glasses === 'convex') {
+        glassesD = +state.glassesPower;
+      }
+
+      const targetEyePowerD = 1000.0 / state.eyeAxisMm;
+      const unaccommodatedVergenceD = basePowerD + manualLensDeltaD + glassesD + objVergenceD;
+
+      const neededAccD = targetEyePowerD - unaccommodatedVergenceD;
+      const maxAccD = (state.visionMode === 'presbyopia') ? 0.6 : 5.0;
+
+      let actualAccD = 0;
+      let focusStatusText = '固定曲率（未自動調節）';
+      if (state.autoFocus) {
+        actualAccD = Math.max(0, Math.min(maxAccD, neededAccD));
+        if (neededAccD < -0.2) {
+          focusStatusText = '水晶體已完全放鬆';
+        } else if (neededAccD > maxAccD + 0.2) {
+          focusStatusText = `對焦調節已達極限 (+${maxAccD.toFixed(1)}D)`;
+        } else if (actualAccD > 1.5) {
+          focusStatusText = `睫狀肌收縮・水晶體增厚 (+${actualAccD.toFixed(1)}D)`;
+        } else {
+          focusStatusText = `水晶體微調對焦 (+${actualAccD.toFixed(1)}D)`;
+        }
+      }
+
+      const totalImageVergenceD = unaccommodatedVergenceD + actualAccD;
+      const focusDistMm = Math.max(10.0, Math.min(40.0, 1000.0 / Math.max(22.0, totalImageVergenceD)));
+      const retinaDistMm = state.eyeAxisMm;
+
+      const deltaMm = retinaDistMm - focusDistMm;
+      const blurFactor = Math.abs(deltaMm) * 1.4;
+      const isSharp = Math.abs(deltaMm) < 0.45;
+
+      // 大幅強化水晶體厚薄形變敏感度，讓看近變厚、看遠變薄的視覺差異非常明顯
+      const visualLensMult = Math.max(0.55, Math.min(2.25, 0.72 + (state.lensPowerMult - 1.0) * 1.35 + actualAccD * 0.28));
+
+      return {
+        focusDistMm,
+        retinaDistMm,
+        deltaMm,
+        blurFactor,
+        isSharp,
+        actualAccD,
+        visualLensMult,
+        focusStatusText
+      };
+    }
+
+    function renderSimulation() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const W = rect.width > 0 ? rect.width : (canvas.width / dpr) || 800;
+      const H = rect.height > 0 ? rect.height : (canvas.height / dpr) || 500;
+
+      if (W <= 0 || H <= 0) return;
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+
+      const optics = computeOptics();
+      const cy = H * 0.46;
+
+      const lensX = W * 0.56;
+      const mmToPx = (W * 0.22) / 24.0;
+
+      const objPxDist = Math.max(130, Math.min(W * 0.34, (state.dobj / 35.0) * (W * 0.23)));
+      const objX = lensX - objPxDist;
+      const objH = 82;
+
+      const glassesX = lensX - 58;
+      const retinaX = lensX + optics.retinaDistMm * mmToPx;
+      const focusX = lensX + optics.focusDistMm * mmToPx;
+
+      if (state.showGrid) {
+        ctx.save();
+        ctx.strokeStyle = '#f1f5f9';
+        ctx.lineWidth = 1.5;
+        for (let x = 0; x < W; x += 32) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        }
+        for (let y = 0; y < H; y += 32) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(20, cy);
+      ctx.lineTo(W - 20, cy);
+      ctx.stroke();
+
+      ctx.fillStyle = '#334155';
+      ctx.font = '900 19px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('主光軸 (視軸)', 24, cy - 14);
+      ctx.restore();
+
+      drawEyeballAnatomy(lensX, cy, optics.retinaDistMm * mmToPx, optics.visualLensMult, optics.focusStatusText);
+
+      if (state.glasses !== 'none') {
+        drawEyeglasses(glassesX, cy, state.glasses);
+      }
+
+      drawObjectSource(objX, cy, objH);
+
+      traceEyeRays(objX, cy, objH, glassesX, lensX, retinaX, focusX);
+
+      // 底部尺寸線留白安全區
+      const dimY = H - 22;
+      drawDimension(objX, lensX, dimY, `觀測物距 p = ${state.dobj.toFixed(0)} cm`, '#c2410c');
+      drawDimension(lensX, retinaX, dimY - 40, `眼軸長 = ${state.eyeAxisMm.toFixed(1)} mm`, '#0284c7');
+
+      updateUIElements(optics);
+      renderSubjectiveView(optics);
+    }
+
+    function drawEyeballAnatomy(lx, cy, eyeRadiusX, visualLensMult = 1.0, focusStatusText = '') {
+      ctx.save();
+      const eyeRadiusY = 114;
+
+      const globeCenterX = lx + eyeRadiusX * 0.44;
+      const globeRx = eyeRadiusX * 0.56;
+      const wallThick = 8;
+
+      const nerveAngle = 0.38;
+      const nerveStartX = globeCenterX + (globeRx + 4) * Math.cos(nerveAngle);
+      const nerveStartY = cy + (eyeRadiusY + 4) * Math.sin(nerveAngle);
+      ctx.fillStyle = '#e2e8f0';
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(nerveStartX, nerveStartY - 14);
+      ctx.lineTo(nerveStartX + 44, nerveStartY - 6);
+      ctx.lineTo(nerveStartX + 44, nerveStartY + 18);
+      ctx.lineTo(nerveStartX - 6, nerveStartY + 14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      const joinAngle = 2.66;
+      const corneaTipX = lx - 40;
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.ellipse(globeCenterX, cy, globeRx + wallThick, eyeRadiusY + wallThick, 0, -joinAngle, joinAngle, false);
+      const joinBotX = globeCenterX + (globeRx + wallThick) * Math.cos(joinAngle);
+      const joinBotY = cy + (eyeRadiusY + wallThick) * Math.sin(joinAngle);
+      const joinTopX = globeCenterX + (globeRx + wallThick) * Math.cos(-joinAngle);
+      const joinTopY = cy + (eyeRadiusY + wallThick) * Math.sin(-joinAngle);
+      ctx.quadraticCurveTo(corneaTipX - 6, cy + 42, corneaTipX, cy);
+      ctx.quadraticCurveTo(corneaTipX - 6, cy - 42, joinTopX, joinTopY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      const innerGrad = ctx.createRadialGradient(lx + eyeRadiusX * 0.35, cy, 15, lx + eyeRadiusX * 0.45, cy, eyeRadiusX * 0.85);
+      innerGrad.addColorStop(0, '#ffffff');
+      innerGrad.addColorStop(1, '#e0f2fe');
+      ctx.fillStyle = innerGrad;
+      ctx.beginPath();
+      ctx.ellipse(globeCenterX, cy, globeRx, eyeRadiusY, 0, -joinAngle, joinAngle, false);
+      ctx.quadraticCurveTo(corneaTipX + 2, cy + 36, corneaTipX + 7, cy);
+      ctx.quadraticCurveTo(corneaTipX + 2, cy - 36, globeCenterX + globeRx * Math.cos(-joinAngle), cy + eyeRadiusY * Math.sin(-joinAngle));
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 4.5;
+      ctx.beginPath();
+      ctx.moveTo(joinTopX, joinTopY);
+      ctx.quadraticCurveTo(corneaTipX - 6, cy - 42, corneaTipX, cy);
+      ctx.quadraticCurveTo(corneaTipX - 6, cy + 42, joinBotX, joinBotY);
+      ctx.stroke();
+
+      // 角膜標籤置於左下方獨立留白區
+      ctx.strokeStyle = '#0369a1';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(corneaTipX + 4, cy + 28);
+      ctx.lineTo(corneaTipX - 18, cy + 84);
+      ctx.stroke();
+
+      ctx.fillStyle = '#0369a1';
+      ctx.font = '900 20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('角膜', corneaTipX - 24, cy + 106);
+
+      // 視網膜
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 6.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.ellipse(globeCenterX, cy, globeRx - 2, eyeRadiusY - 2, 0, -Math.PI * 0.46, Math.PI * 0.46, false);
+      ctx.stroke();
+
+      const retLabelX = lx + eyeRadiusX + 18;
+      const retLabelY = cy - 78;
+      ctx.strokeStyle = '#b45309';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(lx + eyeRadiusX - 6, cy - 42);
+      ctx.lineTo(retLabelX - 2, retLabelY + 4);
+      ctx.stroke();
+
+      ctx.fillStyle = '#b45309';
+      ctx.font = '900 20px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('視網膜 (感光層)', retLabelX, retLabelY);
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(lx + eyeRadiusX, cy, 7.5, 0, Math.PI * 2);
+      const lensThick = 15 * visualLensMult;
+      const lensH = 90;
+
+      // 睫狀肌（隨水晶體變厚而向內收縮增厚，看遠時向兩側舒張變扁）
+      const ciliaryThick = Math.max(10, Math.min(26, 12 + (visualLensMult - 0.7) * 9));
+      ctx.fillStyle = '#e11d48';
+      safeRoundRect(ctx, lx - 8, cy - eyeRadiusY + 2, 16, ciliaryThick, 6);
+      ctx.fill();
+      safeRoundRect(ctx, lx - 8, cy + eyeRadiusY - 2 - ciliaryThick, 16, ciliaryThick, 6);
+      ctx.fill();
+
+      // 懸韌帶（看近睫狀肌收縮時懸韌帶放鬆呈微波浪，看遠時拉緊）
+      ctx.strokeStyle = visualLensMult > 1.25 ? '#f43f5e' : '#64748b';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(lx, cy - eyeRadiusY + 2 + ciliaryThick);
+      ctx.lineTo(lx, cy - lensH / 2);
+      ctx.moveTo(lx, cy + eyeRadiusY - 2 - ciliaryThick);
+      ctx.lineTo(lx, cy + lensH / 2);
+      ctx.stroke();
+
+      // 水晶體本體（厚度隨看近/看遠大幅改變，並動態顯示厚度數值與厚薄狀態）
+      ctx.fillStyle = visualLensMult > 1.3 ? 'rgba(125, 211, 252, 0.92)' : 'rgba(186, 230, 253, 0.85)';
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(lx, cy - lensH / 2);
+      ctx.quadraticCurveTo(lx + lensThick, cy, lx, cy + lensH / 2);
+      ctx.quadraticCurveTo(lx - lensThick, cy, lx, cy - lensH / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // 中央水平雙向箭頭直接標示水晶體當前變厚或變薄
+      ctx.strokeStyle = '#0369a1';
+      ctx.fillStyle = '#0369a1';
+      ctx.lineWidth = 2.5;
+      const halfW = lensThick * 0.48;
+      if (halfW > 4) {
+        ctx.beginPath();
+        ctx.moveTo(lx - halfW, cy);
+        ctx.lineTo(lx + halfW, cy);
+        ctx.stroke();
+      }
+
+      const thickLabel = visualLensMult > 1.35 ? '【變厚・折光強】' : (visualLensMult < 0.92 ? '【變薄・折光弱】' : '【適中厚度】');
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '900 20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`水晶體 ${thickLabel}`, lx + 36, cy - eyeRadiusY - 38);
+      if (focusStatusText) {
+        ctx.fillStyle = '#0369a1';
+        ctx.font = '900 17px sans-serif';
+        ctx.fillText(focusStatusText, lx + 36, cy - eyeRadiusY - 14);
+      }
+
+      ctx.restore();
+    }
+
+    function drawEyeglasses(gx, cy, type) {
+      ctx.save();
+      const gh = 104;
+      const gw = 14;
+
+      ctx.fillStyle = 'rgba(224, 231, 255, 0.78)';
+      ctx.strokeStyle = (type === 'concave') ? '#e11d48' : '#0284c7';
+      ctx.lineWidth = 4;
+
+      ctx.beginPath();
+      if (type === 'concave') {
+        ctx.moveTo(gx - gw, cy - gh / 2);
+        ctx.lineTo(gx + gw, cy - gh / 2);
+        ctx.quadraticCurveTo(gx + 2, cy, gx + gw, cy + gh / 2);
+        ctx.lineTo(gx - gw, cy + gh / 2);
+        ctx.quadraticCurveTo(gx - 2, cy, gx - gw, cy - gh / 2);
+      } else {
+        ctx.moveTo(gx, cy - gh / 2);
+        ctx.quadraticCurveTo(gx + gw, cy, gx, cy + gh / 2);
+        ctx.quadraticCurveTo(gx - gw, cy, gx, cy - gh / 2);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.strokeStyle = (type === 'concave') ? '#e11d48' : '#0284c7';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(gx, cy - gh / 2 - 2);
+      ctx.lineTo(gx - 22, cy - gh / 2 - 38);
+      ctx.stroke();
+
+      ctx.fillStyle = (type === 'concave') ? '#e11d48' : '#0284c7';
+      ctx.font = '900 20px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(type === 'concave' ? '凹透鏡 (發散)' : '凸透鏡 (會聚)', gx - 10, cy - gh / 2 - 44);
+
+      ctx.restore();
+    }
+
+    function drawObjectSource(ox, cy, h) {
+      ctx.save();
+      ctx.translate(ox, cy);
+
+      ctx.strokeStyle = '#c2410c';
+      ctx.fillStyle = '#c2410c';
+      ctx.lineWidth = 6.5;
+      ctx.lineCap = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(0, h / 2);
+      ctx.lineTo(0, -h / 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(0, -h / 2);
+      ctx.lineTo(-13, -h / 2 + 22);
+      ctx.lineTo(13, -h / 2 + 22);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+
+      ctx.fillStyle = '#b45309';
+      ctx.font = '900 20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`景物 (${state.dobj.toFixed(0)}cm)`, ox, cy - h / 2 - 20);
+    }
+
+    function traceEyeRays(ox, cy, oh, gx, lx, rx, fx) {
+      const topY = cy - oh / 2;
+      const botY = cy + oh / 2;
+
+      ctx.save();
+
+      const lensTopY = cy - 34;
+      const lensBotY = cy + 34;
+
+      if (state.glasses !== 'none') {
+        const gTopY = topY + (lensTopY - topY) * ((gx - ox) / (lx - ox));
+        const gBotY = botY + (lensBotY - botY) * ((gx - ox) / (lx - ox));
+        const bentTopY = state.glasses === 'concave' ? lensTopY - 14 : lensTopY + 13;
+        const bentBotY = state.glasses === 'concave' ? lensBotY + 14 : lensBotY - 13;
+
+        ctx.strokeStyle = 'rgba(220, 38, 38, 0.85)';
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(ox, topY);
+        ctx.lineTo(gx, gTopY);
+        ctx.lineTo(lx, bentTopY);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(37, 99, 235, 0.85)';
+        ctx.beginPath();
+        ctx.moveTo(ox, botY);
+        ctx.lineTo(gx, gBotY);
+        ctx.lineTo(lx, bentBotY);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.moveTo(lx, bentTopY);
+        ctx.lineTo(fx, cy);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#2563eb';
+        ctx.beginPath();
+        ctx.moveTo(lx, bentBotY);
+        ctx.lineTo(fx, cy);
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = 'rgba(220, 38, 38, 0.85)';
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(ox, topY); ctx.lineTo(lx, lensTopY);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(37, 99, 235, 0.85)';
+        ctx.beginPath();
+        ctx.moveTo(ox, botY); ctx.lineTo(lx, lensBotY);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.moveTo(lx, lensTopY);
+        ctx.lineTo(fx, cy);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#2563eb';
+        ctx.beginPath();
+        ctx.moveTo(lx, lensBotY);
+        ctx.lineTo(fx, cy);
+        ctx.stroke();
+      }
+
+      if (fx < rx - 2) {
+        const spreadY = ((rx - fx) / Math.max(10, fx - lx)) * 34;
+
+        ctx.strokeStyle = 'rgba(220, 38, 38, 0.75)';
+        ctx.setLineDash([5, 3]);
+        ctx.beginPath();
+        ctx.moveTo(fx, cy); ctx.lineTo(rx, cy + spreadY);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(37, 99, 235, 0.75)';
+        ctx.beginPath();
+        ctx.moveTo(fx, cy); ctx.lineTo(rx, cy - spreadY);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.40)';
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(rx, cy, 7, Math.min(54, spreadY), 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#dc2626';
+        ctx.font = '900 19px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('模糊光斑 (膜前過早交會)', rx + 18, cy + 52);
+
+      } else if (fx > rx + 2) {
+        const spreadY = ((fx - rx) / Math.max(10, fx - lx)) * 34;
+
+        ctx.strokeStyle = 'rgba(2, 132, 199, 0.65)';
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(rx, cy - spreadY); ctx.lineTo(fx, cy);
+        ctx.moveTo(rx, cy + spreadY); ctx.lineTo(fx, cy);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(2, 132, 199, 0.40)';
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(rx, cy, 7, Math.min(54, spreadY), 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#0284c7';
+        ctx.font = '900 19px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('模糊光斑 (膜後才相交)', rx + 18, cy + 64);
+      }
+
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#fde047';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(fx, cy, 7.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '900 20px sans-serif';
+      ctx.textAlign = 'center';
+      const fLabelY = Math.abs(fx - rx) < 16 ? (cy + 36) : (cy - 18);
+      ctx.fillText('焦點 F', fx, fLabelY);
+
+      ctx.restore();
+    }
+
+    function drawDimension(x1, x2, y, text, color) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 2.5;
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y - 6); ctx.lineTo(x1, y + 6);
+      ctx.moveTo(x2, y - 6); ctx.lineTo(x2, y + 6);
+      ctx.moveTo(x1, y); ctx.lineTo(x2, y);
+      ctx.stroke();
+
+      ctx.font = '900 19px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(text, (x1 + x2) / 2, y - 8);
+      ctx.restore();
+    }
+
+    function renderSubjectiveView(optics) {
+      const W = viewCanvas.width;
+      const H = viewCanvas.height;
+      viewCtx.clearRect(0, 0, W, H);
+      viewCtx.fillStyle = '#090d16';
+      viewCtx.fillRect(0, 0, W, H);
+
+      const blurPx = Math.max(0, optics.blurFactor * 1.4);
+      viewCtx.save();
+      if (blurPx > 0.4) {
+        viewCtx.filter = `blur(${blurPx.toFixed(1)}px)`;
+      }
+
+      viewCtx.translate(W / 2, H / 2);
+
+      viewCtx.strokeStyle = '#38bdf8';
+      viewCtx.fillStyle = '#38bdf8';
+      viewCtx.lineWidth = 5;
+      viewCtx.lineCap = 'round';
+
+      viewCtx.beginPath();
+      viewCtx.moveTo(0, 26);
+      viewCtx.lineTo(0, -26);
+      viewCtx.stroke();
+
+      viewCtx.beginPath();
+      viewCtx.moveTo(0, -26);
+      viewCtx.lineTo(-9, -14);
+      viewCtx.lineTo(9, -14);
+      viewCtx.closePath();
+      viewCtx.fill();
+
+      viewCtx.restore();
+    }
+
+    function updateUIElements(optics) {
+      valDobjSlider.textContent = `${state.dobj.toFixed(0)}cm`;
+      valAxisSlider.textContent = `${state.eyeAxisMm.toFixed(1)}mm`;
+      valLensPower.textContent = `${state.lensPowerMult.toFixed(2)}x`;
+
+      statDobj.textContent = `${state.dobj.toFixed(0)} cm`;
+      statDobjDesc.textContent = state.dobj >= 80 ? '遠處景物 (黑板/風景)' : (state.dobj <= 22 ? '近距離精細閱讀' : '明視距離 (~25-35cm)');
+
+      statEyeAxis.textContent = `${state.eyeAxisMm.toFixed(1)} mm`;
+      statAxisDesc.textContent = state.eyeAxisMm === 24.0 ? '標準正常眼軸 (24.0mm)' : (state.eyeAxisMm > 24.0 ? `眼軸過長 (+${(state.eyeAxisMm - 24.0).toFixed(1)}mm)` : `眼軸過短 (${(state.eyeAxisMm - 24.0).toFixed(1)}mm)`);
+
+      const delta = optics.deltaMm;
+      if (optics.isSharp) {
+        canvasTitle.textContent = state.glasses === 'none'
+          ? '正常眼：光線精確聚焦於視網膜'
+          : '視力矯正成功：焦點精準拉回視網膜！';
+        statFocusPos.textContent = '恰在視網膜';
+        statFocusPos.className = 'text-2xl sm:text-3xl font-black text-emerald-700 mt-2 font-mono tracking-tight';
+        statFocusDesc.textContent = '聚焦點精確落在視網膜';
+        statSharpness.textContent = '100% 銳利清晰';
+        statSharpness.className = 'text-2xl sm:text-3xl font-black text-emerald-800 mt-2';
+        labelRetinaVision.textContent = '清晰';
+        labelRetinaVision.className = 'text-xs font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300';
+        badgeEyeDot.className = 'inline-block w-4 h-4 rounded-full bg-emerald-500 animate-pulse';
+        badgeVisionState.textContent = '清晰視野';
+        badgeVisionState.className = 'text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300';
+      } else if (delta > 0) {
+        canvasTitle.textContent = '近視眼：成像落在視網膜「前方」';
+        statFocusPos.textContent = `膜前 (-${delta.toFixed(1)}mm)`;
+        statFocusPos.className = 'text-2xl sm:text-3xl font-black text-rose-600 mt-2 font-mono tracking-tight';
+        statFocusDesc.textContent = '光線過早相交於視網膜前';
+        statSharpness.textContent = '模糊 (散焦)';
+        statSharpness.className = 'text-2xl sm:text-3xl font-black text-rose-700 mt-2';
+        labelRetinaVision.textContent = '模糊';
+        labelRetinaVision.className = 'text-xs font-black px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300';
+        badgeEyeDot.className = 'inline-block w-4 h-4 rounded-full bg-rose-500 animate-pulse';
+        badgeVisionState.textContent = '近視模糊';
+        badgeVisionState.className = 'text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-rose-100 text-rose-900 border border-rose-300';
+      } else {
+        canvasTitle.textContent = '遠視／老花眼：成像落在視網膜「後方」';
+        statFocusPos.textContent = `膜後 (+${Math.abs(delta).toFixed(1)}mm)`;
+        statFocusPos.className = 'text-2xl sm:text-3xl font-black text-sky-600 mt-2 font-mono tracking-tight';
+        statFocusDesc.textContent = '光線尚未聚集成點';
+        statSharpness.textContent = '模糊 (散焦)';
+        statSharpness.className = 'text-2xl sm:text-3xl font-black text-sky-700 mt-2';
+        labelRetinaVision.textContent = '模糊';
+        labelRetinaVision.className = 'text-xs font-black px-2 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-300';
+        badgeEyeDot.className = 'inline-block w-4 h-4 rounded-full bg-sky-500 animate-pulse';
+        badgeVisionState.textContent = '遠視模糊';
+        badgeVisionState.className = 'text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-sky-100 text-sky-900 border border-sky-300';
+      }
+
+      if (optics.isSharp) {
+        statSolution.textContent = state.glasses === 'none' ? '無需配戴眼鏡矯正' : '眼鏡度數完美匹配！';
+      } else if (delta > 0) {
+        statSolution.textContent = state.glasses === 'concave' ? '凹透鏡度數不足，請調整' : '請配戴「凹透鏡」發散光線！';
+      } else {
+        statSolution.textContent = state.glasses === 'convex' ? '凸透鏡度數不足，請調整' : '請配戴「凸透鏡」會聚光線！';
+      }
+
+      if (state.glasses === 'none') {
+        glassesBadge.textContent = '👓 未配戴眼鏡';
+        glassesBadge.className = 'absolute top-3 right-3 text-base sm:text-lg font-black px-4 py-1.5 rounded-xl border-2 shadow-sm bg-slate-100 text-slate-700 border-slate-300';
+      } else if (state.glasses === 'concave') {
+        glassesBadge.textContent = `👓 凹透鏡 (${Math.round(state.glassesPower * 100)}度)`;
+        glassesBadge.className = 'absolute top-3 right-3 text-base sm:text-lg font-black px-4 py-1.5 rounded-xl border-2 shadow-sm bg-rose-50 text-rose-800 border-rose-300';
+      } else {
+        glassesBadge.textContent = `👓 凸透鏡 (${Math.round(state.glassesPower * 100)}度)`;
+        glassesBadge.className = 'absolute top-3 right-3 text-base sm:text-lg font-black px-4 py-1.5 rounded-xl border-2 shadow-sm bg-sky-50 text-sky-800 border-sky-300';
+      }
+    }
+
+    function syncPresetButtons(activeBtn) {
+      [btnStateNormal, btnStateMyopia, btnStateHyperopia, btnStatePresbyopia].forEach(b => {
+        b.className = 'py-3 px-2 rounded-2xl bg-white text-slate-700 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95';
+      });
+      if (activeBtn === btnStateNormal) activeBtn.className = 'py-3 px-2 rounded-2xl bg-emerald-700 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95';
+      if (activeBtn === btnStateMyopia) activeBtn.className = 'py-3 px-2 rounded-2xl bg-rose-700 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95';
+      if (activeBtn === btnStateHyperopia) activeBtn.className = 'py-3 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95';
+      if (activeBtn === btnStatePresbyopia) activeBtn.className = 'py-3 px-2 rounded-2xl bg-amber-600 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95';
+    }
+
+    btnStateNormal.addEventListener('click', () => {
+      state.visionMode = 'normal';
+      state.dobj = 35.0;
+      state.eyeAxisMm = 24.0;
+      state.lensPowerMult = 1.0;
+      state.glasses = 'none';
+      syncPresetButtons(btnStateNormal);
+      syncInputs();
+      showToast('已切換為：正常眼（焦點精準落在視網膜）');
+      renderSimulation();
+    });
+
+    btnStateMyopia.addEventListener('click', () => {
+      state.visionMode = 'myopia';
+      state.dobj = 100.0;
+      state.eyeAxisMm = 29.0;
+      state.lensPowerMult = 1.25;
+      state.glasses = 'none';
+      state.glassesPower = 9.5;
+      syncPresetButtons(btnStateMyopia);
+      syncInputs();
+      showToast('已切換為：高度近視眼（眼軸拉長至 29mm，焦點落在視網膜前方）');
+      renderSimulation();
+    });
+
+    btnStateHyperopia.addEventListener('click', () => {
+      state.visionMode = 'hyperopia';
+      state.dobj = 25.0;
+      state.eyeAxisMm = 18.5;
+      state.lensPowerMult = 0.80;
+      state.glasses = 'none';
+      state.glassesPower = 13.5;
+      syncPresetButtons(btnStateHyperopia);
+      syncInputs();
+      showToast('已切換為：高度遠視眼（眼軸縮短至 18.5mm，焦點落在視網膜後方）');
+      renderSimulation();
+    });
+
+    btnStatePresbyopia.addEventListener('click', () => {
+      state.visionMode = 'presbyopia';
+      state.dobj = 20.0;
+      state.eyeAxisMm = 24.0;
+      state.lensPowerMult = 0.90;
+      state.glasses = 'none';
+      state.glassesPower = 6.0;
+      syncPresetButtons(btnStatePresbyopia);
+      syncInputs();
+      showToast('已切換為：老花眼（看近時水晶體無法增厚對焦，焦點退至視網膜後方）');
+      renderSimulation();
+    });
+
+    btnGlassNone.addEventListener('click', () => {
+      state.glasses = 'none';
+      updateGlassesUI();
+      renderSimulation();
+    });
+
+    btnGlassConcave.addEventListener('click', () => {
+      state.glasses = 'concave';
+      updateGlassesUI();
+      showToast('已配戴凹透鏡（發散光線，焦點後移）');
+      renderSimulation();
+    });
+
+    btnGlassConvex.addEventListener('click', () => {
+      state.glasses = 'convex';
+      updateGlassesUI();
+      showToast('已配戴凸透鏡（會聚光線，焦點前移）');
+      renderSimulation();
+    });
+
+    function updateGlassesUI() {
+      [btnGlassNone, btnGlassConcave, btnGlassConvex].forEach(b => {
+        b.className = 'py-2.5 px-2 rounded-xl bg-white text-slate-700 border border-slate-300 font-black text-lg hover:bg-slate-100 transition active:scale-95';
+      });
+
+      if (state.glasses === 'none') {
+        btnGlassNone.className = 'py-2.5 px-2 rounded-xl bg-indigo-700 text-white font-black text-lg shadow-xs transition active:scale-95';
+        boxGlassPower.classList.add('hidden');
+      } else if (state.glasses === 'concave') {
+        btnGlassConcave.className = 'py-2.5 px-2 rounded-xl bg-rose-700 text-white font-black text-lg shadow-xs transition active:scale-95';
+        boxGlassPower.classList.remove('hidden');
+        rangeGlassPower.value = state.glassesPower;
+        valGlassPower.textContent = `${Math.round(state.glassesPower * 100)}度`;
+      } else {
+        btnGlassConvex.className = 'py-2.5 px-2 rounded-xl bg-sky-700 text-white font-black text-lg shadow-xs transition active:scale-95';
+        boxGlassPower.classList.remove('hidden');
+        rangeGlassPower.value = state.glassesPower;
+        valGlassPower.textContent = `${Math.round(state.glassesPower * 100)}度`;
+      }
+    }
+
+    rangeGlassPower.addEventListener('input', (e) => {
+      state.glassesPower = parseFloat(e.target.value);
+      valGlassPower.textContent = `${Math.round(state.glassesPower * 100)}度`;
+      renderSimulation();
+    });
+
+    rangeDobjSlider.addEventListener('input', (e) => {
+      state.dobj = parseFloat(e.target.value);
+      renderSimulation();
+    });
+
+    rangeAxisSlider.addEventListener('input', (e) => {
+      state.eyeAxisMm = parseFloat(e.target.value);
+      renderSimulation();
+    });
+
+    rangeLensPower.addEventListener('input', (e) => {
+      state.lensPowerMult = parseFloat(e.target.value);
+      renderSimulation();
+    });
+
+    function syncInputs() {
+      rangeDobjSlider.value = state.dobj;
+      rangeAxisSlider.value = state.eyeAxisMm;
+      rangeLensPower.value = state.lensPowerMult;
+      chkAutofocus.checked = state.autoFocus;
+      updateGlassesUI();
+    }
+
+    chkAutofocus.addEventListener('change', (e) => {
+      state.autoFocus = e.target.checked;
+      showToast(state.autoFocus ? '已開啟水晶體自動調節對焦' : '已鎖定水晶體曲率');
+      renderSimulation();
+    });
+
+    chkGrid.addEventListener('change', (e) => {
+      state.showGrid = e.target.checked;
+      renderSimulation();
+    });
+
+    btnReset.addEventListener('click', () => {
+      btnStateNormal.click();
+      showToast('實驗參數已重置');
+    });
+
+    let isDragging = null;
+
+    function getCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.touches ? e.touches[0].clientX : e.clientX;
+      const cy = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: cx - rect.left,
+        y: cy - rect.top,
+        W: rect.width,
+        H: rect.height
+      };
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      const { x, y, W, H } = getCoords(e);
+      const lensX = W * 0.56;
+      const mmToPx = (W * 0.22) / 24.0;
+      const objPxDist = Math.max(130, Math.min(W * 0.34, (state.dobj / 35.0) * (W * 0.23)));
+      const objX = lensX - objPxDist;
+      const retinaX = lensX + state.eyeAxisMm * mmToPx;
+      const cy = H * 0.46;
+
+      if (Math.hypot(x - objX, y - cy) < 65) {
+        isDragging = 'obj';
+      } else if (Math.hypot(x - retinaX, y - cy) < 55) {
+        isDragging = 'retina';
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const { x, W } = getCoords(e);
+      const lensX = W * 0.56;
+      const mmToPx = (W * 0.22) / 24.0;
+
+      if (isDragging === 'obj') {
+        const deltaPx = lensX - x;
+        let newDobj = (deltaPx / (W * 0.23)) * 35.0;
+        newDobj = Math.max(15, Math.min(120, newDobj));
+        state.dobj = Math.round(newDobj);
+        rangeDobjSlider.value = state.dobj;
+        renderSimulation();
+      } else if (isDragging === 'retina') {
+        const deltaPx = x - lensX;
+        let newAxis = deltaPx / mmToPx;
+        newAxis = Math.max(18, Math.min(30, newAxis));
+        state.eyeAxisMm = Math.round(newAxis * 10) / 10;
+        rangeAxisSlider.value = state.eyeAxisMm;
+        renderSimulation();
+      }
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = null; });
+
+    canvas.addEventListener('touchstart', (e) => {
+      const { x, y, W, H } = getCoords(e);
+      const lensX = W * 0.56;
+      const mmToPx = (W * 0.22) / 24.0;
+      const objPxDist = Math.max(130, Math.min(W * 0.34, (state.dobj / 35.0) * (W * 0.23)));
+      const objX = lensX - objPxDist;
+      const retinaX = lensX + state.eyeAxisMm * mmToPx;
+      const cy = H * 0.46;
+
+      if (Math.hypot(x - objX, y - cy) < 65) {
+        isDragging = 'obj';
+      } else if (Math.hypot(x - retinaX, y - cy) < 55) {
+        isDragging = 'retina';
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      if (e.cancelable) e.preventDefault();
+      const { x, W } = getCoords(e);
+      const lensX = W * 0.56;
+      const mmToPx = (W * 0.22) / 24.0;
+
+      if (isDragging === 'obj') {
+        const deltaPx = lensX - x;
+        let newDobj = (deltaPx / (W * 0.23)) * 35.0;
+        newDobj = Math.max(15, Math.min(120, newDobj));
+        state.dobj = Math.round(newDobj);
+        rangeDobjSlider.value = state.dobj;
+        renderSimulation();
+      } else if (isDragging === 'retina') {
+        const deltaPx = x - lensX;
+        let newAxis = deltaPx / mmToPx;
+        newAxis = Math.max(18, Math.min(30, newAxis));
+        state.eyeAxisMm = Math.round(newAxis * 10) / 10;
+        rangeAxisSlider.value = state.eyeAxisMm;
+        renderSimulation();
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', () => { isDragging = null; });
+
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.style.opacity = '0';
+      }, 2500);
+    }
+
+    const quizData = [
+      {
+        question: '小明看遠處黑板上的字體非常模糊，但看近處的課本卻很清楚。驗光師診斷為「近視眼」，請問小明眼球的成像狀況與配鏡選擇為何？',
+        options: [
+          '成像在視網膜前方，應配戴「凹透鏡」矯正',
+          '成像在視網膜後方，應配戴「凸透鏡」矯正',
+          '成像在視網膜前方，應配戴「凸透鏡」矯正',
+          '成像在視網膜後方，應配戴「凹透鏡」矯正'
+        ],
+        answer: 0,
+        explanation: '近視是因為眼軸過長或水晶體折光力過強，遠處光線過早相交在視網膜「前方」；配戴具有發散光線作用的「凹透鏡」，能使焦點後移精確落在視網膜上！'
+      },
+      {
+        question: '爺爺年紀大了，看報紙時總要把報紙拿得遠遠的才看得清楚。這是因為眼睛發生了什麼生理變化？應配戴何種鏡片？',
+        options: [
+          '近視加深，配戴凹透鏡',
+          '眼軸變長，配戴平面鏡',
+          '睫狀肌與水晶體調節力退化（老花眼），看近時無法增厚，應配戴「凸透鏡」',
+          '視網膜退化，無法以任何光學鏡片矯正'
+        ],
+        answer: 2,
+        explanation: '老花眼是因為年長睫狀肌鬆弛且水晶體彈性減退，看近處時水晶體無法變厚以增加屈光度，導致光線聚焦在視網膜「後方」。配戴具有會聚光線功能的「凸透鏡」（老花眼鏡），即可幫助光線提前聚焦於視網膜！'
+      },
+      {
+        question: '在眼球的構造中，「水晶體」與「視網膜」在照相機的光學構造中，分別相當於照相機的哪兩個元件？',
+        options: [
+          '水晶體相當於快門，視網膜相當於光圈',
+          '水晶體相當於凸透鏡鏡頭，視網膜相當於感光元件（或底片）',
+          '水晶體相當於底片，視網膜相當於凸透鏡鏡頭',
+          '水晶體相當於暗箱，視網膜相當於快門'
+        ],
+        answer: 1,
+        explanation: '人眼水晶體相當於照相機的「凸透鏡鏡頭」，負責折射會聚光線；視網膜則相當於相機的「感光元件（CCD/CMOS）或底片」，負責接收光線並感光成倒立實像！'
+      },
+      {
+        question: '若將近視眼同學的眼鏡（凹透鏡）拿給一位「視力完全正常」的同學試戴，該正常同學看遠處景物時會感覺到什麼現象？',
+        options: [
+          '景物變得更加清晰無比',
+          '景物反而變得模糊不清',
+          '景物會上下顛倒過來',
+          '完全沒有任何改變'
+        ],
+        answer: 1,
+        explanation: '正常人的眼睛本來就能精準聚焦在視網膜上。若戴上凹透鏡，凹透鏡會將光線強行向外發散，使焦點被推至視網膜「後方」（人為製造出遠視狀態），反而變得模糊不清！'
+      }
+    ];
+
+    let currentQuizIndex = 0;
+    const userAnswers = {};
+
+    const quizModal = document.getElementById('quiz-modal');
+    const quizContent = document.getElementById('quiz-content');
+    const quizProgress = document.getElementById('quiz-progress');
+    const btnQuiz = document.getElementById('btn-quiz');
+    const btnCloseQuiz = document.getElementById('btn-close-quiz');
+    const btnPrevQuiz = document.getElementById('btn-prev-quiz');
+    const btnNextQuiz = document.getElementById('btn-next-quiz');
+
+    function renderQuiz(index) {
+      const q = quizData[index];
+      quizProgress.textContent = `第 ${index + 1} / ${quizData.length} 題`;
+      btnPrevQuiz.disabled = index === 0;
+      btnNextQuiz.textContent = index === quizData.length - 1 ? '完成測驗' : '下一題';
+
+      const selected = userAnswers[index];
+      const isAnswered = selected !== undefined;
+
+      let html = `
+        <div class="space-y-4">
+          <div class="font-black text-slate-900 leading-snug text-xl sm:text-2xl">
+            <span class="inline-block bg-sky-100 text-sky-900 px-3 py-1 rounded-xl text-base mr-2 font-mono border border-sky-200">Q${index + 1}</span>
+            ${q.question}
+          </div>
+          <div class="space-y-3 mt-4">
+      `;
+
+      q.options.forEach((opt, optIdx) => {
+        let btnStyle = "bg-slate-50 hover:bg-slate-100 border-2 border-slate-300 text-slate-800";
+        let markIcon = "";
+
+        if (isAnswered) {
+          if (optIdx === q.answer) {
+            btnStyle = "bg-emerald-100 border-2 border-emerald-500 text-emerald-950 font-black";
+            markIcon = "<span class='text-emerald-600 font-black text-xl'>✓ 正確</span>";
+          } else if (optIdx === selected) {
+            btnStyle = "bg-rose-100 border-2 border-rose-500 text-rose-950 font-black";
+            markIcon = "<span class='text-rose-600 font-black text-xl'>✕ 錯誤</span>";
+          } else {
+            btnStyle = "bg-slate-50 border-2 border-slate-200 text-slate-400 opacity-60";
+          }
+        }
+
+        html += `
+          <button data-opt="${optIdx}" class="quiz-opt-btn w-full text-left p-4 rounded-2xl ${btnStyle} flex items-center justify-between text-base sm:text-lg transition active:scale-[0.99]">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-slate-500 font-black text-lg w-6">${String.fromCharCode(65 + optIdx)}.</span>
+              <span class="font-bold">${opt}</span>
+            </div>
+            ${markIcon}
+          </button>
+        `;
+      });
+
+      html += `</div>`;
+
+      if (isAnswered) {
+        const isCorrect = selected === q.answer;
+        html += `
+          <div class="mt-4 p-4 rounded-2xl ${isCorrect ? 'bg-emerald-50 border-2 border-emerald-300' : 'bg-rose-50 border-2 border-rose-300'} text-base leading-relaxed">
+            <div class="font-black ${isCorrect ? 'text-emerald-700' : 'text-rose-700'} text-lg mb-1">
+              ${isCorrect ? '🎉 恭喜答對！' : '❌ 答錯了，觀念複習：'}
+            </div>
+            <div class="text-slate-800 font-bold">${q.explanation}</div>
+          </div>
+        `;
+      }
+
+      html += `</div>`;
+      quizContent.innerHTML = html;
+
+      if (!isAnswered) {
+        document.querySelectorAll('.quiz-opt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            userAnswers[index] = parseInt(btn.dataset.opt);
+            renderQuiz(index);
+          });
+        });
+      }
+    }
+
+    btnQuiz.addEventListener('click', () => {
+      quizModal.classList.remove('hidden');
+      renderQuiz(currentQuizIndex);
+    });
+
+    btnCloseQuiz.addEventListener('click', () => {
+      quizModal.classList.add('hidden');
+    });
+
+    btnPrevQuiz.addEventListener('click', () => {
+      if (currentQuizIndex > 0) {
+        currentQuizIndex--;
+        renderQuiz(currentQuizIndex);
+      }
+    });
+
+    btnNextQuiz.addEventListener('click', () => {
+      if (currentQuizIndex < quizData.length - 1) {
+        currentQuizIndex++;
+        renderQuiz(currentQuizIndex);
+      } else {
+        quizModal.classList.add('hidden');
+        showToast('測驗完成！');
+      }
+    });
+
+    quizModal.addEventListener('click', (e) => {
+      if (e.target === quizModal) quizModal.classList.add('hidden');
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      setTimeout(resizeCanvas, 80);
+      setTimeout(resizeCanvas, 300);
+    });
+    resizeCanvas();
+  </script>
+
+<!-- 網站導覽：回首頁按鈕 -->
+<a href="index.html" id="lab-home-btn" title="回到實驗室首頁"
+   style="position:fixed;left:12px;bottom:12px;z-index:45;display:flex;align-items:center;gap:6px;
+          padding:8px 14px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font:600 15px/1 system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;
+          text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.85">
+  <span style="font-size:17px">⌂</span>首頁
+</a>
+</body>
+</html>

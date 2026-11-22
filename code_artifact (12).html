@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>國中理化：三層介質連續折射教學模擬器</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    #simCanvas {
+      touch-action: none;
+    }
+    input[type=range] {
+      accent-color: #0284c7;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #0284c7;
+      border: 3px solid #ffffff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- 主體區域：9:1 左右並列佈局（已移除頂部大標題列，最大化畫布垂直空間） -->
+  <main class="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 flex flex-col lg:flex-row gap-4">
+    
+    <!-- 左側展示區 (佔 90% 寬度) -->
+    <section class="w-full lg:w-[90%] flex flex-col gap-4">
+      
+      <!-- 主光學畫布卡片 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 sm:p-5 shadow-md flex flex-col">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2.5">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span id="badge-status-dot" class="inline-block w-4 h-4 rounded-full bg-sky-600 animate-pulse"></span>
+            <span id="canvas-title" class="font-black text-2xl sm:text-3xl text-slate-900">三層介質連續折射光路追蹤</span>
+            <span id="badge-parallel-state" class="text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300">
+              出射光完全平行於入射光（θ₃ ＝ θ₁）
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-700 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-2 rounded-2xl border border-slate-300">
+              <input type="checkbox" id="chk-normals" checked class="w-5 h-5 rounded text-rose-600 focus:ring-0">
+              <span class="text-rose-700 font-black">雙法線</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-purple-50 px-3 py-2 rounded-2xl border-2 border-purple-300">
+              <input type="checkbox" id="chk-original-path" checked class="w-5 h-5 rounded text-purple-700 focus:ring-0">
+              <span class="text-purple-800 font-black">原始路徑</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-2 rounded-2xl border border-slate-300">
+              <input type="checkbox" id="chk-lateral-shift" checked class="w-5 h-5 rounded text-indigo-700 focus:ring-0">
+              <span>側移 (d)</span>
+            </label>
+            <button id="btn-quiz" class="flex items-center gap-1.5 px-4 py-2 text-base sm:text-lg font-black rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white transition shadow-md active:scale-95">
+              <span>🏆</span>
+              <span>測驗</span>
+            </button>
+            <button id="btn-reset" class="flex items-center gap-1.5 px-3.5 py-2 text-base sm:text-lg font-black rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border-2 border-slate-300 transition shadow-sm active:scale-95">
+              <span>🔄</span>
+              <span>重置</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 畫布本體 -->
+        <div class="relative w-full aspect-[16/10] min-h-[500px] bg-white rounded-2xl border-2 border-slate-300 overflow-hidden cursor-grab active:cursor-grabbing touch-none">
+          <canvas id="simCanvas" class="w-full h-full block bg-white"></canvas>
+          
+          <div class="absolute bottom-3 left-3 pointer-events-none text-sm sm:text-base font-black text-slate-700 flex items-center gap-2 bg-white/95 px-4 py-2 rounded-xl border-2 border-slate-300 shadow-md">
+            <span>👉</span>
+            <span>手指或滑鼠可直接在最上方空氣中拖曳雷射筆，改變入射角度</span>
+          </div>
+
+          <!-- 右上角鐵律小看板 -->
+          <div id="rule-board" class="absolute top-3 right-3 text-sm sm:text-base font-black px-4 py-2 rounded-xl border-2 shadow-sm bg-sky-50 text-sky-950 border-sky-300">
+            上下同介質 ➔ 出射角 ＝ 入射角 (θ₃ = θ₁)
+          </div>
+        </div>
+
+        <!-- 特大字體數據看板 -->
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-center">
+          <div class="bg-rose-50 p-4 sm:p-5 rounded-2xl border-2 border-rose-300 shadow-sm">
+            <div class="text-rose-950 font-black text-xl sm:text-2xl">入射角 (θ₁)</div>
+            <div id="stat-angle-1" class="text-3xl sm:text-5xl font-black text-rose-600 mt-1 font-mono tracking-tight">45.0°</div>
+            <div id="stat-med-1" class="text-sm sm:text-base font-bold text-rose-800 mt-1">上層：空氣 (n=1.00)</div>
+          </div>
+
+          <div class="bg-sky-50 p-4 sm:p-5 rounded-2xl border-2 border-sky-300 shadow-sm">
+            <div class="text-sky-950 font-black text-xl sm:text-2xl">夾層折射角 (θ₂)</div>
+            <div id="stat-angle-2" class="text-3xl sm:text-5xl font-black text-sky-700 mt-1 font-mono tracking-tight">28.1°</div>
+            <div id="stat-med-2" class="text-sm sm:text-base font-bold text-sky-800 mt-1">中層：玻璃 (n=1.50)</div>
+          </div>
+
+          <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-sm">
+            <div class="text-emerald-950 font-black text-xl sm:text-2xl">出射角 (θ₃)</div>
+            <div id="stat-angle-3" class="text-3xl sm:text-5xl font-black text-emerald-700 mt-1 font-mono tracking-tight">45.0°</div>
+            <div id="stat-med-3" class="text-sm sm:text-base font-bold text-emerald-800 mt-1">下層：空氣 (n=1.00)</div>
+          </div>
+
+          <div class="bg-purple-50 p-4 sm:p-5 rounded-2xl border-2 border-purple-300 shadow-sm">
+            <div class="text-purple-950 font-black text-xl sm:text-2xl">側向平移量 (d)</div>
+            <div id="stat-shift-d" class="text-3xl sm:text-5xl font-black text-purple-700 mt-1 font-mono tracking-tight">4.8 cm</div>
+            <div class="text-sm sm:text-base font-bold text-purple-800 mt-1">出射光線與原方向平移距離</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心觀念解說卡 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-5 shadow-md flex flex-col gap-3.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">💡</span>
+            <span class="font-black text-2xl sm:text-3xl text-slate-900">核心教學：厚玻璃磚與連續折射會考四大鐵律</span>
+          </div>
+          <span class="text-sm sm:text-base font-black text-sky-800 bg-sky-100 border border-sky-300 px-3.5 py-1 rounded-xl">國中會考核心</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-base sm:text-lg font-bold">
+          <div class="bg-sky-50 p-4 rounded-2xl border-2 border-sky-200 flex flex-col justify-between">
+            <div>
+              <div class="text-sky-950 font-black text-lg sm:text-xl flex items-center gap-2 mb-1.5">
+                <span class="w-3.5 h-3.5 rounded-full bg-sky-600"></span>
+                鐵律一：平行截線 ➔ 內錯角必相等（θ₂ ＝ θ₂'）
+              </div>
+              <p class="text-slate-700 leading-relaxed text-sm sm:text-base">
+                因為玻璃磚的上下兩個表面<strong>互相平行</strong>，垂直於這兩個界面的兩條法線也必定互相平行！<br>
+                因此，光線在第一界面的<strong>折射角 θ₂</strong>，與到達第二界面時的<strong>入射角 θ₂'</strong>，經由國中幾何平行線內錯角性質，<strong>必定完全相等</strong>！
+              </p>
+            </div>
+            <div class="text-sm sm:text-base font-black text-sky-900 bg-sky-200/80 px-3 py-2 rounded-xl mt-3">
+              🎯 幾何關鍵：兩條垂直法線平行 ➔ 內錯角 θ₂ ＝ θ₂'
+            </div>
+          </div>
+
+          <div class="bg-emerald-50 p-4 rounded-2xl border-2 border-emerald-200 flex flex-col justify-between">
+            <div>
+              <div class="text-emerald-950 font-black text-lg sm:text-xl flex items-center gap-2 mb-1.5">
+                <span class="w-3.5 h-3.5 rounded-full bg-emerald-600"></span>
+                鐵律二：上下同介質 ➔ 出射光完全平行於入射光
+              </div>
+              <p class="text-slate-700 leading-relaxed text-sm sm:text-base">
+                若光線由空氣進入玻璃磚（快入慢，偏向法線），再從玻璃磚穿出回空氣（慢入快，偏離法線）：<br>
+                兩次偏折程度完全對稱抵消，因此<strong>出射角必定等於原入射角（θ₃ ＝ θ₁）</strong>！<br>
+                出射光線行進方向不變，只在空間中產生了<strong>「側向平移位移 d」</strong>！
+              </p>
+            </div>
+            <div class="text-sm sm:text-base font-black text-emerald-900 bg-emerald-200/80 px-3 py-2 rounded-xl mt-3">
+              🎯 會考必殺：只要上下都是空氣，出射光必定與原光線完全平行！
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 右側極簡大字體控制面板 (佔 10% 寬度) -->
+    <aside class="w-full lg:w-[10%] lg:min-w-[230px] flex flex-col gap-4">
+      
+      <!-- 控制台 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>⚙️</span>
+          參數調控
+        </h2>
+
+        <!-- 經典情境一鍵切換 -->
+        <div class="space-y-2">
+          <div class="text-base sm:text-lg font-black text-slate-800">經典情境：</div>
+          <div class="grid grid-cols-3 lg:grid-cols-1 gap-2">
+            <button id="preset-glass-brick" class="py-3 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl border-2 border-sky-700 shadow-md transition active:scale-95">
+              🧱 厚玻璃磚
+            </button>
+            <button id="preset-water-glass" class="py-3 px-2 rounded-2xl bg-white text-slate-700 font-black text-lg sm:text-xl border-2 border-slate-300 hover:bg-slate-100 transition active:scale-95">
+              📶 階梯偏向
+            </button>
+            <button id="preset-tir-trap" class="py-3 px-2 rounded-2xl bg-white text-rose-700 font-black text-lg sm:text-xl border-2 border-rose-300 hover:bg-rose-50 transition active:scale-95">
+              ⚡ 夾層反射
+            </button>
+          </div>
+        </div>
+
+        <!-- 中間夾層介質選擇 -->
+        <div class="space-y-2 pt-1 border-t border-slate-200">
+          <div class="text-base sm:text-lg font-black text-slate-800">中層夾層：</div>
+          <div class="grid grid-cols-3 lg:grid-cols-1 gap-2">
+            <button data-med2="water" class="btn-med2 py-2.5 px-2 rounded-xl bg-white text-slate-700 border-2 border-slate-300 font-black text-base sm:text-lg hover:bg-slate-100 transition">💧 水 1.33</button>
+            <button data-med2="glass" class="btn-med2 py-2.5 px-2 rounded-xl bg-sky-700 text-white font-black text-base sm:text-lg shadow-sm transition">🪟 玻璃 1.50</button>
+            <button data-med2="diamond" class="btn-med2 py-2.5 px-2 rounded-xl bg-white text-slate-700 border-2 border-slate-300 font-black text-base sm:text-lg hover:bg-slate-100 transition">💎 鑽石 2.42</button>
+          </div>
+        </div>
+
+        <!-- 最底層介質選擇 -->
+        <div class="space-y-2 pt-1 border-t border-slate-200">
+          <div class="text-base sm:text-lg font-black text-slate-800">最底層：</div>
+          <div class="grid grid-cols-3 lg:grid-cols-1 gap-2">
+            <button data-med3="air" class="btn-med3 py-2.5 px-2 rounded-xl bg-sky-700 text-white font-black text-base sm:text-lg shadow-sm transition">🌬️ 空氣 1.00</button>
+            <button data-med3="water" class="btn-med3 py-2.5 px-2 rounded-xl bg-white text-slate-700 border-2 border-slate-300 font-black text-base sm:text-lg hover:bg-slate-100 transition">💧 水 1.33</button>
+            <button data-med3="glass" class="btn-med3 py-2.5 px-2 rounded-xl bg-white text-slate-700 border-2 border-slate-300 font-black text-base sm:text-lg hover:bg-slate-100 transition">🪟 玻璃 1.50</button>
+          </div>
+        </div>
+
+        <!-- 入射角滑桿 -->
+        <div class="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-slate-800">入射角</span>
+            <span id="val-angle-1" class="text-xl font-black text-rose-600 font-mono">45.0°</span>
+          </div>
+          <input type="range" id="range-angle-1" min="0" max="80" value="45" step="0.5" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- 夾層厚度滑桿 -->
+        <div class="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-slate-800">夾層厚</span>
+            <span id="val-layer-thick" class="text-xl font-black text-indigo-700 font-mono">140px</span>
+          </div>
+          <input type="range" id="range-layer-thick" min="80" max="200" value="140" step="5" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- 隨堂測驗 Modal -->
+  <div id="quiz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border-2 border-slate-300 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-sky-700 text-white flex items-center justify-center font-black">
+            🏆
+          </div>
+          <h3 class="font-black text-xl sm:text-2xl text-slate-900">三層介質連續折射素養測驗</h3>
+        </div>
+        <button id="btn-close-quiz" class="text-slate-400 hover:text-slate-700 p-2 text-2xl font-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto max-h-[75vh] flex flex-col gap-4" id="quiz-content"></div>
+
+      <div class="px-6 py-4 border-t-2 border-slate-100 bg-slate-50 flex justify-between items-center">
+        <span id="quiz-progress" class="text-base font-bold text-slate-500">第 1 / 4 題</span>
+        <div class="flex gap-3">
+          <button id="btn-prev-quiz" class="px-5 py-2.5 rounded-xl bg-white border-2 border-slate-300 text-base font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40">上一題</button>
+          <button id="btn-next-quiz" class="px-6 py-2.5 rounded-xl bg-sky-700 text-base font-bold text-white hover:bg-sky-800 shadow-md">下一題</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl text-base font-bold flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300">
+    <span class="text-emerald-400 text-xl">✓</span>
+    <span id="toast-text">已更新</span>
+  </div>
+
+  <script>
+    const MEDIA = {
+      air: { name: '空氣', n: 1.00, color: 'rgba(255, 255, 255, 0.0)', border: '#94a3b8' },
+      water: { name: '水', n: 1.333, color: 'rgba(186, 230, 253, 0.40)', border: '#38bdf8' },
+      glass: { name: '玻璃', n: 1.517, color: 'rgba(199, 210, 254, 0.55)', border: '#6366f1' },
+      diamond: { name: '鑽石', n: 2.417, color: 'rgba(233, 213, 255, 0.65)', border: '#a855f7' }
+    };
+
+    const state = {
+      med1: 'air',
+      med2: 'glass',
+      med3: 'air',
+      angle1: 45.0,
+      layerThick: 140,
+      rayColor: '#dc2626',
+      showNormals: true,
+      showOriginalPath: true,
+      showLateralShift: true
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const rangeAngle1 = document.getElementById('range-angle-1');
+    const valAngle1 = document.getElementById('val-angle-1');
+    const rangeLayerThick = document.getElementById('range-layer-thick');
+    const valLayerThick = document.getElementById('val-layer-thick');
+
+    const statAngle1 = document.getElementById('stat-angle-1');
+    const statMed1 = document.getElementById('stat-med-1');
+    const statAngle2 = document.getElementById('stat-angle-2');
+    const statMed2 = document.getElementById('stat-med-2');
+    const statAngle3 = document.getElementById('stat-angle-3');
+    const statMed3 = document.getElementById('stat-med-3');
+    const statShiftD = document.getElementById('stat-shift-d');
+
+    const badgeStatusDot = document.getElementById('badge-status-dot');
+    const badgeParallelState = document.getElementById('badge-parallel-state');
+    const ruleBoard = document.getElementById('rule-board');
+
+    const chkNormals = document.getElementById('chk-normals');
+    const chkOriginalPath = document.getElementById('chk-original-path');
+    const chkLateralShift = document.getElementById('chk-lateral-shift');
+    const btnReset = document.getElementById('btn-reset');
+
+    const btnPresetGlassBrick = document.getElementById('preset-glass-brick');
+    const btnPresetWaterGlass = document.getElementById('preset-water-glass');
+    const btnPresetTirTrap = document.getElementById('preset-tir-trap');
+
+    const med2Btns = document.querySelectorAll('.btn-med2');
+    const med3Btns = document.querySelectorAll('.btn-med3');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const W = rect.width || canvas.parentElement.clientWidth || 800;
+      const H = rect.height || canvas.parentElement.clientHeight || 500;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      
+      canvas.width = Math.max(300, W) * dpr;
+      canvas.height = Math.max(300, H) * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      renderSimulation();
+    }
+    window.addEventListener('resize', resizeCanvas);
+// ... existing code ... -->
+    function renderSimulation() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const W = rect.width > 0 ? rect.width : (canvas.width / dpr) || 800;
+      const H = rect.height > 0 ? rect.height : (canvas.height / dpr) || 500;
+
+      if (W <= 0 || H <= 0) return;
+
+      ctx.clearRect(0, 0, W, H);
+// ... existing code ... -->
+          ctx.fillStyle = '#7e22ce';
+          ctx.font = '900 17px sans-serif';
+          ctx.textAlign = 'center';
+          const label1X = Math.max(115, Math.min(W - 115, origEndX));
+          const label1Y = Math.min(H - 18, origEndY + 20);
+          ctx.fillText('① 原始未偏折路徑', label1X, label1Y);
+          ctx.restore();
+        }
+// ... existing code ... -->
+          ctx.fillStyle = '#a21caf';
+          ctx.font = '900 16px sans-serif';
+          ctx.textAlign = 'center';
+          const label2X = Math.max(115, Math.min(W - 115, midOrigEndX));
+          const label2Y = Math.min(H - 18, midOrigEndY + 20);
+          ctx.fillText('② 中層原路徑延伸', label2X, label2Y);
+          ctx.restore();
+        }
+      }
+
+      if (optics.isTIR_12) {
+        // 第一界面發生全反射：畫出向上反射回上層介質的光線
+        const refl1Len = Math.min(210, (y1 - 36) / Math.max(0.18, Math.cos(optics.rad1)), (W - 90 - hit1_X) / Math.max(0.05, Math.sin(optics.rad1)));
+        const refl1EndX = hit1_X + refl1Len * Math.sin(optics.rad1);
+        const refl1EndY = hit1_Y - refl1Len * Math.cos(optics.rad1);
+
+        ctx.save();
+        ctx.strokeStyle = state.rayColor;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(hit1_X, hit1_Y);
+        ctx.lineTo(refl1EndX, refl1EndY);
+        ctx.stroke();
+        drawArrow(hit1_X, hit1_Y, refl1EndX, refl1EndY, state.rayColor);
+
+        ctx.fillStyle = '#e11d48';
+        ctx.font = '900 18px sans-serif';
+        ctx.textAlign = refl1EndX > W - 220 ? 'right' : 'left';
+        ctx.fillText('⚡ 第一界面全反射 (無穿透光)', refl1EndX + (refl1EndX > W - 220 ? -12 : 12), Math.max(32, refl1EndY));
+        ctx.restore();
+      } else if (optics.rad2 !== null) {
+        ctx.save();
+        ctx.strokeStyle = state.rayColor;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(hit1_X, hit1_Y);
+        ctx.lineTo(hit2_X, hit2_Y);
+        ctx.stroke();
+        drawArrow(hit1_X, hit1_Y, hit2_X, hit2_Y, state.rayColor);
+        ctx.restore();
+
+        if (optics.isTIR_23) {
+          const refl2Len = Math.min(210, state.layerThick / Math.max(0.18, Math.cos(optics.rad2)), (W - 90 - hit2_X) / Math.max(0.05, Math.sin(optics.rad2)));
+          const reflEndX = hit2_X + refl2Len * Math.sin(optics.rad2);
+          const reflEndY = hit2_Y - refl2Len * Math.cos(optics.rad2);
+
+          ctx.save();
+          ctx.strokeStyle = state.rayColor;
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(hit2_X, hit2_Y);
+          ctx.lineTo(reflEndX, reflEndY);
+          ctx.stroke();
+          drawArrow(hit2_X, hit2_Y, reflEndX, reflEndY, state.rayColor);
+
+          ctx.fillStyle = '#e11d48';
+          ctx.font = '900 18px sans-serif';
+          ctx.textAlign = reflEndX > W - 220 ? 'right' : 'left';
+          ctx.fillText('⚡ 夾層全反射 (無出射光)', reflEndX + (reflEndX > W - 220 ? -12 : 12), Math.max(y1 + 26, reflEndY));
+          ctx.restore();
+        } else if (optics.rad3 !== null) {
+          const outLen = Math.max(70, Math.min(210, (H - 36 - hit2_Y) / Math.max(0.18, Math.cos(optics.rad3)), (W - 90 - hit2_X) / Math.max(0.05, Math.sin(optics.rad3))));
+          const outEndX = hit2_X + outLen * Math.sin(optics.rad3);
+          const outEndY = hit2_Y + outLen * Math.cos(optics.rad3);
+
+          ctx.save();
+          ctx.strokeStyle = state.rayColor;
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(hit2_X, hit2_Y);
+          ctx.lineTo(outEndX, outEndY);
+          ctx.stroke();
+          drawArrow(hit2_X, hit2_Y, outEndX, outEndY, state.rayColor);
+
+          ctx.fillStyle = state.rayColor;
+          ctx.font = '900 18px sans-serif';
+          const isPar = (state.med1 === state.med3 && state.med1 !== state.med2);
+          const textNearRight = outEndX > W - 240;
+          ctx.textAlign = textNearRight ? 'right' : 'left';
+          ctx.fillText(isPar ? '出射光線 (平行原光線)' : '出射光線', outEndX + (textNearRight ? -12 : 12), Math.min(H - 20, outEndY));
+          ctx.restore();
+// ... existing code ... -->
+      ctx.font = '900 19px sans-serif';
+      ctx.textAlign = 'left';
+
+      ctx.fillStyle = '#475569';
+      ctx.fillText(`上層介質：${m1.name} (n₁ = ${m1.n.toFixed(2)})`, 24, Math.max(28, y1 - 16));
+
+      ctx.fillStyle = '#312e81';
+      ctx.fillText(`中層夾層：${m2.name} (n₂ = ${m2.n.toFixed(2)})`, 24, (y1 + y2) / 2 + 6);
+
+      ctx.fillStyle = '#475569';
+      ctx.fillText(`下層介質：${m3.name} (n₃ = ${m3.n.toFixed(2)})`, 24, Math.min(H - 18, y2 + 28));
+
+      ctx.restore();
+    }
+
+    function drawNormalLine(x, y, len) {
+      ctx.save();
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 2.8;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(x, y - len);
+      ctx.lineTo(x, y + len);
+      ctx.stroke();
+
+      ctx.fillStyle = '#dc2626';
+      ctx.font = '900 17px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('法線 (90°)', x, y - len - 10);
+      ctx.restore();
+    }
+
+    function drawAngles(h1x, y1, h2x, y2, opt, W) {
+      ctx.save();
+      const r = 46;
+
+      if (opt.deg1 > 2) {
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(h1x, y1, r, -Math.PI / 2 - opt.rad1, -Math.PI / 2);
+        ctx.stroke();
+        const mid1 = -Math.PI / 2 - opt.rad1 / 2;
+        drawTextBadge(`θ₁=${opt.deg1.toFixed(0)}°`, h1x + Math.cos(mid1) * (r + 38), y1 + Math.sin(mid1) * (r + 38), '#dc2626', 16);
+      }
+
+      if (opt.isTIR_12 && opt.deg1 > 2) {
+        ctx.strokeStyle = '#e11d48';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(h1x, y1, r + 8, -Math.PI / 2, -Math.PI / 2 + opt.rad1);
+        ctx.stroke();
+        const midRefl1 = -Math.PI / 2 + opt.rad1 / 2;
+        drawTextBadge(`θ₁'=${opt.deg1.toFixed(0)}°`, h1x + Math.cos(midRefl1) * (r + 46), y1 + Math.sin(midRefl1) * (r + 46), '#e11d48', 16);
+      }
+
+      if (!opt.isTIR_12 && opt.deg2 !== null && opt.deg2 > 2) {
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(h1x, y1, r, Math.PI / 2 - opt.rad2, Math.PI / 2);
+        ctx.stroke();
+        const mid2 = Math.PI / 2 - opt.rad2 / 2;
+        drawTextBadge(`θ₂=${opt.deg2.toFixed(1)}°`, h1x + Math.cos(mid2) * (r + 40), y1 + Math.sin(mid2) * (r + 40), '#2563eb', 16);
+
+        if (h2x < W - 30) {
+          ctx.strokeStyle = '#2563eb';
+          ctx.beginPath();
+          ctx.arc(h2x, y2, r, -Math.PI / 2 - opt.rad2, -Math.PI / 2);
+          ctx.stroke();
+          const mid2p = -Math.PI / 2 - opt.rad2 / 2;
+          drawTextBadge(`θ₂'=${opt.deg2.toFixed(1)}°`, h2x + Math.cos(mid2p) * (r + 40), y2 + Math.sin(mid2p) * (r + 40), '#2563eb', 16);
+        }
+      }
+
+      if (!opt.isTIR_12 && !opt.isTIR_23 && opt.deg3 !== null && opt.deg3 > 2 && h2x < W - 30) {
+        ctx.strokeStyle = '#059669';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(h2x, y2, r + 8, Math.PI / 2 - opt.rad3, Math.PI / 2);
+        ctx.stroke();
+        const mid3 = Math.PI / 2 - opt.rad3 / 2;
+        drawTextBadge(`θ₃=${opt.deg3.toFixed(0)}°`, h2x + Math.cos(mid3) * (r + 48), y2 + Math.sin(mid3) * (r + 48), '#059669', 16);
+      }
+
+      ctx.restore();
+    }
+
+    function drawLateralShiftDimension(h2x, h2y, opt, W) {
+      ctx.save();
+      const rad1 = opt.rad1;
+      const dist = opt.shiftD;
+
+      const dx = dist * Math.cos(rad1);
+      const dy = -dist * Math.sin(rad1);
+
+      const anchorX = h2x + 55 * Math.sin(rad1);
+      const anchorY = h2y + 55 * Math.cos(rad1);
+
+      ctx.strokeStyle = '#7c3aed';
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.moveTo(anchorX, anchorY);
+      ctx.lineTo(anchorX + dx, anchorY + dy);
+      ctx.stroke();
+
+      const badgeX = Math.max(105, Math.min(W - 105, anchorX + dx / 2 + (dist >= 0 ? 65 : -65)));
+      const badgeY = anchorY + dy / 2;
+      drawTextBadge(`側移 d = ${(Math.abs(dist) * 0.05).toFixed(1)} cm`, badgeX, badgeY, '#7c3aed', 16);
+      ctx.restore();
+    }
+
+    function drawLaserSource(x, y, targetX, targetY, color) {
+      const angle = Math.atan2(targetY - y, targetX - x);
+      const w = 48;
+      const h = 24;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      ctx.fillStyle = '#1e3a8a';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2.5;
+      safeRoundRect(ctx, -w, -h / 2, w, h, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = color;
+      ctx.fillRect(0, -h / 3, 6, (h * 2) / 3);
+
+      ctx.restore();
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '900 17px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('入射雷射筆', x, y - 24);
+    }
+// ... existing code ... -->
+    rangeLayerThick.addEventListener('input', (e) => {
+      state.layerThick = parseInt(e.target.value);
+      valLayerThick.textContent = `${state.layerThick}px`;
+      renderSimulation();
+    });
+
+    med2Btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.med2 = btn.dataset.med2;
+        med2Btns.forEach(b => {
+          b.className = 'btn-med2 py-2.5 px-2 rounded-xl bg-white text-slate-700 border-2 border-slate-300 font-black text-base sm:text-lg hover:bg-slate-100 transition';
+        });
+        btn.className = 'btn-med2 py-2.5 px-2 rounded-xl bg-sky-700 text-white font-black text-base sm:text-lg shadow-sm transition';
+        showToast(`中層介質已切換為：${MEDIA[state.med2].name}`);
+        renderSimulation();
+      });
+    });
+
+    med3Btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.med3 = btn.dataset.med3;
+        med3Btns.forEach(b => {
+          b.className = 'btn-med3 py-2.5 px-2 rounded-xl bg-white text-slate-700 border-2 border-slate-300 font-black text-base sm:text-lg hover:bg-slate-100 transition';
+        });
+        btn.className = 'btn-med3 py-2.5 px-2 rounded-xl bg-sky-700 text-white font-black text-base sm:text-lg shadow-sm transition';
+        showToast(`下層介質已切換為：${MEDIA[state.med3].name}`);
+        renderSimulation();
+      });
+    });
+
+    chkNormals.addEventListener('change', (e) => {
+      state.showNormals = e.target.checked;
+      renderSimulation();
+    });
+
+    chkOriginalPath.addEventListener('change', (e) => {
+      state.showOriginalPath = e.target.checked;
+      renderSimulation();
+    });
+
+    chkLateralShift.addEventListener('change', (e) => {
+      state.showLateralShift = e.target.checked;
+      renderSimulation();
+    });
+
+    function syncPresetButtons(activeBtn) {
+      [btnPresetGlassBrick, btnPresetWaterGlass, btnPresetTirTrap].forEach(b => {
+        b.className = 'py-3 px-2 rounded-2xl bg-white text-slate-700 font-black text-lg sm:text-xl border-2 border-slate-300 hover:bg-slate-100 transition active:scale-95';
+      });
+      if (activeBtn === btnPresetTirTrap) {
+        activeBtn.className = 'py-3 px-2 rounded-2xl bg-rose-600 text-white font-black text-lg sm:text-xl border-2 border-rose-600 shadow-md transition active:scale-95';
+      } else {
+        activeBtn.className = 'py-3 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl border-2 border-sky-700 shadow-md transition active:scale-95';
+      }
+    }
+
+    btnPresetGlassBrick.addEventListener('click', () => {
+      state.med1 = 'air';
+      state.med2 = 'glass';
+      state.med3 = 'air';
+      state.angle1 = 45.0;
+      state.layerThick = 140;
+      rangeAngle1.value = 45;
+      rangeLayerThick.value = 140;
+      valLayerThick.textContent = '140px';
+      syncPresetButtons(btnPresetGlassBrick);
+      syncButtons();
+      showToast('已切換為：標準厚玻璃磚（平行側移鐵律）');
+      renderSimulation();
+    });
+
+    btnPresetWaterGlass.addEventListener('click', () => {
+      state.med1 = 'air';
+      state.med2 = 'water';
+      state.med3 = 'glass';
+      state.angle1 = 50.0;
+      rangeAngle1.value = 50;
+      syncPresetButtons(btnPresetWaterGlass);
+      syncButtons();
+      showToast('已切換為：階梯連續偏折（空氣 -> 水 -> 玻璃）');
+      renderSimulation();
+    });
+
+    btnPresetTirTrap.addEventListener('click', () => {
+      state.med1 = 'glass';
+      state.med2 = 'air';
+      state.med3 = 'water';
+      state.angle1 = 50.0;
+      rangeAngle1.value = 50;
+      syncPresetButtons(btnPresetTirTrap);
+      syncButtons();
+      showToast('已切換為：夾層全反射陷阱（玻璃入空氣，角度過大）');
+      renderSimulation();
+    });
+
+    function syncButtons() {
+      med2Btns.forEach(b => {
+        b.className = (b.dataset.med2 === state.med2)
+          ? 'btn-med2 py-2.5 px-2 rounded-xl bg-sky-700 text-white font-black text-base sm:text-lg shadow-sm transition'
+          : 'btn-med2 py-2.5 px-2 rounded-xl bg-white text-slate-700 border-2 border-slate-300 font-black text-base sm:text-lg hover:bg-slate-100 transition';
+      });
+      med3Btns.forEach(b => {
+        b.className = (b.dataset.med3 === state.med3)
+          ? 'btn-med3 py-2.5 px-2 rounded-xl bg-sky-700 text-white font-black text-base sm:text-lg shadow-sm transition'
+          : 'btn-med3 py-2.5 px-2 rounded-xl bg-white text-slate-700 border-2 border-slate-300 font-black text-base sm:text-lg hover:bg-slate-100 transition';
+      });
+    }
+// ... existing code ... -->

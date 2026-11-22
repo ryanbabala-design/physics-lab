@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>國中理化：光的折射與全反射實驗室（360°全向入射版）</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    #simCanvas {
+      touch-action: none;
+    }
+    input[type=range] {
+      accent-color: #0284c7;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #0284c7;
+      border: 3px solid #ffffff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- 主體區域：9:1 左右並列佈局（已移除頂部大標題列，最大化畫布垂直空間） -->
+  <main class="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 flex flex-col lg:flex-row gap-4">
+    
+    <!-- 左側展示區 (佔 90% 寬度) -->
+    <section class="w-full lg:w-[90%] flex flex-col gap-4">
+      
+      <!-- 主光學畫布卡片 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 sm:p-5 shadow-md flex flex-col">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2.5">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span id="badge-status-dot" class="inline-block w-4 h-4 rounded-full bg-sky-600 animate-pulse"></span>
+            <span id="canvas-title" class="font-black text-2xl sm:text-3xl text-slate-900">360° 光的折射與全反射分度盤</span>
+            <span id="badge-phenomenon" class="text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-sky-100 text-sky-900 border border-sky-300">
+              一般折射（折射光＋部分反射）
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-700 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-2 rounded-2xl border border-slate-300">
+              <input type="checkbox" id="chk-normal" checked class="w-5 h-5 rounded text-rose-600 focus:ring-0">
+              <span class="text-rose-700 font-black">法線</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-purple-50 px-3 py-2 rounded-2xl border-2 border-purple-300">
+              <input type="checkbox" id="chk-orig-path" checked class="w-5 h-5 rounded text-purple-600 focus:ring-0">
+              <span class="text-purple-800 font-black">原始路徑</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-2 rounded-2xl border border-slate-300">
+              <input type="checkbox" id="chk-protractor" checked class="w-5 h-5 rounded text-sky-700 focus:ring-0">
+              <span>分度盤</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-2 rounded-2xl border border-slate-300">
+              <input type="checkbox" id="chk-refl-ray" checked class="w-5 h-5 rounded text-amber-600 focus:ring-0">
+              <span>反射光</span>
+            </label>
+
+            <button id="btn-quiz" class="flex items-center gap-1.5 px-4 py-2 text-base sm:text-lg font-black rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white transition shadow-md active:scale-95">
+              <span>🏆</span>
+              <span>測驗</span>
+            </button>
+            <button id="btn-reset" class="flex items-center gap-1.5 px-3.5 py-2 text-base sm:text-lg font-black rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border-2 border-slate-300 transition shadow-sm active:scale-95">
+              <span>🔄</span>
+              <span>重置</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 畫布本體 -->
+        <div class="relative w-full aspect-[16/10] min-h-[500px] bg-white rounded-2xl border-2 border-slate-300 overflow-hidden cursor-grab active:cursor-grabbing touch-none">
+          <canvas id="simCanvas" class="w-full h-full block bg-white"></canvas>
+          
+          <div class="absolute bottom-3 left-3 pointer-events-none text-sm sm:text-base font-black text-slate-700 flex items-center gap-2 bg-white/95 px-4 py-2 rounded-xl border-2 border-slate-300 shadow-md">
+            <span>👉</span>
+            <span>手指或滑鼠可在畫布「左上、右上、左下、右下」360° 任意拖曳雷射筆入射！</span>
+          </div>
+
+          <!-- 左上角光線色彩圖例卡片 -->
+          <div class="absolute top-3 left-3 flex flex-col gap-1.5 z-10 bg-white/95 backdrop-blur-sm p-3 rounded-2xl border-2 border-slate-300 shadow-md">
+            <span class="text-xs font-black text-slate-500">光線顏色圖例</span>
+            <div class="flex items-center gap-2 text-sm font-black" id="legend-beam">
+              <span class="w-5 h-1.5 bg-red-600 rounded"></span> 入射與折射光（同道光）
+            </div>
+            <div class="flex items-center gap-2 text-sm font-black text-purple-700">
+              <span class="w-5 h-1.5 bg-purple-600 rounded"></span> 原路徑（若無偏折）
+            </div>
+            <div class="flex items-center gap-2 text-sm font-black text-amber-600">
+              <span class="w-5 h-1.5 bg-amber-500 rounded"></span> 反射光束 (部分反射)
+            </div>
+          </div>
+
+          <div id="rule-badge" class="absolute top-3 right-3 text-sm sm:text-base font-black px-4 py-2 rounded-xl border-2 shadow-sm bg-emerald-50 text-emerald-800 border-emerald-300">
+            空氣 ➔ 水 (快入慢)：偏向法線 (∠r &lt; ∠i)
+          </div>
+        </div>
+
+        <!-- 特大字體數據看板 -->
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-center">
+          <div class="bg-rose-50 p-4 sm:p-5 rounded-2xl border-2 border-rose-300 shadow-sm">
+            <div class="text-rose-950 font-black text-xl sm:text-2xl">入射角 (∠i)</div>
+            <div id="stat-angle-i" class="text-3xl sm:text-5xl font-black text-rose-600 mt-1 font-mono tracking-tight">40.0°</div>
+            <div id="stat-i-medium" class="text-sm sm:text-base font-bold text-rose-800 mt-1">在「空氣」介質中</div>
+          </div>
+
+          <div class="bg-sky-50 p-4 sm:p-5 rounded-2xl border-2 border-sky-300 shadow-sm">
+            <div class="text-sky-950 font-black text-xl sm:text-2xl">折射角 (∠r)</div>
+            <div id="stat-angle-r" class="text-3xl sm:text-5xl font-black text-sky-700 mt-1 font-mono tracking-tight">28.9°</div>
+            <div id="stat-r-medium" class="text-sm sm:text-base font-bold text-sky-800 mt-1">在「水」介質中</div>
+          </div>
+
+          <div class="bg-amber-50 p-4 sm:p-5 rounded-2xl border-2 border-amber-300 shadow-sm">
+            <div class="text-amber-950 font-black text-xl sm:text-2xl">臨界角 (θc)</div>
+            <div id="stat-angle-c" class="text-3xl sm:text-5xl font-black text-amber-700 mt-1 font-mono tracking-tight">48.8°</div>
+            <div id="stat-c-desc" class="text-sm sm:text-base font-bold text-amber-800 mt-1">僅慢入快時存在</div>
+          </div>
+
+          <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-sm">
+            <div class="text-emerald-950 font-black text-xl sm:text-2xl">偏折結論</div>
+            <div id="stat-nature" class="text-2xl sm:text-3xl font-black text-emerald-800 mt-2">偏向法線</div>
+            <div id="stat-nature-sub" class="text-sm sm:text-base font-bold text-emerald-800 mt-1">快入慢：速度變慢、折射角小</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心觀念解說卡：折射與全反射雙鐵律 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-5 shadow-md flex flex-col gap-3.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">💡</span>
+            <span class="font-black text-2xl sm:text-3xl text-slate-900">核心教學：光的折射與全反射會考必殺心法</span>
+          </div>
+          <span class="text-sm sm:text-base font-black text-sky-800 bg-sky-100 border border-sky-300 px-3.5 py-1 rounded-xl">國中會考核心</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-base sm:text-lg font-bold">
+          <div class="bg-sky-50 p-4 rounded-2xl border-2 border-sky-200 flex flex-col justify-between">
+            <div>
+              <div class="text-sky-950 font-black text-lg sm:text-xl flex items-center gap-2 mb-1.5">
+                <span class="w-3.5 h-3.5 rounded-full bg-sky-600"></span>
+                心法一：快入慢 ➔ 偏向法線（角度變小）
+              </div>
+              <p class="text-slate-700 leading-relaxed text-sm sm:text-base">
+                當光線從<strong>速度快（折射率小）</strong>的介質射入<strong>速度慢（折射率大）</strong>的介質（例如：空氣 ➔ 水/玻璃）：<br>
+                • 光線往<strong>法線靠攏</strong>，夾在法線與「原始路徑」之間（∠r &lt; ∠i）。<br>
+                • <strong>永遠不會發生全反射！</strong>
+              </p>
+            </div>
+            <div class="text-sm sm:text-base font-black text-sky-900 bg-sky-200/80 px-3 py-2 rounded-xl mt-3">
+              🎯 口訣：車輪快入沙地 ➔ 往內偏（偏向法線）
+            </div>
+          </div>
+
+          <div class="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 flex flex-col justify-between">
+            <div>
+              <div class="text-amber-950 font-black text-lg sm:text-xl flex items-center gap-2 mb-1.5">
+                <span class="w-3.5 h-3.5 rounded-full bg-amber-600"></span>
+                心法二：慢入快 ➔ 偏離法線（全反射前提）
+              </div>
+              <p class="text-slate-700 leading-relaxed text-sm sm:text-base">
+                當光線從<strong>速度慢</strong>的介質射向<strong>速度快</strong>的介質（例如：水/玻璃 ➔ 空氣）：<br>
+                • 光線<strong>遠離法線</strong>（∠r &gt; ∠i）；當入射角<strong>大於臨界角（∠i &gt; θc）</strong>，折射光完全消失，產生 <strong>100% 全反射</strong>！
+              </p>
+            </div>
+            <div class="text-sm sm:text-base font-black text-amber-900 bg-amber-200/80 px-3 py-2 rounded-xl mt-3">
+              🎯 全反射兩大條件：① 慢入快 ； ② 入射角大於臨界角
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 右側極簡大字體控制面板 (佔 10% 寬度) -->
+    <aside class="w-full lg:w-[10%] lg:min-w-[230px] flex flex-col gap-4">
+      
+      <!-- 控制台 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>⚙️</span>
+          參數調控
+        </h2>
+
+        <!-- 入射來源上下介質切換 -->
+        <div class="space-y-2">
+          <div class="text-base sm:text-lg font-black text-slate-800">入射方向：</div>
+          <div class="grid grid-cols-2 lg:grid-cols-1 gap-2">
+            <button id="btn-src-air" class="py-3 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl border-2 border-sky-700 shadow-md transition active:scale-95">
+              ⬇️ 空氣射入
+            </button>
+            <button id="btn-src-bottom" class="py-3 px-2 rounded-2xl bg-white text-slate-700 font-black text-lg sm:text-xl border-2 border-slate-300 shadow-sm hover:bg-slate-100 transition active:scale-95">
+              ⬆️ 水槽射出
+            </button>
+          </div>
+        </div>
+
+        <!-- 入射方向左右象限切換 -->
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btn-side-left" class="py-2.5 px-2 rounded-xl bg-indigo-700 text-white font-black text-base sm:text-lg border-2 border-indigo-700 shadow-sm transition active:scale-95">
+            ◀ 左側
+          </button>
+          <button id="btn-side-right" class="py-2.5 px-2 rounded-xl bg-white text-slate-700 font-black text-base sm:text-lg border-2 border-slate-300 shadow-sm hover:bg-slate-100 transition active:scale-95">
+            右側 ▶
+          </button>
+        </div>
+
+        <!-- 下方介質種類切換 -->
+        <div class="space-y-2 pt-1 border-t border-slate-200">
+          <div class="text-base sm:text-lg font-black text-slate-800">水槽介質：</div>
+          <div class="grid grid-cols-3 lg:grid-cols-1 gap-2">
+            <button data-med="water" class="btn-med py-3 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95">
+              💧 水 1.33
+            </button>
+            <button data-med="glass" class="btn-med py-3 px-2 rounded-2xl bg-white text-slate-700 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95">
+              🪟 玻璃 1.50
+            </button>
+            <button data-med="diamond" class="btn-med py-3 px-2 rounded-2xl bg-white text-slate-700 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95">
+              💎 鑽石 2.42
+            </button>
+          </div>
+        </div>
+
+        <!-- 入射角滑桿 -->
+        <div class="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-slate-800">入射角</span>
+            <span id="val-angle-i" class="text-xl font-black text-rose-600 font-mono">40.0°</span>
+          </div>
+          <input type="range" id="range-angle-i" min="0" max="88" value="40" step="0.5" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- 經典角度與全反射快捷鍵 -->
+        <div class="grid grid-cols-2 gap-2">
+          <button data-quick="0" class="btn-quick py-2.5 px-1 rounded-xl bg-white border-2 border-slate-300 text-slate-800 font-black text-base sm:text-lg hover:bg-slate-100 transition">
+            0° 垂直
+          </button>
+          <button data-quick="30" class="btn-quick py-2.5 px-1 rounded-xl bg-white border-2 border-slate-300 text-slate-800 font-black text-base sm:text-lg hover:bg-slate-100 transition">
+            30°
+          </button>
+          <button data-quick="45" class="btn-quick py-2.5 px-1 rounded-xl bg-white border-2 border-slate-300 text-slate-800 font-black text-base sm:text-lg hover:bg-slate-100 transition">
+            45°
+          </button>
+          <button id="btn-quick-critical" class="py-2.5 px-1 rounded-xl bg-amber-500 text-slate-950 font-black text-base sm:text-lg hover:bg-amber-600 transition shadow-sm">
+            ⚡ 臨界角
+          </button>
+        </div>
+
+        <!-- 雷射光束顏色 -->
+        <div class="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 flex items-center justify-between">
+          <span class="text-base sm:text-lg font-black text-slate-800">光色</span>
+          <div class="flex gap-2">
+            <button data-color="#dc2626" class="color-btn w-9 h-9 rounded-full bg-red-600 border-4 border-white shadow-md ring-2 ring-red-500 transition active:scale-90"></button>
+            <button data-color="#16a34a" class="color-btn w-9 h-9 rounded-full bg-green-600 border-4 border-white shadow-md ring-0 transition active:scale-90"></button>
+            <button data-color="#2563eb" class="color-btn w-9 h-9 rounded-full bg-blue-600 border-4 border-white shadow-md ring-0 transition active:scale-90"></button>
+          </div>
+        </div>
+
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- 隨堂測驗 Modal -->
+  <div id="quiz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border-2 border-slate-300 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-sky-700 text-white flex items-center justify-center font-black">
+            🏆
+          </div>
+          <h3 class="font-black text-xl sm:text-2xl text-slate-900">光的折射與全反射素養測驗</h3>
+        </div>
+        <button id="btn-close-quiz" class="text-slate-400 hover:text-slate-700 p-2 text-2xl font-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto max-h-[75vh] flex flex-col gap-4" id="quiz-content"></div>
+
+      <div class="px-6 py-4 border-t-2 border-slate-100 bg-slate-50 flex justify-between items-center">
+        <span id="quiz-progress" class="text-base font-bold text-slate-500">第 1 / 4 題</span>
+        <div class="flex gap-3">
+          <button id="btn-prev-quiz" class="px-5 py-2.5 rounded-xl bg-white border-2 border-slate-300 text-base font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40">上一題</button>
+          <button id="btn-next-quiz" class="px-6 py-2.5 rounded-xl bg-sky-700 text-base font-bold text-white hover:bg-sky-800 shadow-md">下一題</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl text-base font-bold flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300">
+    <span class="text-emerald-400 text-xl">✓</span>
+    <span id="toast-text">已更新</span>
+  </div>
+
+  <script>
+    // 介質資料庫
+    const MEDIA = {
+      air: { name: '空氣', n: 1.000, color: 'transparent' },
+      water: { name: '水', n: 1.333, color: 'rgba(186, 230, 253, 0.45)' },
+      glass: { name: '玻璃', n: 1.500, color: 'rgba(199, 210, 254, 0.55)' },
+      diamond: { name: '鑽石', n: 2.417, color: 'rgba(233, 213, 255, 0.65)' }
+    };
+
+    const state = {
+      sourceFrom: 'air',     // 'air' (上方) 或 'bottom' (下方)
+      sideX: -1,             // -1 (左側入射) 或 +1 (右側入射)，完整支援 360°
+      bottomMedium: 'water', // 'water', 'glass', 'diamond'
+      angleI: 40.0,
+      rayColor: '#dc2626',
+      showNormal: true,
+      showOrigPath: true,
+      showProtractor: true,
+      showReflRay: true
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const rangeAngleI = document.getElementById('range-angle-i');
+    const valAngleI = document.getElementById('val-angle-i');
+    const statAngleI = document.getElementById('stat-angle-i');
+    const statIMedium = document.getElementById('stat-i-medium');
+    const statAngleR = document.getElementById('stat-angle-r');
+    const statRMedium = document.getElementById('stat-r-medium');
+    const statAngleC = document.getElementById('stat-angle-c');
+    const statNature = document.getElementById('stat-nature');
+    const statNatureSub = document.getElementById('stat-nature-sub');
+
+    const badgeStatusDot = document.getElementById('badge-status-dot');
+    const badgePhenomenon = document.getElementById('badge-phenomenon');
+    const ruleBadge = document.getElementById('rule-badge');
+    const legendBeam = document.getElementById('legend-beam');
+
+    const btnSrcAir = document.getElementById('btn-src-air');
+    const btnSrcBottom = document.getElementById('btn-src-bottom');
+    const btnSideLeft = document.getElementById('btn-side-left');
+    const btnSideRight = document.getElementById('btn-side-right');
+    const btnQuickCritical = document.getElementById('btn-quick-critical');
+    const btnReset = document.getElementById('btn-reset');
+
+    const chkNormal = document.getElementById('chk-normal');
+    const chkOrigPath = document.getElementById('chk-orig-path');
+    const chkProtractor = document.getElementById('chk-protractor');
+    const chkReflRay = document.getElementById('chk-refl-ray');
+
+    const medBtns = document.querySelectorAll('.btn-med');
+    const quickBtns = document.querySelectorAll('.btn-quick');
+    const colorBtns = document.querySelectorAll('.color-btn');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const W = rect.width || canvas.parentElement.clientWidth || 800;
+      const H = rect.height || canvas.parentElement.clientHeight || 500;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      
+      canvas.width = Math.max(300, W) * dpr;
+      canvas.height = Math.max(300, H) * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      renderSimulation();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // 物理司乃耳定律計算
+    function calcOptics() {
+      const nAir = MEDIA.air.n;
+      const nBottom = MEDIA[state.bottomMedium].n;
+
+      let n1, n2, med1Name, med2Name;
+      if (state.sourceFrom === 'air') {
+        n1 = nAir;
+        n2 = nBottom;
+        med1Name = '空氣';
+        med2Name = MEDIA[state.bottomMedium].name;
+      } else {
+        n1 = nBottom;
+        n2 = nAir;
+        med1Name = MEDIA[state.bottomMedium].name;
+        med2Name = '空氣';
+      }
+
+      const radI = (state.angleI * Math.PI) / 180;
+
+      // 臨界角 (僅在 n1 > n2 時存在)
+      let criticalDeg = null;
+      if (n1 > n2) {
+        criticalDeg = Math.asin(n2 / n1) * (180 / Math.PI);
+      }
+
+      // 折射角
+      const sinR = (n1 * Math.sin(radI)) / n2;
+      let radR = null;
+      let isTIR = false; // 是否全反射
+
+      if (sinR > 1.0) {
+        isTIR = true;
+      } else {
+        radR = Math.asin(sinR);
+      }
+
+      const degR = radR !== null ? (radR * 180 / Math.PI) : null;
+
+      return {
+        n1, n2, med1Name, med2Name,
+        radI, radR,
+        degI: state.angleI,
+        degR,
+        criticalDeg,
+        isTIR
+      };
+    }
+
+    function renderSimulation() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const W = rect.width > 0 ? rect.width : (canvas.width / dpr) || 800;
+      const H = rect.height > 0 ? rect.height : (canvas.height / dpr) || 500;
+
+      if (W <= 0 || H <= 0) return;
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+
+      const optics = calcOptics();
+
+      const originX = W / 2;
+      const interfaceY = H * 0.50;
+      const radius = Math.min(W * 0.38, H * 0.42);
+
+      // 1. 繪製下方介質水槽
+      drawBottomMedium(W, H, interfaceY);
+
+      // 2. 繪製 360° 分度盤刻度
+      if (state.showProtractor) {
+        drawProtractor(originX, interfaceY, radius);
+      }
+
+      // 3. 繪製垂直法線
+      if (state.showNormal) {
+        drawNormal(originX, interfaceY, radius * 1.05);
+      }
+
+      // 4. 計算 360° 光線坐標 (支援左上、右上、左下、右下四象限)
+      const rayLen = radius * 0.95;
+      const isFromAir = (state.sourceFrom === 'air');
+      const inSignY = isFromAir ? -1 : 1; // -1 為上方空氣，+1 為下方水槽
+      const inSideX = state.sideX;        // -1 為左側入射，+1 為右側入射
+
+      // 入射光源端點
+      const inStartX = originX + inSideX * rayLen * Math.sin(optics.radI);
+      const inStartY = interfaceY + inSignY * rayLen * Math.cos(optics.radI);
+
+      // 繪製入射光線 (同色光)
+      ctx.save();
+      ctx.strokeStyle = state.rayColor;
+      ctx.lineWidth = 5.5;
+      ctx.beginPath();
+      ctx.moveTo(inStartX, inStartY);
+      ctx.lineTo(originX, interfaceY);
+      ctx.stroke();
+      drawArrow(inStartX, inStartY, originX, interfaceY, state.rayColor);
+      ctx.restore();
+
+      drawLaserSource(inStartX, inStartY, originX, interfaceY, state.rayColor);
+
+      // 5. 光的原始路徑（若無介質偏折之直線延伸虛線，洋紫色）
+      if (state.showOrigPath && state.angleI > 0) {
+        const origEndX = originX - inSideX * rayLen * Math.sin(optics.radI);
+        const origEndY = interfaceY - inSignY * rayLen * Math.cos(optics.radI);
+
+        ctx.save();
+        ctx.strokeStyle = '#9333ea';
+        ctx.lineWidth = 2.8;
+        ctx.setLineDash([6, 5]);
+        ctx.beginPath();
+        ctx.moveTo(originX, interfaceY);
+        ctx.lineTo(origEndX, origEndY);
+        ctx.stroke();
+
+        ctx.fillStyle = '#7e22ce';
+        ctx.font = '900 17px sans-serif';
+        ctx.textAlign = (-inSideX > 0) ? 'left' : 'right';
+        const labelX = (originX + origEndX) / 2 + (-inSideX * 16);
+        const labelY = (interfaceY + origEndY) / 2;
+        ctx.fillText('光的原始直線路徑', labelX, labelY);
+        ctx.restore();
+      }
+
+      // 6. 折射光線 (若未發生全反射，同色呈現貫穿至對角象限)
+      if (!optics.isTIR && optics.radR !== null) {
+        const outSignY = -inSignY;
+        const outSideX = -inSideX;
+        const outEndX = originX + outSideX * rayLen * Math.sin(optics.radR);
+        const outEndY = interfaceY + outSignY * rayLen * Math.cos(optics.radR);
+
+        ctx.save();
+        ctx.strokeStyle = state.rayColor;
+        ctx.lineWidth = 5.5;
+        ctx.beginPath();
+        ctx.moveTo(originX, interfaceY);
+        ctx.lineTo(outEndX, outEndY);
+        ctx.stroke();
+        drawArrow(originX, interfaceY, outEndX, outEndY, state.rayColor);
+
+        ctx.fillStyle = state.rayColor;
+        ctx.font = '900 18px sans-serif';
+        ctx.textAlign = (outSideX > 0) ? 'left' : 'right';
+        ctx.fillText('折射光線', outEndX + (outSideX * 12), outEndY);
+        ctx.restore();
+
+        // 標註折射角弧線
+        drawAngleArcByEndpoint(originX, interfaceY, outEndX, outEndY, outSignY, `∠r=${optics.degR.toFixed(1)}°`, state.rayColor);
+      }
+
+      // 7. 反射光線 (琥珀金黃色；全反射時轉為高強度雷射同色)
+      if (state.showReflRay || optics.isTIR) {
+        const reflSignY = inSignY;
+        const reflSideX = -inSideX;
+        const reflEndX = originX + reflSideX * rayLen * Math.sin(optics.radI);
+        const reflEndY = interfaceY + reflSignY * rayLen * Math.cos(optics.radI);
+
+        ctx.save();
+        const reflColor = optics.isTIR ? state.rayColor : '#d97706';
+        ctx.strokeStyle = reflColor;
+        ctx.lineWidth = optics.isTIR ? 5.5 : 3.5;
+        if (!optics.isTIR) ctx.setLineDash([8, 4]);
+
+        ctx.beginPath();
+        ctx.moveTo(originX, interfaceY);
+        ctx.lineTo(reflEndX, reflEndY);
+        ctx.stroke();
+        drawArrow(originX, interfaceY, reflEndX, reflEndY, reflColor);
+
+        ctx.fillStyle = reflColor;
+        ctx.font = '900 18px sans-serif';
+        ctx.textAlign = (reflSideX > 0) ? 'left' : 'right';
+        ctx.fillText(optics.isTIR ? '100% 全反射光線' : '部分反射光', reflEndX + (reflSideX * 12), reflEndY);
+        ctx.restore();
+      }
+
+      // 8. 著陸接觸點高亮
+      ctx.save();
+      ctx.fillStyle = '#fde047';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(originX, interfaceY, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // 9. 標註入射角弧線
+      drawAngleArcByEndpoint(originX, interfaceY, inStartX, inStartY, inSignY, `∠i=${optics.degI.toFixed(0)}°`, '#dc2626');
+
+      updateUIElements(optics);
+    }
+
+    // 繪製水槽下方介質
+    function drawBottomMedium(W, H, cy) {
+      const med = MEDIA[state.bottomMedium];
+
+      ctx.save();
+      ctx.fillStyle = med.color;
+      ctx.fillRect(0, cy, W, H - cy);
+
+      // 界面分隔線
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(0, cy);
+      ctx.lineTo(W, cy);
+      ctx.stroke();
+
+      // 介質文字標記（置於左側安全區，放大字級）
+      ctx.font = '900 19px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#475569';
+      ctx.fillText('上方：空氣 (n = 1.00，光速快)', 24, cy - 16);
+
+      ctx.fillStyle = '#0369a1';
+      ctx.fillText(`下方：水槽【${med.name}】 (n = ${med.n.toFixed(2)}，光速慢)`, 24, cy + 30);
+      ctx.restore();
+    }
+
+    // 繪製 360° 分度盤
+    function drawProtractor(cx, cy, r) {
+      ctx.save();
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      for (let deg = 0; deg < 360; deg += 5) {
+        const rad = (deg * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+
+        const isMajor = deg % 10 === 0;
+        const isAxis = deg % 90 === 0;
+        const tickLen = isAxis ? 14 : (isMajor ? 9 : 5);
+
+        ctx.strokeStyle = isAxis ? '#0284c7' : (isMajor ? '#64748b' : '#cbd5e1');
+        ctx.lineWidth = isAxis ? 2.5 : (isMajor ? 1.5 : 1);
+
+        ctx.beginPath();
+        ctx.moveTo(cx + cos * r, cy + sin * r);
+        ctx.lineTo(cx + cos * (r - tickLen), cy + sin * (r - tickLen));
+        ctx.stroke();
+
+        // 刻度文字標註（以垂直法線為 0°）
+        if (deg % 30 === 0 && deg % 90 !== 0) {
+          let normalRelAngle;
+          if (deg < 90) normalRelAngle = 90 - deg;
+          else if (deg < 180) normalRelAngle = deg - 90;
+          else if (deg < 270) normalRelAngle = 270 - deg;
+          else normalRelAngle = deg - 270;
+
+          const textR = r - 26;
+          ctx.fillStyle = '#64748b';
+          ctx.font = '900 13px monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`${normalRelAngle}°`, cx + cos * textR, cy + sin * textR);
+        }
+      }
+      ctx.restore();
+    }
+
+    // 繪製垂直法線
+    function drawNormal(cx, cy, len) {
+      ctx.save();
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 2.8;
+      ctx.setLineDash([5, 5]);
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - len);
+      ctx.lineTo(cx, cy + len);
+      ctx.stroke();
+
+      ctx.fillStyle = '#dc2626';
+      ctx.font = '900 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('法線 (90°)', cx, cy - len - 8);
+      ctx.restore();
+    }
+
+    // 繪製雷射筆槍身
+    function drawLaserSource(x, y, targetX, targetY, color) {
+      const angle = Math.atan2(targetY - y, targetX - x);
+      const w = 48;
+      const h = 24;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2.5;
+      safeRoundRect(ctx, -w, -h / 2, w, h, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = color;
+      ctx.fillRect(0, -h / 3, 6, (h * 2) / 3);
+
+      ctx.restore();
+
+      ctx.save();
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '900 17px sans-serif';
+      ctx.textAlign = 'center';
+      const labelY = (y < targetY) ? (y - 24) : (y + 34);
+      ctx.fillText('雷射光源', x, labelY);
+      ctx.restore();
+    }
+
+    // 精準繪製任意四象限的角度弧線（自動計算與垂直法線的最短夾角弧）
+    function drawAngleArcByEndpoint(cx, cy, endX, endY, signY, text, color) {
+      if (state.angleI < 1.5 && text.startsWith('∠i')) return;
+      ctx.save();
+      const r = 56;
+
+      const normAngle = signY < 0 ? -Math.PI / 2 : Math.PI / 2;
+      const rayAngle = Math.atan2(endY - cy, endX - cx);
+
+      let diff = rayAngle - normAngle;
+      while (diff > Math.PI) diff -= 2 * Math.PI;
+      while (diff < -Math.PI) diff += 2 * Math.PI;
+
+      if (Math.abs(diff) < 0.02) {
+        ctx.restore();
+        return;
+      }
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, normAngle, normAngle + diff, diff < 0);
+      ctx.stroke();
+
+      const midAngle = normAngle + diff / 2;
+      const textX = cx + Math.cos(midAngle) * (r + 36);
+      const textY = cy + Math.sin(midAngle) * (r + 36);
+
+      ctx.fillStyle = color;
+      ctx.font = '900 18px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, textX, textY);
+      ctx.restore();
+    }
+
+    function drawArrow(x1, y1, x2, y2, color) {
+      const midX = (x1 + x2) / 2;
+      const midY = (y1 + y2) / 2;
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      const len = 18;
+
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(midX + Math.cos(angle) * 4, midY + Math.sin(angle) * 4);
+      ctx.lineTo(midX - len * Math.cos(angle - Math.PI / 5), midY - len * Math.sin(angle - Math.PI / 5));
+      ctx.lineTo(midX - len * 0.45 * Math.cos(angle), midY - len * 0.45 * Math.sin(angle));
+      ctx.lineTo(midX - len * Math.cos(angle + Math.PI / 5), midY - len * Math.sin(angle + Math.PI / 5));
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function safeRoundRect(c, x, y, w, h, r) {
+      if (typeof c.roundRect === 'function') {
+        c.beginPath();
+        c.roundRect(x, y, w, h, r);
+      } else {
+        c.beginPath();
+        c.moveTo(x + r, y);
+        c.lineTo(x + w - r, y);
+        c.quadraticCurveTo(x + w, y, x + w, y + r);
+        c.lineTo(x + w, y + h - r);
+        c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        c.lineTo(x + r, y + h);
+        c.quadraticCurveTo(x, y + h, x, y + h - r);
+        c.lineTo(x, y + r);
+        c.quadraticCurveTo(x, y, x + r, y);
+        c.closePath();
+      }
+    }
+
+    function syncControlButtons() {
+      if (state.sourceFrom === 'air') {
+        btnSrcAir.className = 'py-3 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl border-2 border-sky-700 shadow-md transition active:scale-95';
+        btnSrcBottom.className = 'py-3 px-2 rounded-2xl bg-white text-slate-700 font-black text-lg sm:text-xl border-2 border-slate-300 shadow-sm hover:bg-slate-100 transition active:scale-95';
+      } else {
+        btnSrcBottom.className = 'py-3 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl border-2 border-sky-700 shadow-md transition active:scale-95';
+        btnSrcAir.className = 'py-3 px-2 rounded-2xl bg-white text-slate-700 font-black text-lg sm:text-xl border-2 border-slate-300 shadow-sm hover:bg-slate-100 transition active:scale-95';
+      }
+
+      if (state.sideX < 0) {
+        btnSideLeft.className = 'py-2.5 px-2 rounded-xl bg-indigo-700 text-white font-black text-base sm:text-lg border-2 border-indigo-700 shadow-sm transition active:scale-95';
+        btnSideRight.className = 'py-2.5 px-2 rounded-xl bg-white text-slate-700 font-black text-base sm:text-lg border-2 border-slate-300 shadow-sm hover:bg-slate-100 transition active:scale-95';
+      } else {
+        btnSideRight.className = 'py-2.5 px-2 rounded-xl bg-indigo-700 text-white font-black text-base sm:text-lg border-2 border-indigo-700 shadow-sm transition active:scale-95';
+        btnSideLeft.className = 'py-2.5 px-2 rounded-xl bg-white text-slate-700 font-black text-base sm:text-lg border-2 border-slate-300 shadow-sm hover:bg-slate-100 transition active:scale-95';
+      }
+    }
+
+    function updateUIElements(opt) {
+      valAngleI.textContent = `${state.angleI.toFixed(1)}°`;
+      statAngleI.textContent = `${state.angleI.toFixed(1)}°`;
+      const sideLabel = state.sideX < 0 ? '左側' : '右側';
+      statIMedium.textContent = `在「${opt.med1Name}」(${sideLabel}入射)`;
+
+      if (opt.criticalDeg !== null) {
+        statAngleC.textContent = `${opt.criticalDeg.toFixed(1)}°`;
+      } else {
+        statAngleC.textContent = '無 (快入慢)';
+      }
+
+      if (opt.isTIR) {
+        statAngleR.textContent = '無折射光';
+        statRMedium.textContent = '100% 反射回原介質';
+        statNature.textContent = '100% 全反射';
+        statNature.className = 'text-2xl sm:text-3xl font-black text-rose-700 mt-2';
+        statNatureSub.textContent = `入射角 (${opt.degI}°) > 臨界角 (${opt.criticalDeg.toFixed(1)}°)`;
+
+        badgeStatusDot.className = 'inline-block w-4 h-4 rounded-full bg-rose-600 animate-pulse';
+        badgePhenomenon.textContent = '⚡ 100% 全反射（無折射光）';
+        badgePhenomenon.className = 'text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-rose-100 text-rose-900 border border-rose-300';
+        ruleBadge.textContent = `慢入快：∠i (${opt.degI}°) > 臨界角 (${opt.criticalDeg.toFixed(1)}°) ➔ 全反射！`;
+        ruleBadge.className = 'absolute top-3 right-3 text-sm sm:text-base font-black px-4 py-2 rounded-xl border-2 shadow-sm bg-rose-50 text-rose-800 border-rose-300';
+      } else {
+        statAngleR.textContent = `${opt.degR.toFixed(1)}°`;
+        statRMedium.textContent = `在「${opt.med2Name}」介質中`;
+
+        if (state.sourceFrom === 'air') {
+          statNature.textContent = '偏向法線';
+          statNature.className = 'text-2xl sm:text-3xl font-black text-emerald-800 mt-2';
+          statNatureSub.textContent = '快入慢：速度變慢、折射角變小 (∠r < ∠i)';
+          ruleBadge.textContent = `${opt.med1Name} ➔ ${opt.med2Name} (快入慢)：偏向法線 (∠r < ∠i)`;
+          ruleBadge.className = 'absolute top-3 right-3 text-sm sm:text-base font-black px-4 py-2 rounded-xl border-2 shadow-sm bg-emerald-50 text-emerald-800 border-emerald-300';
+        } else {
+          statNature.textContent = '偏離法線';
+          statNature.className = 'text-2xl sm:text-3xl font-black text-amber-700 mt-2';
+          statNatureSub.textContent = '慢入快：速度變快、折射角變大 (∠r > ∠i)';
+          ruleBadge.textContent = `${opt.med1Name} ➔ ${opt.med2Name} (慢入快)：偏離法線 (∠r > ∠i)`;
+          ruleBadge.className = 'absolute top-3 right-3 text-sm sm:text-base font-black px-4 py-2 rounded-xl border-2 shadow-sm bg-amber-50 text-amber-800 border-amber-300';
+        }
+
+        badgeStatusDot.className = 'inline-block w-4 h-4 rounded-full bg-sky-600 animate-pulse';
+        badgePhenomenon.textContent = '一般折射（折射光＋部分反射）';
+        badgePhenomenon.className = 'text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-sky-100 text-sky-900 border border-sky-300';
+      }
+    }
+
+    // 入射上下介質切換
+    btnSrcAir.addEventListener('click', () => {
+      state.sourceFrom = 'air';
+      syncControlButtons();
+      showToast('已切換為：上方空氣入射（快入慢，偏向法線）');
+      renderSimulation();
+    });
+
+    btnSrcBottom.addEventListener('click', () => {
+      state.sourceFrom = 'bottom';
+      syncControlButtons();
+      showToast('已切換為：下方水槽入射（慢入快，可探究臨界角與全反射）');
+      renderSimulation();
+    });
+
+    // 入射左右方向切換
+    btnSideLeft.addEventListener('click', () => {
+      state.sideX = -1;
+      syncControlButtons();
+      showToast('已切換為：從左側象限射入');
+      renderSimulation();
+    });
+
+    btnSideRight.addEventListener('click', () => {
+      state.sideX = 1;
+      syncControlButtons();
+      showToast('已切換為：從右側象限射入');
+      renderSimulation();
+    });
+
+    // 介質按鈕切換
+    medBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.bottomMedium = btn.dataset.med;
+        medBtns.forEach(b => {
+          b.className = 'btn-med py-3 px-2 rounded-2xl bg-white text-slate-700 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95';
+        });
+        btn.className = 'btn-med py-3 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95';
+        showToast(`水槽介質已切換為：${MEDIA[state.bottomMedium].name}`);
+        renderSimulation();
+      });
+    });
+
+    // 角度滑桿
+    rangeAngleI.addEventListener('input', (e) => {
+      state.angleI = parseFloat(e.target.value);
+      renderSimulation();
+    });
+
+    // 經典角度快捷
+    quickBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const deg = parseFloat(btn.dataset.quick);
+        state.angleI = deg;
+        rangeAngleI.value = deg;
+        showToast(`已切換為經典角度：${deg}°`);
+        renderSimulation();
+      });
+    });
+
+    // 一鍵臨界角快捷
+    btnQuickCritical.addEventListener('click', () => {
+      if (state.sourceFrom !== 'bottom') {
+        state.sourceFrom = 'bottom';
+        syncControlButtons();
+      }
+      const opt = calcOptics();
+      if (opt.criticalDeg !== null) {
+        state.angleI = Math.round(opt.criticalDeg * 10) / 10;
+        rangeAngleI.value = state.angleI;
+        showToast(`已就位臨界角 θc = ${state.angleI}°（折射角恰為 90°）`);
+        renderSimulation();
+      }
+    });
+
+    // 雷射顏色切換
+    colorBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        colorBtns.forEach(b => b.classList.replace('ring-2', 'ring-0'));
+        btn.classList.replace('ring-0', 'ring-2');
+        state.rayColor = btn.dataset.color;
+        legendBeam.innerHTML = `<span class="w-5 h-1.5 rounded" style="background-color: ${state.rayColor}"></span> 入射與折射光（同道光）`;
+        showToast('雷射光束顏色已切換');
+        renderSimulation();
+      });
+    });
+
+    chkNormal.addEventListener('change', (e) => {
+      state.showNormal = e.target.checked;
+      renderSimulation();
+    });
+
+    chkOrigPath.addEventListener('change', (e) => {
+      state.showOrigPath = e.target.checked;
+      renderSimulation();
+    });
+
+    chkProtractor.addEventListener('change', (e) => {
+      state.showProtractor = e.target.checked;
+      renderSimulation();
+    });
+
+    chkReflRay.addEventListener('change', (e) => {
+      state.showReflRay = e.target.checked;
+      renderSimulation();
+    });
+
+    btnReset.addEventListener('click', () => {
+      state.sourceFrom = 'air';
+      state.sideX = -1;
+      state.bottomMedium = 'water';
+      state.angleI = 40.0;
+      state.rayColor = '#dc2626';
+      state.showNormal = true;
+      state.showOrigPath = true;
+      state.showProtractor = true;
+      state.showReflRay = true;
+
+      rangeAngleI.value = 40;
+      chkNormal.checked = true;
+      chkOrigPath.checked = true;
+      chkProtractor.checked = true;
+      chkReflRay.checked = true;
+
+      syncControlButtons();
+      medBtns[0].click();
+      colorBtns[0].click();
+      showToast('實驗參數已重置');
+      renderSimulation();
+    });
+
+    // 支援完整 360° 四象限拖曳旋轉雷射筆（左上、右上、左下、右下皆可入射）
+    let isDragging = false;
+    function handlePointerDrag(e) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.touches ? e.touches[0].clientX : e.clientX;
+      const cy = e.touches ? e.touches[0].clientY : e.clientY;
+      const x = cx - rect.left;
+      const y = cy - rect.top;
+
+      const originX = rect.width / 2;
+      const interfaceY = rect.height * 0.50;
+
+      const dx = x - originX;       // 負數在左半邊，正數在右半邊
+      const dy = y - interfaceY;    // 負數在上方空氣，正數在下方水槽
+
+      if (Math.abs(dx) > 4) {
+        state.sideX = dx >= 0 ? 1 : -1;
+      }
+
+      if (dy < -6) {
+        state.sourceFrom = 'air';
+      } else if (dy > 6) {
+        state.sourceFrom = 'bottom';
+      }
+
+      syncControlButtons();
+
+      let deg = Math.atan2(Math.abs(dx), Math.abs(dy)) * (180 / Math.PI);
+      deg = Math.max(0, Math.min(88, deg));
+      state.angleI = Math.round(deg * 2) / 2;
+      rangeAngleI.value = state.angleI;
+      renderSimulation();
+    }
+
+    canvas.addEventListener('mousedown', (e) => { isDragging = true; handlePointerDrag(e); });
+    window.addEventListener('mousemove', (e) => { if (isDragging) handlePointerDrag(e); });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    canvas.addEventListener('touchstart', (e) => { isDragging = true; handlePointerDrag(e); }, { passive: false });
+    window.addEventListener('touchmove', (e) => { if (isDragging) { if (e.cancelable) e.preventDefault(); handlePointerDrag(e); } }, { passive: false });
+    window.addEventListener('touchend', () => { isDragging = false; });
+
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.style.opacity = '0';
+      }, 2500);
+    }
+
+    // 隨堂測驗題庫
+    const quizData = [
+      {
+        question: '一道光線由「空氣」斜向射入「水中」，請問光線的行進方向將會產生何種偏折？',
+        options: [
+          '偏向法線，且折射角小於入射角',
+          '偏離法線，且折射角大於入射角',
+          '筆直穿透，完全不偏折',
+          '發生 100% 全反射'
+        ],
+        answer: 0,
+        explanation: '光在空氣中的速度快於在水中（快入慢）。當光線由速度快的介質進入速度慢的介質時，光線將往「法線」靠攏（偏向法線），使得折射角小於入射角（∠r < ∠i）！'
+      },
+      {
+        question: '下列何者是發生「全反射（Total Internal Reflection）」必須同時滿足的兩大先決條件？',
+        options: [
+          '光由快介質射向慢介質，且入射角小於臨界角',
+          '光由慢介質射向快介質，且入射角大於臨界角',
+          '光必須垂直界面入射',
+          '介質必須是完全不透明的物體'
+        ],
+        answer: 1,
+        explanation: '全反射兩大鐵律：① 光線必須從「速度慢（折射率大）」的介質射向「速度快（折射率小）」的介質（慢入快）；② 入射角必須「大於該介質的臨界角 θc」！'
+      },
+      {
+        question: '光線若沿著「垂直於界面（即法線方向）」由空氣射入水中，此時的折射角是多少度？',
+        options: ['90°', '45°', '0°', '不存在折射角'],
+        answer: 2,
+        explanation: '垂直界面入射時，入射光線與法線重疊，因此入射角為 0°。根據司乃耳定律 n1 sin(0°) = n2 sin(∠r)，折射角亦為 0°，光線直線穿透不轉彎！'
+      },
+      {
+        question: '現代網路通訊所使用的「光纖（Optical Fiber）」，主要是利用光線的哪一種光學原理在玻璃細絲內部高速傳遞訊號？',
+        options: [
+          '光的色散現象',
+          '光的干涉現象',
+          '光在光纖內壁產生的連續「全反射」',
+          '光的漫反射'
+        ],
+        answer: 2,
+        explanation: '光纖核心由高折射率玻璃製成，外層包覆低折射率材料（慢入快）。雷射訊號以大於臨界角的角度在管壁間不斷產生「100% 全反射」，無能量損失地高速傳輸！'
+      }
+    ];
+
+    let currentQuizIndex = 0;
+    const userAnswers = {};
+
+    const quizModal = document.getElementById('quiz-modal');
+    const quizContent = document.getElementById('quiz-content');
+    const quizProgress = document.getElementById('quiz-progress');
+    const btnQuiz = document.getElementById('btn-quiz');
+    const btnCloseQuiz = document.getElementById('btn-close-quiz');
+    const btnPrevQuiz = document.getElementById('btn-prev-quiz');
+    const btnNextQuiz = document.getElementById('btn-next-quiz');
+
+    function renderQuiz(index) {
+      const q = quizData[index];
+      quizProgress.textContent = `第 ${index + 1} / ${quizData.length} 題`;
+      btnPrevQuiz.disabled = index === 0;
+      btnNextQuiz.textContent = index === quizData.length - 1 ? '完成測驗' : '下一題';
+
+      const selected = userAnswers[index];
+      const isAnswered = selected !== undefined;
+
+      let html = `
+        <div class="space-y-4">
+          <div class="font-black text-slate-900 leading-snug text-xl sm:text-2xl">
+            <span class="inline-block bg-sky-100 text-sky-900 px-3 py-1 rounded-xl text-base mr-2 font-mono border border-sky-200">Q${index + 1}</span>
+            ${q.question}
+          </div>
+          <div class="space-y-3 mt-4">
+      `;
+
+      q.options.forEach((opt, optIdx) => {
+        let btnStyle = "bg-slate-50 hover:bg-slate-100 border-2 border-slate-300 text-slate-800";
+        let markIcon = "";
+
+        if (isAnswered) {
+          if (optIdx === q.answer) {
+            btnStyle = "bg-emerald-100 border-2 border-emerald-500 text-emerald-950 font-black";
+            markIcon = "<span class='text-emerald-600 font-black text-xl'>✓ 正確</span>";
+          } else if (optIdx === selected) {
+            btnStyle = "bg-rose-100 border-2 border-rose-500 text-rose-950 font-black";
+            markIcon = "<span class='text-rose-600 font-black text-xl'>✕ 錯誤</span>";
+          } else {
+            btnStyle = "bg-slate-50 border-2 border-slate-200 text-slate-400 opacity-60";
+          }
+        }
+
+        html += `
+          <button data-opt="${optIdx}" class="quiz-opt-btn w-full text-left p-4 rounded-2xl ${btnStyle} flex items-center justify-between text-base sm:text-lg transition active:scale-[0.99]">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-slate-500 font-black text-lg w-6">${String.fromCharCode(65 + optIdx)}.</span>
+              <span class="font-bold">${opt}</span>
+            </div>
+            ${markIcon}
+          </button>
+        `;
+      });
+
+      html += `</div>`;
+
+      if (isAnswered) {
+        const isCorrect = selected === q.answer;
+        html += `
+          <div class="mt-4 p-4 rounded-2xl ${isCorrect ? 'bg-emerald-50 border-2 border-emerald-300' : 'bg-rose-50 border-2 border-rose-300'} text-base leading-relaxed">
+            <div class="font-black ${isCorrect ? 'text-emerald-700' : 'text-rose-700'} text-lg mb-1">
+              ${isCorrect ? '🎉 恭喜答對！' : '❌ 答錯了，觀念複習：'}
+            </div>
+            <div class="text-slate-800 font-bold">${q.explanation}</div>
+          </div>
+        `;
+      }
+
+      html += `</div>`;
+      quizContent.innerHTML = html;
+
+      if (!isAnswered) {
+        document.querySelectorAll('.quiz-opt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            userAnswers[index] = parseInt(btn.dataset.opt);
+            renderQuiz(index);
+          });
+        });
+      }
+    }
+
+    btnQuiz.addEventListener('click', () => {
+      quizModal.classList.remove('hidden');
+      renderQuiz(currentQuizIndex);
+    });
+
+    btnCloseQuiz.addEventListener('click', () => {
+      quizModal.classList.add('hidden');
+    });
+
+    btnPrevQuiz.addEventListener('click', () => {
+      if (currentQuizIndex > 0) {
+        currentQuizIndex--;
+        renderQuiz(currentQuizIndex);
+      }
+    });
+
+    btnNextQuiz.addEventListener('click', () => {
+      if (currentQuizIndex < quizData.length - 1) {
+        currentQuizIndex++;
+        renderQuiz(currentQuizIndex);
+      } else {
+        quizModal.classList.add('hidden');
+        showToast('測驗完成！');
+      }
+    });
+
+    quizModal.addEventListener('click', (e) => {
+      if (e.target === quizModal) quizModal.classList.add('hidden');
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      setTimeout(resizeCanvas, 80);
+      setTimeout(resizeCanvas, 300);
+    });
+    resizeCanvas();
+  </script>
+</body>
+</html>

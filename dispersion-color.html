@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>國中理化：光的色散與物體顏色探究實驗室</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    #simCanvas {
+      touch-action: none;
+    }
+    input[type=range] {
+      accent-color: #7c3aed;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #7c3aed;
+      border: 3px solid #ffffff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- 主體區域：9:1 左右並列佈局（已移除頂部大標題列，最大化畫布垂直空間） -->
+  <main class="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 flex flex-col lg:flex-row gap-4">
+    
+    <!-- 左側展示區 (佔 90% 寬度) -->
+    <section class="w-full lg:w-[90%] flex flex-col gap-4">
+      
+      <!-- 主光學畫布卡片 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 sm:p-5 shadow-md flex flex-col">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2.5">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span id="badge-dot" class="inline-block w-4 h-4 rounded-full bg-purple-600 animate-pulse"></span>
+            <span id="canvas-title" class="font-black text-2xl sm:text-3xl text-slate-900">19. 三稜鏡白光色散光譜</span>
+            <span id="badge-sub" class="text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-purple-100 text-purple-900 border border-purple-300">
+              紅光偏折最小・紫光偏折最大
+            </span>
+          </div>
+
+          <!-- 三大實驗分頁切換鈕 ＋ 下放的隨堂測驗與重置按鈕 -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <div class="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-300 text-base sm:text-lg font-black flex-wrap">
+              <button id="tab-prism" class="px-3.5 py-2 rounded-xl bg-purple-700 text-white shadow-sm transition active:scale-95">
+                🔺 1. 三稜鏡色散
+              </button>
+              <button id="tab-rgb" class="px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:bg-slate-50 transition active:scale-95">
+                🎨 2. RGB 三原色
+              </button>
+              <button id="tab-object" class="px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:bg-slate-50 transition active:scale-95">
+                🌺 3. 物體顏色
+              </button>
+            </div>
+
+            <button id="btn-quiz" class="flex items-center gap-1.5 px-4 py-2.5 text-base sm:text-lg font-black rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white transition shadow-md active:scale-95">
+              <span>🏆</span>
+              <span>測驗</span>
+            </button>
+            <button id="btn-reset" class="flex items-center gap-1.5 px-3.5 py-2.5 text-base sm:text-lg font-black rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border-2 border-slate-300 transition shadow-sm active:scale-95">
+              <span>🔄</span>
+              <span>重置</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 畫布本體 -->
+        <div class="relative w-full aspect-[16/10] min-h-[500px] bg-slate-950 rounded-2xl border-2 border-slate-700 overflow-hidden touch-none">
+          <canvas id="simCanvas" class="w-full h-full block bg-slate-950"></canvas>
+          
+          <div id="canvas-tip" class="absolute bottom-3 left-3 pointer-events-none text-sm sm:text-base font-black text-slate-100 flex items-center gap-2 bg-slate-900/95 px-4 py-2.5 rounded-xl border border-slate-600 shadow-md">
+            <span>💡</span>
+            <span>白光是由紅、橙、黃、綠、藍、靛、紫等色光混合而成；不同色光在玻璃中的折射率不同！</span>
+          </div>
+        </div>
+
+        <!-- 特大字體數據看板 -->
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-center">
+          <div class="bg-rose-50 p-4 sm:p-5 rounded-2xl border-2 border-rose-300 shadow-sm">
+            <div id="card1-title" class="text-rose-950 font-black text-xl sm:text-2xl">紅光偏折與速度</div>
+            <div id="card1-val" class="text-3xl sm:text-4xl font-black text-rose-600 mt-2">偏折角最小</div>
+            <div id="card1-sub" class="text-sm sm:text-base font-bold text-rose-800 mt-1.5">玻璃中波速最快・折射率最小</div>
+          </div>
+
+          <div class="bg-purple-50 p-4 sm:p-5 rounded-2xl border-2 border-purple-300 shadow-sm">
+            <div id="card2-title" class="text-purple-950 font-black text-xl sm:text-2xl">紫光偏折與速度</div>
+            <div id="card2-val" class="text-3xl sm:text-4xl font-black text-purple-700 mt-2">偏折角最大</div>
+            <div id="card2-sub" class="text-sm sm:text-base font-bold text-purple-800 mt-1.5">玻璃中波速最慢・折射率最大</div>
+          </div>
+
+          <div class="bg-amber-50 p-4 sm:p-5 rounded-2xl border-2 border-amber-300 shadow-sm">
+            <div id="card3-title" class="text-amber-950 font-black text-xl sm:text-2xl">真空中光速比較</div>
+            <div id="card3-val" class="text-3xl sm:text-4xl font-black text-amber-700 mt-2">七彩光速相等</div>
+            <div id="card3-sub" class="text-sm sm:text-base font-bold text-amber-800 mt-1.5">真空中皆為 3×10⁸ m/s</div>
+          </div>
+
+          <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-sm">
+            <div id="card4-title" class="text-emerald-950 font-black text-xl sm:text-2xl">色散核心結論</div>
+            <div id="card4-val" class="text-3xl sm:text-4xl font-black text-emerald-800 mt-2">白光是混合光</div>
+            <div id="card4-sub" class="text-sm sm:text-base font-bold text-emerald-800 mt-1.5">牛頓雙三稜鏡可再合為白光</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心觀念解說卡（同步調整為：1.三稜鏡色散 ➔ 2.RGB三原色 ➔ 3.不透明物體顏色） -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-5 shadow-md flex flex-col gap-3.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="text-3xl">💡</span>
+            <span class="font-black text-2xl sm:text-3xl text-slate-900">教學進階三部曲：色散 ➔ 光的三原色 (RGB) ➔ 物體顏色推導</span>
+          </div>
+          <span class="text-sm sm:text-base font-black text-purple-800 bg-purple-100 border border-purple-300 px-3.5 py-1 rounded-xl">循序漸進</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-base sm:text-lg font-bold">
+          <div class="bg-purple-50 p-4 rounded-2xl border-2 border-purple-200">
+            <div class="text-purple-950 font-black text-lg sm:text-xl mb-1.5">1️⃣ 第一步：三稜鏡白光色散</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              太陽白光是多種色光的混合光；在玻璃中<strong>紅光最快、偏折最小，紫光最慢、偏折最大</strong>，光線皆向較厚的底座偏折。
+            </p>
+          </div>
+          <div class="bg-emerald-50 p-4 rounded-2xl border-2 border-emerald-200">
+            <div class="text-emerald-950 font-black text-lg sm:text-xl mb-1.5">2️⃣ 第二步：光的三原色 (RGB 組成)</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              <strong>紅(R)、綠(G)、藍(B)</strong> 為光的三原色：<strong>紅＋綠＝黃、綠＋藍＝青、紅＋藍＝洋紅</strong>，三色等強度重疊即還原成<strong>白光</strong>！
+            </p>
+          </div>
+          <div class="bg-rose-50 p-4 rounded-2xl border-2 border-rose-200">
+            <div class="text-rose-950 font-black text-lg sm:text-xl mb-1.5">3️⃣ 第三步：用 RGB 推導物體顏色</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              不發光物體在<strong>無光暗室</strong>中全黑；受光照射時只反射與自身相同的原色光（例如<strong>藍色錦旗</strong>：藍旗面反 B、白字反 R+G+B、黃流蘇反 R+G）。
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 右側專屬操作控制面板 (佔 10% 寬度) -->
+    <aside class="w-full lg:w-[10%] lg:min-w-[230px] flex flex-col gap-4">
+      
+      <!-- 面板 1：三稜鏡色散控制 -->
+      <div id="ctrl-prism" class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>🔺</span>
+          色散
+        </h2>
+
+        <div class="space-y-2">
+          <div class="text-base sm:text-lg font-black text-slate-800">光源：</div>
+          <div class="grid grid-cols-2 lg:grid-cols-1 gap-2">
+            <button data-light="white" class="prism-light-btn py-3 px-2 rounded-2xl bg-purple-700 text-white font-black text-lg sm:text-xl shadow-sm transition">
+              🌈 白光
+            </button>
+            <button data-light="yellow" class="prism-light-btn py-3 px-2 rounded-2xl bg-white text-amber-800 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-amber-50 transition">
+              🟡 黃光
+            </button>
+            <button data-light="red" class="prism-light-btn py-3 px-2 rounded-2xl bg-white text-rose-700 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-rose-50 transition">
+              🔴 紅光
+            </button>
+            <button data-light="violet" class="prism-light-btn py-3 px-2 rounded-2xl bg-white text-indigo-800 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-indigo-50 transition">
+              🟣 紫光
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-slate-800">仰角</span>
+            <span id="val-prism-angle" class="text-xl font-black text-purple-700 font-mono">25°</span>
+          </div>
+          <input type="range" id="range-prism-angle" min="10" max="42" value="25" step="1" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <div class="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200">
+          <label class="inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="chk-second-prism" class="w-6 h-6 rounded text-purple-700">
+            <span class="ml-2.5 font-black text-purple-900 text-lg sm:text-xl">還原白光</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 面板 2：物體顏色與色光照射控制（預設無光） -->
+      <div id="ctrl-object" class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5 hidden">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>🌺</span>
+          色光・物體
+        </h2>
+
+        <div class="space-y-2">
+          <div class="text-base sm:text-lg font-black text-slate-800">色光：</div>
+          <div class="grid grid-cols-3 lg:grid-cols-2 gap-2">
+            <button data-env="none" class="env-btn py-3 px-1 rounded-2xl bg-slate-900 text-amber-300 border-2 border-slate-900 font-black text-base sm:text-lg shadow-sm">🌑 無</button>
+            <button data-env="white" class="env-btn py-3 px-1 rounded-2xl bg-white text-slate-800 border-2 border-slate-300 font-black text-base sm:text-lg">☀️ 白</button>
+            <button data-env="red" class="env-btn py-3 px-1 rounded-2xl bg-white text-rose-700 border-2 border-slate-300 font-black text-base sm:text-lg">🔴 紅</button>
+            <button data-env="green" class="env-btn py-3 px-1 rounded-2xl bg-white text-emerald-700 border-2 border-slate-300 font-black text-base sm:text-lg">🟢 綠</button>
+            <button data-env="blue" class="env-btn py-3 px-1 rounded-2xl bg-white text-blue-700 border-2 border-slate-300 font-black text-base sm:text-lg">🔵 藍</button>
+            <button data-env="yellow" class="env-btn py-3 px-1 rounded-2xl bg-white text-amber-700 border-2 border-slate-300 font-black text-base sm:text-lg">🟡 黃</button>
+            <button data-env="cyan" class="env-btn py-3 px-1 rounded-2xl bg-white text-cyan-700 border-2 border-slate-300 font-black text-base sm:text-lg">🩵 青</button>
+          </div>
+        </div>
+
+        <div class="space-y-2 pt-2 border-t border-slate-200">
+          <div class="text-base sm:text-lg font-black text-slate-800">物體：</div>
+          <div class="grid grid-cols-2 lg:grid-cols-1 gap-2">
+            <button data-target="whitepaper" class="target-btn py-3 px-2 rounded-2xl bg-rose-600 text-white font-black text-lg sm:text-xl shadow-md">📄 紙</button>
+            <button data-target="blackcloth" class="target-btn py-3 px-2 rounded-2xl bg-white text-slate-800 border-2 border-slate-300 font-black text-lg sm:text-xl">🧶 布</button>
+            <button data-target="flower" class="target-btn py-3 px-2 rounded-2xl bg-white text-slate-800 border-2 border-slate-300 font-black text-lg sm:text-xl">🌺 花</button>
+            <button data-target="banner" class="target-btn py-3 px-2 rounded-2xl bg-white text-slate-800 border-2 border-slate-300 font-black text-lg sm:text-xl">🚩 旗</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 面板 3：RGB 光的三原色混色控制 -->
+      <div id="ctrl-rgb" class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5 hidden">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>🎨</span>
+          RGB 混色
+        </h2>
+
+        <div class="bg-rose-50 p-3 rounded-2xl border-2 border-rose-200 space-y-1.5">
+          <div class="flex justify-between items-center font-black text-rose-900 text-base sm:text-lg">
+            <span>🔴 紅</span>
+            <span id="val-rgb-r" class="font-mono text-lg">100%</span>
+          </div>
+          <input type="range" id="range-rgb-r" min="0" max="255" value="255" step="5" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <div class="bg-emerald-50 p-3 rounded-2xl border-2 border-emerald-200 space-y-1.5">
+          <div class="flex justify-between items-center font-black text-emerald-900 text-base sm:text-lg">
+            <span>🟢 綠</span>
+            <span id="val-rgb-g" class="font-mono text-lg">100%</span>
+          </div>
+          <input type="range" id="range-rgb-g" min="0" max="255" value="255" step="5" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <div class="bg-blue-50 p-3 rounded-2xl border-2 border-blue-200 space-y-1.5">
+          <div class="flex justify-between items-center font-black text-blue-900 text-base sm:text-lg">
+            <span>🔵 藍</span>
+            <span id="val-rgb-b" class="font-mono text-lg">100%</span>
+          </div>
+          <input type="range" id="range-rgb-b" min="0" max="255" value="255" step="5" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-1 gap-2 text-lg sm:text-xl font-black">
+          <button id="rgb-preset-all" class="py-3 px-2 rounded-2xl bg-slate-800 text-white">⚪ 白光</button>
+          <button id="rgb-preset-rg" class="py-3 px-2 rounded-2xl bg-amber-400 text-slate-900">🟡 黃光</button>
+          <button id="rgb-preset-gb" class="py-3 px-2 rounded-2xl bg-cyan-400 text-slate-900">🩵 青光</button>
+          <button id="rgb-preset-rb" class="py-3 px-2 rounded-2xl bg-fuchsia-500 text-white">🟣 洋紅</button>
+        </div>
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- 隨堂測驗 Modal -->
+  <div id="quiz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border-2 border-slate-300 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-purple-700 text-white flex items-center justify-center font-black">
+            🏆
+          </div>
+          <h3 class="font-black text-xl sm:text-2xl text-slate-900">光的色散與物體顏色素養測驗</h3>
+        </div>
+        <button id="btn-close-quiz" class="text-slate-400 hover:text-slate-700 p-2 text-2xl font-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto max-h-[75vh] flex flex-col gap-4" id="quiz-content"></div>
+
+      <div class="px-6 py-4 border-t-2 border-slate-100 bg-slate-50 flex justify-between items-center">
+        <span id="quiz-progress" class="text-base font-bold text-slate-500">第 1 / 4 題</span>
+        <div class="flex gap-3">
+          <button id="btn-prev-quiz" class="px-5 py-2.5 rounded-xl bg-white border-2 border-slate-300 text-base font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40">上一題</button>
+          <button id="btn-next-quiz" class="px-6 py-2.5 rounded-xl bg-purple-700 text-base font-bold text-white hover:bg-purple-800 shadow-md">下一題</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl text-base font-bold flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300">
+    <span class="text-emerald-400 text-xl">✓</span>
+    <span id="toast-text">已更新</span>
+  </div>
+
+  <script>
+    const state = {
+      tab: 'prism',         // 'prism', 'object', 'rgb'
+      prismLight: 'white',  // 'white', 'yellow', 'red', 'violet'
+      prismAngle: 25,
+      secondPrism: false,
+      envLight: 'none',     // 預設為 'none' (無光暗室)，可切換 'white', 'red', 'green', 'blue', 'yellow', 'cyan'
+      targetObj: 'whitepaper', // 預設為 'whitepaper' (畫紙)，依序：畫紙 -> 絨布 -> 花朵＋葉片 -> 錦旗
+      rgbR: 255,
+      rgbG: 255,
+      rgbB: 255
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const tabPrism = document.getElementById('tab-prism');
+    const tabObject = document.getElementById('tab-object');
+    const tabRgb = document.getElementById('tab-rgb');
+
+    const ctrlPrism = document.getElementById('ctrl-prism');
+    const ctrlObject = document.getElementById('ctrl-object');
+    const ctrlRgb = document.getElementById('ctrl-rgb');
+
+    const canvasTitle = document.getElementById('canvas-title');
+    const badgeSub = document.getElementById('badge-sub');
+    const canvasTip = document.getElementById('canvas-tip');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const W = rect.width || canvas.parentElement.clientWidth || 800;
+      const H = rect.height || canvas.parentElement.clientHeight || 500;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+
+      canvas.width = Math.max(300, W) * dpr;
+      canvas.height = Math.max(300, H) * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      renderSimulation();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function renderSimulation() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const W = rect.width > 0 ? rect.width : (canvas.width / dpr) || 800;
+      const H = rect.height > 0 ? rect.height : (canvas.height / dpr) || 500;
+
+      if (W <= 0 || H <= 0) return;
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(0, 0, W, H);
+
+      if (state.tab === 'prism') {
+        renderPrismScene(W, H);
+      } else if (state.tab === 'object') {
+        renderObjectColorScene(W, H);
+      } else {
+        renderRgbMixScene(W, H);
+      }
+    }
+
+    // ==========================================
+    // 場景 1：三稜鏡色散實驗
+    // ==========================================
+    function renderPrismScene(W, H) {
+      const cx = state.secondPrism ? W * 0.35 : W * 0.44;
+      const cy = H * 0.50;
+      const size = Math.min(205, H * 0.44);
+
+      const pTop = { x: cx, y: cy - size * 0.62 };
+      const pLeft = { x: cx - size * 0.56, y: cy + size * 0.42 };
+      const pRight = { x: cx + size * 0.56, y: cy + size * 0.42 };
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(186, 230, 253, 0.16)';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(pTop.x, pTop.y);
+      ctx.lineTo(pLeft.x, pLeft.y);
+      ctx.lineTo(pRight.x, pRight.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#7dd3fc';
+      ctx.font = '900 20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('玻璃三稜鏡 (底座在下方)', cx, pLeft.y + 36);
+      ctx.restore();
+
+      const hit1 = { x: (pTop.x + pLeft.x) / 2 - 6, y: (pTop.y + pLeft.y) / 2 + 10 };
+      const radIn = (state.prismAngle * Math.PI) / 180;
+      // 限制起點 Y 座標在畫布安全框內，避免大仰角時超出底部
+      const rawStartX = 40;
+      const rawStartY = hit1.y + (hit1.x - rawStartX) * Math.tan(radIn);
+      const maxStartY = H - 72;
+      const startY = Math.min(maxStartY, rawStartY);
+      const startX = rawStartY > maxStartY
+        ? hit1.x - (startY - hit1.y) / Math.max(0.15, Math.tan(radIn))
+        : rawStartX;
+
+      const inColorMap = {
+        white: '#ffffff',
+        yellow: '#facc15',
+        red: '#ef4444',
+        violet: '#a855f7'
+      };
+      const inNameMap = {
+        white: '白光光束 (七彩混合光)',
+        yellow: '黃色複合光 (紅光＋綠光)',
+        red: '單色紅光 (無色散)',
+        violet: '單色紫光 (無色散)'
+      };
+
+      ctx.save();
+      ctx.strokeStyle = inColorMap[state.prismLight];
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(hit1.x, hit1.y);
+      ctx.stroke();
+
+      // 將入射光文字放置於左上角獨立安全區，絕不與斜向光線或三稜鏡重疊
+      ctx.fillStyle = inColorMap[state.prismLight];
+      ctx.font = '900 20px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(inNameMap[state.prismLight], 28, 36);
+      ctx.restore();
+
+      let spectrum = [];
+      if (state.prismLight === 'white') {
+        spectrum = [
+          { name: '紅', color: '#ef4444', dev: 0.14 },
+          { name: '橙', color: '#f97316', dev: 0.18 },
+          { name: '黃', color: '#eab308', dev: 0.22 },
+          { name: '綠', color: '#22c55e', dev: 0.26 },
+          { name: '藍', color: '#3b82f6', dev: 0.30 },
+          { name: '靛', color: '#4f46e5', dev: 0.34 },
+          { name: '紫', color: '#a855f7', dev: 0.38 }
+        ];
+      } else if (state.prismLight === 'yellow') {
+        spectrum = [
+          { name: '紅光', color: '#ef4444', dev: 0.14 },
+          { name: '綠光', color: '#22c55e', dev: 0.26 }
+        ];
+      } else if (state.prismLight === 'red') {
+        spectrum = [{ name: '紅光', color: '#ef4444', dev: 0.14 }];
+      } else {
+        spectrum = [{ name: '紫光', color: '#a855f7', dev: 0.38 }];
+      }
+
+      const screenX = state.secondPrism ? cx + size * 1.15 : W - 95;
+      // 仰角變化帶動內部與出射光線偏折斜率連動變化
+      const angleShift = (state.prismAngle - 25) * 0.011;
+
+      // 第二個倒立三稜鏡幾何頂點（若有勾選還原白光）
+      const cx2 = cx + size * 1.32;
+      const p2Bot = { x: cx2, y: cy + size * 0.62 };
+      const p2Left = { x: cx2 - size * 0.56, y: cy - size * 0.42 };
+      const p2Right = { x: cx2 + size * 0.56, y: cy - size * 0.42 };
+
+      function getLineIntersection(x1, y1, x2, y2, x3, y3, x4, y4) {
+        const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        if (Math.abs(denom) < 0.0001) return { x: x3, y: y3 };
+        const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+        return { x: x1 + t * (x2 - x1), y: y1 + t * (y2 - y1) };
+      }
+
+      const mergeOut = {
+        x: p2Bot.x * 0.45 + p2Right.x * 0.55,
+        y: p2Bot.y * 0.45 + p2Right.y * 0.55
+      };
+
+      spectrum.forEach((band) => {
+        const t = Math.max(0.28, Math.min(0.82, 0.46 + band.dev * 0.45 - angleShift * 0.6));
+        const hit2 = {
+          x: pTop.x + (pRight.x - pTop.x) * t,
+          y: pTop.y + (pRight.y - pTop.y) * t
+        };
+
+        const exitSlope = 0.06 + band.dev * 1.18 - angleShift * 1.35;
+        const farX = W - 95;
+        const farY = hit2.y + (farX - hit2.x) * exitSlope;
+
+        ctx.save();
+        ctx.strokeStyle = band.color;
+        ctx.lineWidth = spectrum.length === 1 ? 5 : 3.5;
+
+        if (!state.secondPrism) {
+          ctx.beginPath();
+          ctx.moveTo(hit1.x, hit1.y);
+          ctx.lineTo(hit2.x, hit2.y);
+          ctx.lineTo(farX, farY);
+          ctx.stroke();
+
+          // 紙屏右側色彩文字獨立留白，絕不壓到光線或紙屏白線
+          ctx.fillStyle = band.color;
+          ctx.font = '900 20px sans-serif';
+          ctx.textAlign = 'left';
+          const clampedLabelY = Math.max(54, Math.min(H - 64, farY + 6));
+          ctx.fillText(band.name, farX + 16, clampedLabelY);
+        } else {
+          const hit3 = getLineIntersection(hit2.x, hit2.y, farX, farY, p2Left.x, p2Left.y, p2Bot.x, p2Bot.y);
+          ctx.beginPath();
+          ctx.moveTo(hit1.x, hit1.y);
+          ctx.lineTo(hit2.x, hit2.y);
+          ctx.lineTo(hit3.x, hit3.y);
+          ctx.lineTo(mergeOut.x, mergeOut.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      });
+
+      if (state.secondPrism) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(186, 230, 253, 0.16)';
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(p2Bot.x, p2Bot.y);
+        ctx.lineTo(p2Left.x, p2Left.y);
+        ctx.lineTo(p2Right.x, p2Right.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#7dd3fc';
+        ctx.font = '900 20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('倒立三稜鏡 (底座在上方)', cx2, p2Left.y - 22);
+
+        const finalEndX = W - 36;
+        const finalEndY = mergeOut.y - (finalEndX - mergeOut.x) * Math.tan(radIn);
+        ctx.strokeStyle = inColorMap[state.prismLight];
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(mergeOut.x, mergeOut.y);
+        ctx.lineTo(finalEndX, finalEndY);
+        ctx.stroke();
+
+        // 還原白光說明文字固定於右上角頂部留白區，絕不與出射光線交疊
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 20px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('✨ 再次混合還原成原平行光束！', W - 28, 36);
+        ctx.restore();
+      } else {
+        ctx.save();
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(screenX - 4, 44, 8, H - 102);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = '900 20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('紙屏', screenX, 30);
+        ctx.restore();
+      }
+    }
+
+    // ==========================================
+    // 場景 2：物體顏色與色光照射（含無光暗室狀態）
+    // ==========================================
+    function renderObjectColorScene(W, H) {
+      const isNoLight = (state.envLight === 'none');
+      const envRGB = {
+        none: { r: 0, g: 0, b: 0, hex: '#475569', label: '無光 (暗室・光源關閉)' },
+        white: { r: 255, g: 255, b: 255, hex: '#ffffff', label: '白光 (R + G + B)' },
+        red: { r: 255, g: 0, b: 0, hex: '#ef4444', label: '純紅光 (僅含 R)' },
+        green: { r: 0, g: 255, b: 0, hex: '#22c55e', label: '純綠光 (僅含 G)' },
+        blue: { r: 0, g: 0, b: 255, hex: '#3b82f6', label: '純藍光 (僅含 B)' },
+        yellow: { r: 255, g: 255, b: 0, hex: '#facc15', label: '黃光 (含 R + G)' },
+        cyan: { r: 0, g: 255, b: 255, hex: '#22d3ee', label: '青光 (含 G + B)' }
+      }[state.envLight];
+
+      function getReflectedColor(objR, objG, objB) {
+        if (isNoLight) {
+          return { css: 'rgb(16, 20, 29)', isBlack: true, r: 0, g: 0, b: 0 };
+        }
+        const r = (envRGB.r > 0 && objR > 0) ? 235 : 22;
+        const g = (envRGB.g > 0 && objG > 0) ? 215 : 22;
+        const b = (envRGB.b > 0 && objB > 0) ? 245 : 22;
+        const isBlack = (r < 40 && g < 40 && b < 40);
+        return { css: `rgb(${r}, ${g}, ${b})`, isBlack, r, g, b };
+      }
+
+      const lampX = W * 0.35;
+      const lampY = 55;
+      const objX = W * 0.35;
+      const objY = H * 0.64;
+
+      ctx.save();
+      if (!isNoLight) {
+        const grad = ctx.createLinearGradient(lampX, lampY, objX, objY);
+        grad.addColorStop(0, envRGB.hex);
+        grad.addColorStop(1, 'rgba(255,255,255,0.06)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(lampX - 35, lampY + 20);
+        ctx.lineTo(lampX + 35, lampY + 20);
+        ctx.lineTo(objX + 150, objY + 60);
+        ctx.lineTo(objX - 150, objY + 60);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 探照燈外殼
+      ctx.fillStyle = isNoLight ? '#1e293b' : '#334155';
+      ctx.strokeStyle = isNoLight ? '#475569' : '#94a3b8';
+      ctx.lineWidth = 2;
+      ctx.fillRect(lampX - 42, lampY - 15, 84, 35);
+      ctx.strokeRect(lampX - 42, lampY - 15, 84, 35);
+
+      ctx.fillStyle = isNoLight ? '#94a3b8' : envRGB.hex;
+      ctx.font = '900 23px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`🔦 照射光源：${envRGB.label}`, lampX + 55, lampY + 10);
+      ctx.restore();
+
+      let resultDesc = '';
+      let eyeColorHex = '#1e293b';
+
+      if (state.targetObj === 'flower') {
+        const petalCol = getReflectedColor(1, 0, 0);
+        const leafCol = getReflectedColor(0, 1, 0);
+
+        ctx.save();
+        ctx.strokeStyle = leafCol.css;
+        ctx.fillStyle = leafCol.css;
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.moveTo(objX, objY - 20);
+        ctx.lineTo(objX, objY + 95);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.ellipse(objX - 45, objY + 45, 38, 16, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(objX + 45, objY + 45, 38, 16, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = petalCol.css;
+        for (let i = 0; i < 5; i++) {
+          const ang = (i * 2 * Math.PI) / 5 - Math.PI / 2;
+          ctx.beginPath();
+          ctx.arc(objX + Math.cos(ang) * 34, objY - 45 + Math.sin(ang) * 34, 24, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = isNoLight ? 'rgb(18, 22, 32)' : '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(objX, objY - 45, 16, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (isNoLight) {
+          ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.strokeRect(objX - 95, objY - 95, 190, 200);
+        }
+        ctx.restore();
+
+        if (isNoLight) {
+          resultDesc = '🌑 無光狀態：物體不發光且無光線反射進入人眼 ➔ 一片漆黑！';
+          eyeColorHex = '#1e293b';
+        } else {
+          const petalName = petalCol.isBlack ? '黑色（吸收全部色光）' : '鮮紅色（僅反射 R 紅光）';
+          const leafName = leafCol.isBlack ? '黑色（吸收全部色光）' : '翠綠色（僅反射 G 綠光）';
+          resultDesc = `花瓣呈【${petalName}】｜ 葉片呈【${leafName}】`;
+          eyeColorHex = !petalCol.isBlack ? '#ef4444' : (!leafCol.isBlack ? '#22c55e' : '#334155');
+        }
+      } else if (state.targetObj === 'banner') {
+        const flagCol = getReflectedColor(0, 0, 1);
+        const textCol = getReflectedColor(1, 1, 1);
+        const tasselCol = getReflectedColor(1, 1, 0);
+
+        ctx.save();
+        ctx.strokeStyle = isNoLight ? 'rgba(148, 163, 184, 0.25)' : '#94a3b8';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(objX - 58, objY - 92);
+        ctx.lineTo(objX + 58, objY - 92);
+        ctx.moveTo(objX - 42, objY - 92);
+        ctx.lineTo(objX, objY - 114);
+        ctx.lineTo(objX + 42, objY - 92);
+        ctx.stroke();
+
+        ctx.fillStyle = flagCol.css;
+        ctx.strokeStyle = isNoLight ? 'rgba(148, 163, 184, 0.28)' : '#64748b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(objX - 52, objY - 90);
+        ctx.lineTo(objX + 52, objY - 90);
+        ctx.lineTo(objX + 52, objY + 26);
+        ctx.lineTo(objX, objY + 56);
+        ctx.lineTo(objX - 52, objY + 26);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = textCol.css;
+        ctx.font = '900 23px "PingFang TC", "Noto Sans TC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('第', objX, objY - 58);
+        ctx.fillText('一', objX, objY - 24);
+        ctx.fillText('名', objX, objY + 10);
+
+        ctx.strokeStyle = tasselCol.css;
+        ctx.lineWidth = 3.2;
+        ctx.lineCap = 'round';
+        for (let i = -4; i <= 4; i++) {
+          const tx = objX + i * 11;
+          const baseTy = objY + 56 - Math.abs(i * 11) * (30 / 52);
+          ctx.beginPath();
+          ctx.moveTo(tx, baseTy + 2);
+          ctx.lineTo(tx, baseTy + 34);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        if (isNoLight) {
+          resultDesc = '🌑 無光狀態：錦旗、字樣與流蘇皆無光線反射 ➔ 一片漆黑！';
+          eyeColorHex = '#1e293b';
+        } else {
+          const flagLabel = flagCol.isBlack ? '黑底' : '藍底';
+          const textLabel = { white: '白字', red: '紅字', green: '綠字', blue: '藍字', yellow: '黃字', cyan: '青字' }[state.envLight];
+          const tasselLabel = { white: '黃流蘇', red: '紅流蘇', green: '綠流蘇', blue: '黑流蘇', yellow: '黃流蘇', cyan: '綠流蘇' }[state.envLight];
+          resultDesc = `錦旗在${envRGB.label.split(' ')[0]}下：【${flagLabel} ・ ${textLabel} ・ ${tasselLabel}】`;
+          eyeColorHex = !flagCol.isBlack ? flagCol.css : (!tasselCol.isBlack ? tasselCol.css : textCol.css);
+        }
+      } else if (state.targetObj === 'whitepaper') {
+        const papCol = getReflectedColor(1, 1, 1);
+        ctx.save();
+        ctx.fillStyle = papCol.css;
+        ctx.strokeStyle = isNoLight ? 'rgba(148, 163, 184, 0.28)' : '#94a3b8';
+        ctx.lineWidth = 3;
+        ctx.fillRect(objX - 80, objY - 40, 160, 100);
+        ctx.strokeRect(objX - 80, objY - 40, 160, 100);
+        ctx.restore();
+        if (isNoLight) {
+          resultDesc = '🌑 無光狀態：沒有任何色光照射畫紙 ➔ 一片漆黑！';
+          eyeColorHex = '#1e293b';
+        } else {
+          resultDesc = `畫紙反射所有入射光 ➔ 呈現【${envRGB.label.split(' ')[0]}】`;
+          eyeColorHex = papCol.css;
+        }
+      } else {
+        ctx.save();
+        ctx.fillStyle = '#111827';
+        ctx.strokeStyle = isNoLight ? 'rgba(148, 163, 184, 0.28)' : '#475569';
+        ctx.lineWidth = 3;
+        ctx.fillRect(objX - 80, objY - 40, 160, 100);
+        ctx.strokeRect(objX - 80, objY - 40, 160, 100);
+        ctx.restore();
+        resultDesc = isNoLight
+          ? '🌑 無光狀態：沒有光線照射絨布 ➔ 一片漆黑！'
+          : '絨布吸收幾乎所有色光 ➔ 永遠呈現【黑色】';
+        eyeColorHex = isNoLight ? '#1e293b' : '#334155';
+      }
+
+      // 右側人眼觀察者與反射光束
+      const eyeX = W * 0.78;
+      const eyeY = H * 0.42;
+      ctx.save();
+      if (!isNoLight) {
+        ctx.strokeStyle = eyeColorHex;
+        ctx.lineWidth = 5;
+        ctx.setLineDash(eyeColorHex === '#334155' ? [6, 6] : []);
+        ctx.beginPath();
+        ctx.moveTo(objX + 40, objY - 20);
+        ctx.lineTo(eyeX - 30, eyeY);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 19px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('（無光線進入人眼）', (objX + eyeX) * 0.52, (objY + eyeY) * 0.48);
+      }
+
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(eyeX, eyeY, 30, 20, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(eyeX - 8, eyeY, 11, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '900 22px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('觀察者人眼', eyeX, eyeY + 44);
+
+      ctx.fillStyle = isNoLight ? '#cbd5e1' : '#fbbf24';
+      ctx.font = '900 26px sans-serif';
+      ctx.fillText(resultDesc, W * 0.50, H - 56);
+      ctx.restore();
+    }
+
+    // ==========================================
+    // 場景 3：RGB 光的三原色加法混色
+    // ==========================================
+    function renderRgbMixScene(W, H) {
+      const cx = W * 0.50;
+      const cy = H * 0.48;
+      const r = Math.min(130, H * 0.28);
+      const offset = r * 0.56;
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+
+      if (state.rgbR > 0) {
+        ctx.fillStyle = `rgb(${state.rgbR}, 0, 0)`;
+        ctx.beginPath();
+        ctx.arc(cx, cy - offset * 0.85, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (state.rgbG > 0) {
+        ctx.fillStyle = `rgb(0, ${state.rgbG}, 0)`;
+        ctx.beginPath();
+        ctx.arc(cx - offset, cy + offset * 0.7, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (state.rgbB > 0) {
+        ctx.fillStyle = `rgb(0, 0, ${state.rgbB})`;
+        ctx.beginPath();
+        ctx.arc(cx + offset, cy + offset * 0.7, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+
+      ctx.save();
+      ctx.font = '900 23px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('紅光 (R)', cx, cy - offset * 0.85 - r * 0.52);
+      ctx.fillText('綠光 (G)', cx - offset - r * 0.45, cy + offset * 0.7 + r * 0.35);
+      ctx.fillText('藍光 (B)', cx + offset + r * 0.45, cy + offset * 0.7 + r * 0.35);
+
+      if (state.rgbR > 180 && state.rgbG > 180) {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText('黃光', cx - offset * 0.62, cy - offset * 0.12);
+      }
+      if (state.rgbR > 180 && state.rgbB > 180) {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText('洋紅', cx + offset * 0.62, cy - offset * 0.12);
+      }
+      if (state.rgbG > 180 && state.rgbB > 180) {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText('青光', cx, cy + offset * 0.88);
+      }
+      if (state.rgbR > 200 && state.rgbG > 200 && state.rgbB > 200) {
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '900 26px sans-serif';
+        ctx.fillText('白光', cx, cy + 9);
+      }
+      ctx.restore();
+    }
+
+    function setTab(t) {
+      state.tab = t;
+      [tabPrism, tabObject, tabRgb].forEach(b => {
+        b.className = 'px-4 py-2 rounded-xl bg-white text-slate-700 hover:bg-slate-50 transition active:scale-95';
+      });
+      [ctrlPrism, ctrlObject, ctrlRgb].forEach(p => p.classList.add('hidden'));
+
+      if (t === 'prism') {
+        tabPrism.className = 'px-4 py-2 rounded-xl bg-purple-700 text-white shadow-sm transition active:scale-95';
+        ctrlPrism.classList.remove('hidden');
+        canvasTitle.textContent = '三稜鏡白光色散光譜';
+        badgeSub.textContent = '紅光偏折最小・紫光偏折最大';
+      } else if (t === 'object') {
+        tabObject.className = 'px-4 py-2 rounded-xl bg-rose-600 text-white shadow-sm transition active:scale-95';
+        ctrlObject.classList.remove('hidden');
+        canvasTitle.textContent = '物體顏色與色光吸收／反射';
+        badgeSub.textContent = '反射什麼色光，人眼就看見什麼顏色';
+      } else {
+        tabRgb.className = 'px-4 py-2 rounded-xl bg-indigo-700 text-white shadow-sm transition active:scale-95';
+        ctrlRgb.classList.remove('hidden');
+        canvasTitle.textContent = '光的三原色 (RGB) 加色法混色';
+        badgeSub.textContent = '紅＋綠＋藍 ＝ 白光（越混越亮）';
+      }
+      renderSimulation();
+    }
+
+    tabPrism.addEventListener('click', () => setTab('prism'));
+    tabObject.addEventListener('click', () => setTab('object'));
+    tabRgb.addEventListener('click', () => setTab('rgb'));
+
+    document.querySelectorAll('.prism-light-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.prismLight = btn.dataset.light;
+        document.querySelectorAll('.prism-light-btn').forEach(b => {
+          b.className = 'prism-light-btn py-3 px-2 rounded-2xl bg-white text-slate-800 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-slate-50 transition';
+        });
+        btn.className = 'prism-light-btn py-3 px-2 rounded-2xl bg-purple-700 text-white font-black text-lg sm:text-xl shadow-sm transition';
+        renderSimulation();
+      });
+    });
+
+    document.getElementById('range-prism-angle').addEventListener('input', (e) => {
+      state.prismAngle = parseInt(e.target.value);
+      document.getElementById('val-prism-angle').textContent = `${state.prismAngle}°`;
+      renderSimulation();
+    });
+
+    document.getElementById('chk-second-prism').addEventListener('change', (e) => {
+      state.secondPrism = e.target.checked;
+      renderSimulation();
+    });
+
+    function syncEnvButtons() {
+      document.querySelectorAll('.env-btn').forEach(b => {
+        if (b.dataset.env === state.envLight) {
+          b.className = state.envLight === 'none'
+            ? 'env-btn py-3 px-1 rounded-2xl bg-slate-900 text-amber-300 border-2 border-slate-900 font-black text-base sm:text-lg shadow-sm'
+            : 'env-btn py-3 px-1 rounded-2xl bg-slate-800 text-white border-2 border-slate-800 font-black text-base sm:text-lg shadow-sm';
+        } else {
+          b.className = 'env-btn py-3 px-1 rounded-2xl bg-white text-slate-800 border-2 border-slate-300 font-black text-base sm:text-lg';
+        }
+      });
+    }
+
+    document.querySelectorAll('.env-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.envLight = btn.dataset.env;
+        syncEnvButtons();
+        renderSimulation();
+      });
+    });
+
+    document.querySelectorAll('.target-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.targetObj = btn.dataset.target;
+        document.querySelectorAll('.target-btn').forEach(b => {
+          b.className = 'target-btn py-3 px-2 rounded-2xl bg-white text-slate-800 border-2 border-slate-300 font-black text-lg sm:text-xl';
+        });
+        btn.className = 'target-btn py-3 px-2 rounded-2xl bg-rose-600 text-white font-black text-lg sm:text-xl shadow-md';
+        renderSimulation();
+      });
+    });
+
+    document.getElementById('range-prism-angle').addEventListener('input', (e) => {
+      state.prismAngle = parseInt(e.target.value);
+      document.getElementById('val-prism-angle').textContent = `${state.prismAngle}°`;
+      renderSimulation();
+    });
+
+    document.getElementById('chk-second-prism').addEventListener('change', (e) => {
+      state.secondPrism = e.target.checked;
+      renderSimulation();
+    });
+
+    function syncEnvButtons() {
+      document.querySelectorAll('.env-btn').forEach(b => {
+        if (b.dataset.env === state.envLight) {
+          b.className = state.envLight === 'none'
+            ? 'env-btn py-2.5 px-1 rounded-xl bg-slate-900 text-amber-300 border-2 border-slate-900 font-black text-sm sm:text-base shadow-sm'
+            : 'env-btn py-2.5 px-1 rounded-xl bg-slate-800 text-white border-2 border-slate-800 font-black text-sm sm:text-base shadow-sm';
+        } else {
+          b.className = 'env-btn py-2.5 px-1 rounded-xl bg-white text-slate-800 border-2 border-slate-300 font-black text-sm sm:text-base';
+        }
+      });
+    }
+
+    document.querySelectorAll('.env-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.envLight = btn.dataset.env;
+        syncEnvButtons();
+        renderSimulation();
+      });
+    });
+
+    document.querySelectorAll('.target-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.targetObj = btn.dataset.target;
+        document.querySelectorAll('.target-btn').forEach(b => {
+          b.className = 'target-btn py-2.5 px-2 rounded-xl bg-white text-slate-800 border-2 border-slate-300 font-black text-base';
+        });
+        btn.className = 'target-btn py-2.5 px-2 rounded-xl bg-rose-600 text-white font-black text-base shadow-md';
+        renderSimulation();
+      });
+    });
+
+    document.getElementById('range-prism-angle').addEventListener('input', (e) => {
+      state.prismAngle = parseInt(e.target.value);
+      document.getElementById('val-prism-angle').textContent = `${state.prismAngle}°`;
+      renderSimulation();
+    });
+
+    document.getElementById('chk-second-prism').addEventListener('change', (e) => {
+      state.secondPrism = e.target.checked;
+      renderSimulation();
+    });
+
+    function syncEnvButtons() {
+      document.querySelectorAll('.env-btn').forEach(b => {
+        if (b.dataset.env === state.envLight) {
+          b.className = state.envLight === 'none'
+            ? 'env-btn py-2 px-1 rounded-xl bg-slate-900 text-amber-300 border-2 border-slate-900 font-black text-xs shadow-sm'
+            : 'env-btn py-2 px-1 rounded-xl bg-slate-800 text-white border-2 border-slate-800 font-black text-xs shadow-sm';
+        } else {
+          b.className = 'env-btn py-2 px-1 rounded-xl bg-white text-slate-800 border-2 border-slate-300 font-black text-xs';
+        }
+      });
+    }
+
+    document.querySelectorAll('.env-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.envLight = btn.dataset.env;
+        syncEnvButtons();
+        renderSimulation();
+      });
+    });
+
+    document.querySelectorAll('.target-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.targetObj = btn.dataset.target;
+        document.querySelectorAll('.target-btn').forEach(b => {
+          b.className = 'target-btn py-2 px-2 rounded-xl bg-white text-slate-800 border-2 border-slate-300 font-black text-xs';
+        });
+        btn.className = 'target-btn py-2 px-2 rounded-xl bg-rose-600 text-white font-black text-xs shadow-md';
+        renderSimulation();
+      });
+    });
+
+    document.querySelectorAll('.target-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.targetObj = btn.dataset.target;
+        document.querySelectorAll('.target-btn').forEach(b => {
+          b.className = 'target-btn py-3 px-2 rounded-2xl bg-white text-slate-800 border-2 border-slate-300 font-black text-sm';
+        });
+        btn.className = 'target-btn py-3 px-2 rounded-2xl bg-rose-600 text-white font-black text-sm shadow-md';
+        renderSimulation();
+      });
+    });
+
+    const rangeR = document.getElementById('range-rgb-r');
+    const rangeG = document.getElementById('range-rgb-g');
+    const rangeB = document.getElementById('range-rgb-b');
+
+    function syncRgbUI() {
+      rangeR.value = state.rgbR;
+      rangeG.value = state.rgbG;
+      rangeB.value = state.rgbB;
+      document.getElementById('val-rgb-r').textContent = `${Math.round((state.rgbR / 255) * 100)}%`;
+      document.getElementById('val-rgb-g').textContent = `${Math.round((state.rgbG / 255) * 100)}%`;
+      document.getElementById('val-rgb-b').textContent = `${Math.round((state.rgbB / 255) * 100)}%`;
+      renderSimulation();
+    }
+
+    rangeR.addEventListener('input', (e) => { state.rgbR = parseInt(e.target.value); syncRgbUI(); });
+    rangeG.addEventListener('input', (e) => { state.rgbG = parseInt(e.target.value); syncRgbUI(); });
+    rangeB.addEventListener('input', (e) => { state.rgbB = parseInt(e.target.value); syncRgbUI(); });
+
+    document.getElementById('rgb-preset-all').addEventListener('click', () => { state.rgbR = 255; state.rgbG = 255; state.rgbB = 255; syncRgbUI(); });
+    document.getElementById('rgb-preset-rg').addEventListener('click', () => { state.rgbR = 255; state.rgbG = 255; state.rgbB = 0; syncRgbUI(); });
+    document.getElementById('rgb-preset-gb').addEventListener('click', () => { state.rgbR = 0; state.rgbG = 255; state.rgbB = 255; syncRgbUI(); });
+    document.getElementById('rgb-preset-rb').addEventListener('click', () => { state.rgbR = 255; state.rgbG = 0; state.rgbB = 255; syncRgbUI(); });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      state.prismLight = 'white';
+      state.prismAngle = 25;
+      state.secondPrism = false;
+      state.envLight = 'none';
+      state.targetObj = 'whitepaper';
+      state.rgbR = 255; state.rgbG = 255; state.rgbB = 255;
+      document.getElementById('range-prism-angle').value = 25;
+      document.getElementById('val-prism-angle').textContent = '25°';
+      document.getElementById('chk-second-prism').checked = false;
+      document.querySelectorAll('.target-btn').forEach(b => {
+        b.className = (b.dataset.target === 'whitepaper')
+          ? 'target-btn py-3 px-2 rounded-2xl bg-rose-600 text-white font-black text-sm shadow-md'
+          : 'target-btn py-3 px-2 rounded-2xl bg-white text-slate-800 border-2 border-slate-300 font-black text-sm';
+      });
+      syncEnvButtons();
+      syncRgbUI();
+      setTab('prism');
+      showToast('實驗參數已重置');
+    });
+
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+    }
+
+    const quizData = [
+      {
+        question: '當一束太陽白光通過玻璃三稜鏡發生色散現象時，七彩光譜中哪一種色光的偏折角度「最小」？',
+        options: ['紫光', '藍光', '綠光', '紅光'],
+        answer: 3,
+        explanation: '在玻璃等介質中，紅光的傳播速度最快、折射率最小，因此通過三稜鏡時的偏折角度「最小」；紫光速度最慢，偏折角度「最大」！'
+      },
+      {
+        question: '在暗室中，若用「純綠光」照射一朵在陽光下看起來是「紅花綠葉」的盆栽，人眼將會看到什麼顏色？',
+        options: [
+          '紅花綠葉',
+          '黑花綠葉',
+          '紅花黑葉',
+          '全白花葉'
+        ],
+        answer: 1,
+        explanation: '紅花只能反射紅光，當只有純綠光照射時，紅光被完全吸收、沒有任何光線反射進入人眼，因此花朵呈現「黑色」；綠葉能反射綠光，故仍呈現「綠色」！'
+      },
+      {
+        question: '下列哪三種色光被稱為「光的三原色」，將它們等強度重疊照射在白紙上會形成白光？',
+        options: [
+          '紅、黃、藍',
+          '紅、綠、藍',
+          '紅、綠、紫',
+          '青、洋紅、黃'
+        ],
+        answer: 1,
+        explanation: '光的三原色為「紅（R）、綠（G）、藍（B）」（注意：紅黃藍是顏料三原色，兩者切勿混淆！）。'
+      },
+      {
+        question: '一面在陽光下呈現「藍底、白字『第一名』、下端黃色流蘇」的錦旗，若放在只有「純藍光」照射的暗室中，人眼會看到什麼景象？',
+        options: [
+          '藍底、白字、黃流蘇',
+          '藍底、藍字（字跡融為一體看不清）、黑流蘇',
+          '黑底、藍字、黑流蘇',
+          '全黑錦旗'
+        ],
+        answer: 1,
+        explanation: '藍色旗面反射藍光呈藍色；白色字樣反射所有色光（在藍光下也呈藍色），因此藍底藍字融為一體！黃色流蘇只反射紅、綠光，在純藍光下無光可反射而呈黑色！'
+      }
+    ];
+
+    let currentQuizIndex = 0;
+    const userAnswers = {};
+    const quizModal = document.getElementById('quiz-modal');
+    const quizContent = document.getElementById('quiz-content');
+    const quizProgress = document.getElementById('quiz-progress');
+
+    function renderQuiz(index) {
+      const q = quizData[index];
+      quizProgress.textContent = `第 ${index + 1} / ${quizData.length} 題`;
+      document.getElementById('btn-prev-quiz').disabled = index === 0;
+      document.getElementById('btn-next-quiz').textContent = index === quizData.length - 1 ? '完成測驗' : '下一題';
+
+      const selected = userAnswers[index];
+      const isAnswered = selected !== undefined;
+
+      let html = `
+        <div class="space-y-4">
+          <div class="font-black text-slate-900 leading-snug text-xl sm:text-2xl">
+            <span class="inline-block bg-purple-100 text-purple-900 px-3 py-1 rounded-xl text-base mr-2 font-mono border border-purple-200">Q${index + 1}</span>
+            ${q.question}
+          </div>
+          <div class="space-y-3 mt-4">
+      `;
+
+      q.options.forEach((opt, optIdx) => {
+        let btnStyle = "bg-slate-50 hover:bg-slate-100 border-2 border-slate-300 text-slate-800";
+        let markIcon = "";
+        if (isAnswered) {
+          if (optIdx === q.answer) {
+            btnStyle = "bg-emerald-100 border-2 border-emerald-500 text-emerald-950 font-black";
+            markIcon = "<span class='text-emerald-600 font-black text-xl'>✓ 正確</span>";
+          } else if (optIdx === selected) {
+            btnStyle = "bg-rose-100 border-2 border-rose-500 text-rose-950 font-black";
+            markIcon = "<span class='text-rose-600 font-black text-xl'>✕ 錯誤</span>";
+          } else {
+            btnStyle = "bg-slate-50 border-2 border-slate-200 text-slate-400 opacity-60";
+          }
+        }
+        html += `
+          <button data-opt="${optIdx}" class="quiz-opt-btn w-full text-left p-4 rounded-2xl ${btnStyle} flex items-center justify-between text-base sm:text-lg transition active:scale-[0.99]">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-slate-500 font-black text-lg w-6">${String.fromCharCode(65 + optIdx)}.</span>
+              <span class="font-bold">${opt}</span>
+            </div>
+            ${markIcon}
+          </button>
+        `;
+      });
+      html += `</div>`;
+
+      if (isAnswered) {
+        const isCorrect = selected === q.answer;
+        html += `
+          <div class="mt-4 p-4 rounded-2xl ${isCorrect ? 'bg-emerald-50 border-2 border-emerald-300' : 'bg-rose-50 border-2 border-rose-300'} text-base leading-relaxed">
+            <div class="font-black ${isCorrect ? 'text-emerald-700' : 'text-rose-700'} text-lg mb-1">
+              ${isCorrect ? '🎉 恭喜答對！' : '❌ 答錯了，觀念複習：'}
+            </div>
+            <div class="text-slate-800 font-bold">${q.explanation}</div>
+          </div>
+        `;
+      }
+      html += `</div>`;
+      quizContent.innerHTML = html;
+
+      if (!isAnswered) {
+        document.querySelectorAll('.quiz-opt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            userAnswers[index] = parseInt(btn.dataset.opt);
+            renderQuiz(index);
+          });
+        });
+      }
+    }
+
+    document.getElementById('btn-quiz').addEventListener('click', () => { quizModal.classList.remove('hidden'); renderQuiz(currentQuizIndex); });
+    document.getElementById('btn-close-quiz').addEventListener('click', () => { quizModal.classList.add('hidden'); });
+    document.getElementById('btn-prev-quiz').addEventListener('click', () => { if (currentQuizIndex > 0) { currentQuizIndex--; renderQuiz(currentQuizIndex); } });
+    document.getElementById('btn-next-quiz').addEventListener('click', () => {
+      if (currentQuizIndex < quizData.length - 1) { currentQuizIndex++; renderQuiz(currentQuizIndex); }
+      else { quizModal.classList.add('hidden'); showToast('測驗完成！'); }
+    });
+    quizModal.addEventListener('click', (e) => { if (e.target === quizModal) quizModal.classList.add('hidden'); });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      setTimeout(resizeCanvas, 80);
+    });
+    resizeCanvas();
+  </script>
+
+<!-- 網站導覽：回首頁按鈕 -->
+<a href="index.html" id="lab-home-btn" title="回到實驗室首頁"
+   style="position:fixed;left:12px;bottom:12px;z-index:45;display:flex;align-items:center;gap:6px;
+          padding:8px 14px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font:600 15px/1 system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;
+          text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.85">
+  <span style="font-size:17px">⌂</span>首頁
+</a>
+</body>
+</html>

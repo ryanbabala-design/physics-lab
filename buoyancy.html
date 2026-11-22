@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>國中理化：阿基米德浮力原理互動實驗室</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    #simCanvas {
+      touch-action: none;
+    }
+    input[type=range] {
+      accent-color: #0284c7;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #0284c7;
+      border: 3px solid #ffffff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- 主體區域：9:1 左右並列佈局（已移除頂部大標題列，最大化畫布垂直空間） -->
+  <main class="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 flex flex-col lg:flex-row gap-4">
+    
+    <!-- 左側展示區 (佔 90% 寬度) -->
+    <section class="w-full lg:w-[90%] flex flex-col gap-4">
+      
+      <!-- 主浮力畫布卡片 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 sm:p-5 shadow-md flex flex-col">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2.5">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span id="badge-dot" class="inline-block w-4 h-4 rounded-full bg-sky-600 animate-pulse"></span>
+            <span id="canvas-title" class="font-black text-2xl sm:text-3xl text-slate-900">阿基米德浮力原理與溢水杯實驗</span>
+            <span id="badge-float-state" class="text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300">
+              浮體漂浮（B ＝ W物 ＝ 120 gw）
+            </span>
+          </div>
+
+          <!-- 顯示開關 ＋ 下放的隨堂測驗與重置按鈕 -->
+          <div class="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-700 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer bg-rose-50 px-3 py-2 rounded-2xl border-2 border-rose-300">
+              <input type="checkbox" id="chk-forces" checked class="w-5 h-5 rounded text-rose-600">
+              <span class="text-rose-900 font-black">受力箭頭</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-sky-50 px-3 py-2 rounded-2xl border-2 border-sky-300">
+              <input type="checkbox" id="chk-overflow" checked class="w-5 h-5 rounded text-sky-700">
+              <span class="text-sky-900 font-black">溢水杯驗算</span>
+            </label>
+
+            <button id="btn-quiz" class="flex items-center gap-1.5 px-4 py-2.5 text-base sm:text-lg font-black rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white transition shadow-md active:scale-95">
+              <span>🏆</span>
+              <span>測驗</span>
+            </button>
+            <button id="btn-reset" class="flex items-center gap-1.5 px-3.5 py-2.5 text-base sm:text-lg font-black rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border-2 border-slate-300 transition shadow-sm active:scale-95">
+              <span>🔄</span>
+              <span>重置</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 畫布本體 -->
+        <div class="relative w-full aspect-[16/10] min-h-[500px] bg-slate-950 rounded-2xl border-2 border-slate-700 overflow-hidden cursor-grab active:cursor-grabbing touch-none shadow-inner">
+          <canvas id="simCanvas" class="w-full h-full block bg-slate-950"></canvas>
+          
+          <div id="canvas-tip" class="absolute bottom-3 left-3 pointer-events-none text-sm sm:text-base font-black text-slate-100 flex items-center gap-2 bg-slate-900/95 px-4 py-2 rounded-xl border border-slate-700 shadow-md">
+            <span>👉</span>
+            <span>可直接上下拖曳「彈簧秤與物體」緩緩浸入溢水杯中，觀察排開液體體積與彈簧秤讀數變化！</span>
+          </div>
+        </div>
+
+        <!-- 特大字體數據看板 -->
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-center">
+          <div class="bg-amber-50 p-4 sm:p-5 rounded-2xl border-2 border-amber-300 shadow-sm">
+            <div class="text-amber-950 font-black text-xl sm:text-2xl">物重 W / 彈簧秤 F</div>
+            <div id="stat-weight" class="text-2xl sm:text-4xl font-black text-amber-700 mt-1.5 font-mono tracking-tight">120 / 0 gw</div>
+            <div id="stat-weight-sub" class="text-sm sm:text-base font-bold text-amber-800 mt-1">浮體漂浮時，繩張力 F ＝ 0</div>
+          </div>
+
+          <div class="bg-sky-50 p-4 sm:p-5 rounded-2xl border-2 border-sky-300 shadow-sm">
+            <div class="text-sky-950 font-black text-xl sm:text-2xl">液面下體積 (V排)</div>
+            <div id="stat-vsub" class="text-3xl sm:text-5xl font-black text-sky-700 mt-1 font-mono tracking-tight">120 cm³</div>
+            <div id="stat-vsub-sub" class="text-sm sm:text-base font-bold text-sky-800 mt-1">總體積 200 cm³（沒入 60%）</div>
+          </div>
+
+          <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-sm">
+            <div class="text-emerald-950 font-black text-xl sm:text-2xl">所受浮力 (B)</div>
+            <div id="stat-buoyancy" class="text-3xl sm:text-5xl font-black text-emerald-700 mt-1 font-mono tracking-tight">120 gw</div>
+            <div id="stat-buoyancy-sub" class="text-sm sm:text-base font-bold text-emerald-800 mt-1">B ＝ V排 × D液 ＝ 排開液重</div>
+          </div>
+
+          <div class="bg-purple-50 p-4 sm:p-5 rounded-2xl border-2 border-purple-300 shadow-sm">
+            <div class="text-purple-950 font-black text-xl sm:text-2xl">浮沉狀態判準</div>
+            <div id="stat-status" class="text-2xl sm:text-3xl font-black text-purple-800 mt-2">浮體 (D物 &lt; D液)</div>
+            <div id="stat-status-sub" class="text-sm sm:text-base font-bold text-purple-800 mt-1">0.60 g/cm³ ＜ 1.00 g/cm³</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心觀念解說卡 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-5 shadow-md flex flex-col gap-3.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">💡</span>
+            <span class="font-black text-2xl sm:text-3xl text-slate-900">會考必殺總整理：浮力三大計算公式與浮體／沉體比較</span>
+          </div>
+          <span class="text-sm sm:text-base font-black text-sky-800 bg-sky-100 border border-sky-300 px-3.5 py-1 rounded-xl">高頻考點</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-base sm:text-lg font-bold">
+          <div class="bg-sky-50 p-4 rounded-2xl border-2 border-sky-200">
+            <div class="text-sky-950 font-black text-lg sm:text-xl mb-1">1️⃣ 浮力三大公式（通用）</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              • <strong>定義式：</strong>$B = V_{\text{排}} \times D_{\text{液}}$（排開的液體重）。<br>
+              • <strong>減輕重量法：</strong>$B = W_{\text{空氣中}} - W_{\text{液體中}}$。<br>
+              • <strong>上下壓力差：</strong>$B = F_{\text{下表面向上}} - F_{\text{上表面向下}}$。
+            </p>
+          </div>
+          <div class="bg-emerald-50 p-4 rounded-2xl border-2 border-emerald-200">
+            <div class="text-emerald-950 font-black text-lg sm:text-xl mb-1">2️⃣ 浮體核心鐵律（$D_{\text{物}} \le D_{\text{液}}$）</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              • 浮體合力為零，故<strong>浮力永遠等於物重（$B = W_{\text{物}}$）</strong>！<br>
+              • <strong>船從淡水開入海水：</strong>船重不變，故<strong>所受浮力不變</strong>；但因海水密度較大，船身會<strong>上浮一些（$V_{\text{排}}$ 變小）</strong>！
+            </p>
+          </div>
+          <div class="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200">
+            <div class="text-amber-950 font-black text-lg sm:text-xl mb-1">3️⃣ 沉體核心鐵律（$D_{\text{物}} > D_{\text{液}}$）</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              • 完全沒入後，$V_{\text{排}} = V_{\text{物}}$ 固定不變，因此<strong>繼續往深處下沉時，所受浮力維持不變</strong>（但液體壓力變大）！<br>
+              • <strong>等體積</strong>的鐵塊與鉛塊沉入水中，<strong>所受浮力一樣大</strong>！
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 右側極簡大字體控制面板 (佔 10% 寬度) -->
+    <aside class="w-full lg:w-[10%] lg:min-w-[230px] flex flex-col gap-4">
+      
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>⚙️</span>
+          實驗控制
+        </h2>
+
+        <!-- 經典物體預設 -->
+        <div class="space-y-2">
+          <div class="text-base sm:text-lg font-black text-slate-800">物體種類：</div>
+          <div class="grid grid-cols-3 lg:grid-cols-1 gap-2">
+            <button data-obj="wood" class="obj-btn py-3 px-2 rounded-2xl bg-amber-600 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95">
+              🪵 木塊 0.6
+            </button>
+            <button data-obj="ice" class="obj-btn py-3 px-2 rounded-2xl bg-white border-2 border-slate-300 text-slate-800 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95">
+              🧊 冰塊 0.9
+            </button>
+            <button data-obj="alu" class="obj-btn py-3 px-2 rounded-2xl bg-white border-2 border-slate-300 text-slate-800 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95">
+              🧱 鋁塊 2.7
+            </button>
+          </div>
+        </div>
+
+        <!-- 液體種類切換 -->
+        <div class="space-y-2 pt-1 border-t border-slate-200">
+          <div class="text-base sm:text-lg font-black text-slate-800">水槽液體：</div>
+          <div class="grid grid-cols-3 lg:grid-cols-1 gap-2">
+            <button data-liq="alcohol" class="liq-btn py-2.5 px-2 rounded-xl bg-white border-2 border-slate-300 text-slate-800 font-black text-base sm:text-lg">🍷 酒精 0.8</button>
+            <button data-liq="water" class="liq-btn py-2.5 px-2 rounded-xl bg-sky-700 text-white font-black text-base sm:text-lg shadow-sm">💧 純水 1.0</button>
+            <button data-liq="brine" class="liq-btn py-2.5 px-2 rounded-xl bg-white border-2 border-slate-300 text-slate-800 font-black text-base sm:text-lg">🧂 鹽水 1.2</button>
+          </div>
+        </div>
+
+        <!-- 物體升降位置滑桿 -->
+        <div class="bg-sky-50/90 p-3.5 rounded-2xl border-2 border-sky-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-sky-950">升降高度</span>
+            <span id="val-depth" class="text-lg font-black text-sky-700 font-mono">自然平衡</span>
+          </div>
+          <input type="range" id="range-depth" min="0" max="100" value="65" step="1" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+          <button id="btn-release-auto" class="w-full py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base shadow-xs transition active:scale-95">
+            ⚖️ 放手自然浮沉
+          </button>
+        </div>
+
+        <!-- 物體密度微調 -->
+        <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1.5">
+          <div class="flex justify-between text-base font-black">
+            <span>物體密度</span>
+            <span id="val-dobj" class="font-mono text-amber-700">0.60</span>
+          </div>
+          <input type="range" id="range-dobj" min="0.4" max="2.8" value="0.6" step="0.1" class="w-full h-4 bg-slate-300 rounded-lg cursor-pointer">
+        </div>
+
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- 隨堂測驗 Modal -->
+  <div id="quiz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border-2 border-slate-300 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-sky-700 text-white flex items-center justify-center font-black">
+            🏆
+          </div>
+          <h3 class="font-black text-xl sm:text-2xl text-slate-900">阿基米德浮力原理素養測驗</h3>
+        </div>
+        <button id="btn-close-quiz" class="text-slate-400 hover:text-slate-700 p-2 text-2xl font-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto max-h-[75vh] flex flex-col gap-4" id="quiz-content"></div>
+
+      <div class="px-6 py-4 border-t-2 border-slate-100 bg-slate-50 flex justify-between items-center">
+        <span id="quiz-progress" class="text-base font-bold text-slate-500">第 1 / 4 題</span>
+        <div class="flex gap-3">
+          <button id="btn-prev-quiz" class="px-5 py-2.5 rounded-xl bg-white border-2 border-slate-300 text-base font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40">上一題</button>
+          <button id="btn-next-quiz" class="px-6 py-2.5 rounded-xl bg-sky-700 text-base font-bold text-white hover:bg-sky-800 shadow-md">下一題</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl text-base font-bold flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300">
+    <span class="text-emerald-400 text-xl">✓</span>
+    <span id="toast-text">已更新</span>
+  </div>
+
+  <script>
+    const LIQUIDS = {
+      alcohol: { name: '酒精', d: 0.8, color: 'rgba(244, 114, 182, 0.28)' },
+      water: { name: '純水', d: 1.0, color: 'rgba(56, 189, 248, 0.30)' },
+      brine: { name: '濃食鹽水', d: 1.2, color: 'rgba(52, 211, 153, 0.30)' }
+    };
+
+    const state = {
+      dObj: 0.6,          // g/cm³
+      volObj: 200,        // cm³
+      liqKey: 'water',
+      hookRatio: 0.65,    // 0 (高掛在空中) ~ 1 (降到杯底)
+      showForces: true,
+      showOverflow: true
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const W = rect.width || canvas.parentElement.clientWidth || 800;
+      const H = rect.height || canvas.parentElement.clientHeight || 480;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas.width = Math.max(300, W) * dpr;
+      canvas.height = Math.max(300, H) * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      renderSimulation();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // 計算物理平衡與沒入體積
+    function calcBuoyancy() {
+      const dLiq = LIQUIDS[state.liqKey].d;
+      const wAir = state.volObj * state.dObj; // gw
+      const isFloater = state.dObj <= dLiq;
+
+      // 當 hookRatio 從 0 往下放到 1 時，計算方塊中心垂直位置
+      // 若為浮體，方塊達到自然漂浮深度後就不再隨掛鉤下沉（繩子鬆弛，張力 F = 0）
+      const eqSubRatio = isFloater ? (state.dObj / dLiq) : 1.0;
+      const rawSubRatio = Math.max(0, Math.min(1, (state.hookRatio - 0.18) / 0.55));
+      const actualSubRatio = isFloater ? Math.min(eqSubRatio, rawSubRatio) : rawSubRatio;
+
+      const vSub = state.volObj * actualSubRatio; // cm³
+      const buoyancy = vSub * dLiq;               // gw
+      const scaleForce = Math.max(0, wAir - buoyancy); // 彈簧秤讀數 gw
+
+      return { dLiq, wAir, isFloater, eqSubRatio, actualSubRatio, vSub, buoyancy, scaleForce };
+    }
+
+    function releaseToEquilibrium() {
+      const dLiq = LIQUIDS[state.liqKey].d;
+      const isFloater = state.dObj <= dLiq;
+      if (isFloater) {
+        const eqSub = state.dObj / dLiq;
+        state.hookRatio = Math.min(1, 0.18 + eqSub * 0.55 + 0.05);
+      } else {
+        state.hookRatio = 0.85;
+      }
+      document.getElementById('range-depth').value = Math.round(state.hookRatio * 100);
+      renderSimulation();
+    }
+
+    function renderSimulation() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const W = rect.width > 0 ? rect.width : (canvas.width / dpr) || 800;
+      const H = rect.height > 0 ? rect.height : (canvas.height / dpr) || 480;
+
+      if (W <= 0 || H <= 0) return;
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#060a12';
+      ctx.fillRect(0, 0, W, H);
+
+      const phys = calcBuoyancy();
+      const liq = LIQUIDS[state.liqKey];
+
+      const tankX = W * 0.28;
+      const tankW = 240;
+      const waterSurfaceY = H * 0.46;
+      const tankBotY = H * 0.84;
+      const tankTopY = waterSurfaceY - 48;
+
+      const blockW = 104;
+      const blockH = 104;
+      // 根據 actualSubRatio 決定方塊頂部與底部 Y 座標
+      const blockBotY = waterSurfaceY + phys.actualSubRatio * blockH - (phys.actualSubRatio === 0 ? (0.18 - state.hookRatio) * 260 : 0);
+      const blockTopY = blockBotY - blockH;
+      const blockCx = tankX + tankW / 2;
+
+      ctx.save();
+      // 1. 頂部彈簧秤與讀數看板
+      const scaleTopY = 22;
+      const scaleBotY = Math.max(85, blockTopY - 46);
+      ctx.fillStyle = '#334155';
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 3;
+      ctx.fillRect(blockCx - 28, scaleTopY, 56, 68);
+      ctx.strokeRect(blockCx - 28, scaleTopY, 56, 68);
+
+      ctx.fillStyle = '#fde047';
+      ctx.font = '900 18px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${Math.round(phys.scaleForce)}gw`, blockCx, scaleTopY + 42);
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '900 17px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('彈簧秤讀數 F', blockCx - 38, scaleTopY + 40);
+
+      // 懸掛細線（若浮體已漂浮則呈現微彎鬆弛線）
+      ctx.strokeStyle = phys.scaleForce === 0 ? '#64748b' : '#f8fafc';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(blockCx, scaleTopY + 68);
+      if (phys.scaleForce === 0) {
+        ctx.quadraticCurveTo(blockCx + 18, (scaleTopY + 68 + blockTopY) / 2, blockCx, blockTopY);
+      } else {
+        ctx.lineTo(blockCx, blockTopY);
+      }
+      ctx.stroke();
+
+      // 2. 溢水杯液體背景
+      ctx.fillStyle = liq.color;
+      ctx.fillRect(tankX, waterSurfaceY, tankW, tankBotY - waterSurfaceY);
+
+      // 3. 實驗物體方塊
+      ctx.fillStyle = state.dObj < 0.8 ? '#d97706' : (state.dObj < 1.1 ? '#7dd3fc' : '#94a3b8');
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.fillRect(blockCx - blockW / 2, blockTopY, blockW, blockH);
+      ctx.strokeRect(blockCx - blockW / 2, blockTopY, blockW, blockH);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '900 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`D=${state.dObj.toFixed(1)}`, blockCx, blockTopY + blockH / 2 - 4);
+      ctx.font = 'bold 15px monospace';
+      ctx.fillText(`W=${Math.round(phys.wAir)}gw`, blockCx, blockTopY + blockH / 2 + 18);
+
+      // 4. 溢水杯玻璃外壁與右側溢水管
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(tankX, tankTopY);
+      ctx.lineTo(tankX, tankBotY);
+      ctx.lineTo(tankX + tankW, tankBotY);
+      ctx.lineTo(tankX + tankW, waterSurfaceY + 8);
+      ctx.moveTo(tankX + tankW, waterSurfaceY - 8);
+      ctx.lineTo(tankX + tankW, tankTopY);
+      ctx.stroke();
+
+      // 溢水斜嘴管
+      ctx.beginPath();
+      ctx.moveTo(tankX + tankW, waterSurfaceY - 6);
+      ctx.lineTo(tankX + tankW + 52, waterSurfaceY + 28);
+      ctx.moveTo(tankX + tankW, waterSurfaceY + 8);
+      ctx.lineTo(tankX + tankW + 46, waterSurfaceY + 38);
+      ctx.stroke();
+
+      ctx.fillStyle = '#7dd3fc';
+      ctx.font = '900 18px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`液體：${liq.name} (D=${liq.d.toFixed(1)})`, tankX, tankBotY + 30);
+
+      // 5. 右側排開液體量筒秤重驗算
+      if (state.showOverflow) {
+        const cupX = tankX + tankW + 78;
+        const cupW = 115;
+        const cupBotY = tankBotY;
+        const cupH = 145;
+        const fillH = Math.min(cupH - 12, (phys.vSub / 200) * (cupH - 24));
+
+        if (fillH > 1) {
+          ctx.fillStyle = liq.color;
+          ctx.fillRect(cupX, cupBotY - fillH, cupW, fillH);
+        }
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(cupX, cupBotY - cupH);
+        ctx.lineTo(cupX, cupBotY);
+        ctx.lineTo(cupX + cupW, cupBotY);
+        ctx.lineTo(cupX + cupW, cupBotY - cupH);
+        ctx.stroke();
+
+        ctx.fillStyle = '#34d399';
+        ctx.font = '900 19px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('📐 排開液體量筒驗算：', cupX, cupBotY - cupH - 54);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '900 18px monospace';
+        ctx.fillText(`V排 = ${Math.round(phys.vSub)} cm³`, cupX, cupBotY - cupH - 28);
+        ctx.fillStyle = '#fde047';
+        ctx.fillText(`排開液重 = ${Math.round(phys.buoyancy)} gw (= 浮力 B)`, cupX, cupBotY - cupH - 4);
+      }
+
+      // 6. 受力分析箭頭（重力 W 向下 vs 浮力 B 向上）
+      if (state.showForces) {
+        const midY = (blockTopY + blockBotY) / 2;
+        // 重力 W（紅色向下）
+        const wLen = Math.min(95, phys.wAir * 0.35);
+        drawForceArrow(blockCx - 16, midY, blockCx - 16, midY + wLen, '#f43f5e', `W=${Math.round(phys.wAir)}`);
+
+        // 浮力 B（綠色向上）
+        if (phys.buoyancy > 1) {
+          const bLen = Math.min(95, phys.buoyancy * 0.35);
+          drawForceArrow(blockCx + 16, midY, blockCx + 16, midY - bLen, '#34d399', `B=${Math.round(phys.buoyancy)}`);
+        }
+      }
+
+      ctx.restore();
+      updateDashboard(phys);
+    }
+
+    function drawForceArrow(x1, y1, x2, y2, color, label) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 4.5;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      const dir = y2 > y1 ? 1 : -1;
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - 8, y2 - dir * 12);
+      ctx.lineTo(x2 + 8, y2 - dir * 12);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.font = '900 16px monospace';
+      ctx.textAlign = dir > 0 ? 'right' : 'left';
+      ctx.fillText(label, x2 + (dir > 0 ? -12 : 12), y2);
+      ctx.restore();
+    }
+
+    function updateDashboard(phys) {
+      if (!phys) phys = calcBuoyancy();
+      document.getElementById('val-dobj').textContent = state.dObj.toFixed(2);
+      document.getElementById('stat-weight').textContent = `${Math.round(phys.wAir)} / ${Math.round(phys.scaleForce)} gw`;
+      document.getElementById('stat-vsub').textContent = `${Math.round(phys.vSub)} cm³`;
+      document.getElementById('stat-vsub-sub').textContent = `總體積 200 cm³（沒入 ${Math.round(phys.actualSubRatio * 100)}%）`;
+      document.getElementById('stat-buoyancy').textContent = `${Math.round(phys.buoyancy)} gw`;
+
+      const liq = LIQUIDS[state.liqKey];
+      if (phys.isFloater) {
+        document.getElementById('stat-status').textContent = '浮體 (D物 ≤ D液)';
+        document.getElementById('stat-status-sub').textContent = `${state.dObj.toFixed(2)} ≤ ${liq.d.toFixed(2)} g/cm³`;
+        document.getElementById('badge-float-state').textContent = `浮體（B ＝ ${Math.round(phys.buoyancy)} gw）`;
+      } else {
+        document.getElementById('stat-status').textContent = '沉體 (D物 > D液)';
+        document.getElementById('stat-status-sub').textContent = `${state.dObj.toFixed(2)} ＞ ${liq.d.toFixed(2)} g/cm³`;
+        document.getElementById('badge-float-state').textContent = `沉體（減輕 ${Math.round(phys.buoyancy)} gw）`;
+      }
+    }
+
+    document.querySelectorAll('.obj-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        const k = b.dataset.obj;
+        state.dObj = k === 'wood' ? 0.6 : (k === 'ice' ? 0.9 : 2.7);
+        document.getElementById('range-dobj').value = state.dObj;
+        document.querySelectorAll('.obj-btn').forEach(x => {
+          x.className = 'obj-btn py-3 px-2 rounded-2xl bg-white border-2 border-slate-300 text-slate-800 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95';
+        });
+        b.className = 'obj-btn py-3 px-2 rounded-2xl bg-amber-600 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95';
+        releaseToEquilibrium();
+      });
+    });
+
+    document.querySelectorAll('.liq-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        state.liqKey = b.dataset.liq;
+        document.querySelectorAll('.liq-btn').forEach(x => {
+          x.className = 'liq-btn py-2.5 px-2 rounded-xl bg-white border-2 border-slate-300 text-slate-800 font-black text-base sm:text-lg';
+        });
+        b.className = 'liq-btn py-2.5 px-2 rounded-xl bg-sky-700 text-white font-black text-base sm:text-lg shadow-sm';
+        releaseToEquilibrium();
+      });
+    });
+
+    document.getElementById('range-depth').addEventListener('input', (e) => {
+      state.hookRatio = parseInt(e.target.value) / 100;
+      document.getElementById('val-depth').textContent = `${e.target.value}%`;
+      renderSimulation();
+    });
+
+    document.getElementById('btn-release-auto').addEventListener('click', () => {
+      document.getElementById('val-depth').textContent = '自然平衡';
+      releaseToEquilibrium();
+    });
+
+    document.getElementById('range-dobj').addEventListener('input', (e) => {
+      state.dObj = parseFloat(e.target.value);
+      releaseToEquilibrium();
+    });
+
+    document.getElementById('chk-forces').addEventListener('change', (e) => { state.showForces = e.target.checked; renderSimulation(); });
+    document.getElementById('chk-overflow').addEventListener('change', (e) => { state.showOverflow = e.target.checked; renderSimulation(); });
+
+    // 畫布上下拖曳物體高度
+    let isDragging = false;
+    function handleDrag(e) {
+      const rect = canvas.getBoundingClientRect();
+      const cy = e.touches ? e.touches[0].clientY : e.clientY;
+      const ratio = Math.max(0, Math.min(1, (cy - rect.top) / rect.height));
+      state.hookRatio = ratio;
+      document.getElementById('range-depth').value = Math.round(ratio * 100);
+      document.getElementById('val-depth').textContent = `${Math.round(ratio * 100)}%`;
+      renderSimulation();
+    }
+
+    canvas.addEventListener('mousedown', (e) => { isDragging = true; handleDrag(e); });
+    window.addEventListener('mousemove', (e) => { if (isDragging) handleDrag(e); });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    canvas.addEventListener('touchstart', (e) => { isDragging = true; handleDrag(e); }, { passive: false });
+    window.addEventListener('touchmove', (e) => { if (isDragging) { if (e.cancelable) e.preventDefault(); handleDrag(e); } }, { passive: false });
+    window.addEventListener('touchend', () => { isDragging = false; });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      state.dObj = 0.6;
+      state.liqKey = 'water';
+      document.querySelectorAll('.obj-btn')[0].click();
+      document.querySelectorAll('.liq-btn')[1].click();
+      showToast('實驗參數已重置');
+    });
+
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+    }
+
+    const quizData = [
+      {
+        question: '一艘載貨輪船從「淡水河（密度 1.0 g/cm³）」航行駛入「大海（海水密度 1.03 g/cm³）」的過程中，輪船所受的「浮力大小」與「吃水深度（沒入體積）」會如何變化？',
+        options: [
+          '浮力變大，船身下沉',
+          '浮力不變（恆等於船總重），船身上浮一些（沒入體積變小）',
+          '浮力變小，船身上浮',
+          '浮力與沒入體積皆完全不變'
+        ],
+        answer: 1,
+        explanation: '輪船在淡水與海水中皆為「浮體」，浮體所受浮力恆等於船重（B ＝ W船），故浮力不變；但因海水密度較大，由 B ＝ V排 × D液 可知 V排 變小，船身上浮！'
+      },
+      {
+        question: '將體積均為 100 cm³ 的「實心鐵塊（密度 7.9 g/cm³）」與「實心鋁塊（密度 2.7 g/cm³）」同時完全沉入純水中（兩者皆不觸及杯底），請問哪一塊所受的浮力較大？',
+        options: [
+          '鐵塊所受浮力較大',
+          '鋁塊所受浮力較大',
+          '兩者所受浮力完全相等（皆為 100 gw）',
+          '無法比較'
+        ],
+        answer: 2,
+        explanation: '兩者皆為沉體且完全沒入水中，排開水的體積 V排 皆為 100 cm³，代入 B ＝ V排 × D液 ＝ 100 × 1 ＝ 100 gw，浮力完全相等！'
+      },
+      {
+        question: '用彈簧秤吊著一塊金屬，在空氣中測得重量為 250 gw；將金屬完全浸沒在水中時，彈簧秤讀數變為 170 gw。請問此金屬塊在水中所受的浮力為多少 gw？體積為多少 cm³？',
+        options: [
+          '浮力 170 gw，體積 170 cm³',
+          '浮力 80 gw，體積 80 cm³',
+          '浮力 250 gw，體積 250 cm³',
+          '浮力 80 gw，體積 250 cm³'
+        ],
+        answer: 1,
+        explanation: '浮力 B ＝ W空氣 − W水中 ＝ 250 − 170 ＝ 80 gw；又 B ＝ V排 × 1 ＝ 80，故完全沒入的金屬塊體積 V ＝ 80 cm³！'
+      },
+      {
+        question: '潛水艇在深海中由水深 50 公尺繼續垂直下潛至水深 150 公尺的過程中（假設海水密度均勻不變），潛水艇所受的「海水壓力」與「浮力」如何變化？',
+        options: [
+          '壓力變大，浮力不變',
+          '壓力變大，浮力變大',
+          '壓力不變，浮力變小',
+          '壓力與浮力皆變大'
+        ],
+        answer: 0,
+        explanation: '深度變深使液體壓力（P ＝ h × D）變大；但潛水艇外殼體積固定、排開海水體積 V排 不變，因此所受浮力（B ＝ V排 × D液）維持不變！'
+      }
+    ];
+
+    let currentQuizIndex = 0;
+    const userAnswers = {};
+    const quizModal = document.getElementById('quiz-modal');
+    const quizContent = document.getElementById('quiz-content');
+    const quizProgress = document.getElementById('quiz-progress');
+
+    function renderQuiz(index) {
+      const q = quizData[index];
+      quizProgress.textContent = `第 ${index + 1} / ${quizData.length} 題`;
+      document.getElementById('btn-prev-quiz').disabled = index === 0;
+      document.getElementById('btn-next-quiz').textContent = index === quizData.length - 1 ? '完成測驗' : '下一題';
+
+      const selected = userAnswers[index];
+      const isAnswered = selected !== undefined;
+
+      let html = `
+        <div class="space-y-4">
+          <div class="font-black text-slate-900 leading-snug text-xl sm:text-2xl">
+            <span class="inline-block bg-sky-100 text-sky-900 px-3 py-1 rounded-xl text-base mr-2 font-mono border border-sky-200">Q${index + 1}</span>
+            ${q.question}
+          </div>
+          <div class="space-y-3 mt-4">
+      `;
+
+      q.options.forEach((opt, optIdx) => {
+        let btnStyle = "bg-slate-50 hover:bg-slate-100 border-2 border-slate-300 text-slate-800";
+        let markIcon = "";
+        if (isAnswered) {
+          if (optIdx === q.answer) {
+            btnStyle = "bg-emerald-100 border-2 border-emerald-500 text-emerald-950 font-black";
+            markIcon = "<span class='text-emerald-600 font-black text-xl'>✓ 正確</span>";
+          } else if (optIdx === selected) {
+            btnStyle = "bg-rose-100 border-2 border-rose-500 text-rose-950 font-black";
+            markIcon = "<span class='text-rose-600 font-black text-xl'>✕ 錯誤</span>";
+          } else {
+            btnStyle = "bg-slate-50 border-2 border-slate-200 text-slate-400 opacity-60";
+          }
+        }
+        html += `
+          <button data-opt="${optIdx}" class="quiz-opt-btn w-full text-left p-4 rounded-2xl ${btnStyle} flex items-center justify-between text-base sm:text-lg transition active:scale-[0.99]">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-slate-500 font-black text-lg w-6">${String.fromCharCode(65 + optIdx)}.</span>
+              <span class="font-bold">${opt}</span>
+            </div>
+            ${markIcon}
+          </button>
+        `;
+      });
+      html += `</div>`;
+
+      if (isAnswered) {
+        const isCorrect = selected === q.answer;
+        html += `
+          <div class="mt-4 p-4 rounded-2xl ${isCorrect ? 'bg-emerald-50 border-2 border-emerald-300' : 'bg-rose-50 border-2 border-rose-300'} text-base leading-relaxed">
+            <div class="font-black ${isCorrect ? 'text-emerald-700' : 'text-rose-700'} text-lg mb-1">
+              ${isCorrect ? '🎉 恭喜答對！' : '❌ 答錯了，觀念複習：'}
+            </div>
+            <div class="text-slate-800 font-bold">${q.explanation}</div>
+          </div>
+        `;
+      }
+      html += `</div>`;
+      quizContent.innerHTML = html;
+
+      if (!isAnswered) {
+        document.querySelectorAll('.quiz-opt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            userAnswers[index] = parseInt(btn.dataset.opt);
+            renderQuiz(index);
+          });
+        });
+      }
+    }
+
+    document.getElementById('btn-quiz').addEventListener('click', () => { quizModal.classList.remove('hidden'); renderQuiz(currentQuizIndex); });
+    document.getElementById('btn-close-quiz').addEventListener('click', () => { quizModal.classList.add('hidden'); });
+    document.getElementById('btn-prev-quiz').addEventListener('click', () => { if (currentQuizIndex > 0) { currentQuizIndex--; renderQuiz(currentQuizIndex); } });
+    document.getElementById('btn-next-quiz').addEventListener('click', () => {
+      if (currentQuizIndex < quizData.length - 1) { currentQuizIndex++; renderQuiz(currentQuizIndex); }
+      else { quizModal.classList.add('hidden'); showToast('測驗完成！'); }
+    });
+    quizModal.addEventListener('click', (e) => { if (e.target === quizModal) quizModal.classList.add('hidden'); });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      releaseToEquilibrium();
+    });
+    resizeCanvas();
+  </script>
+
+<!-- 網站導覽：回首頁按鈕 -->
+<a href="index.html" id="lab-home-btn" title="回到實驗室首頁"
+   style="position:fixed;left:12px;bottom:12px;z-index:45;display:flex;align-items:center;gap:6px;
+          padding:8px 14px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font:600 15px/1 system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;
+          text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.85">
+  <span style="font-size:17px">⌂</span>首頁
+</a>
+</body>
+</html>

@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>國中理化：四大光學儀器成像模擬實驗室</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    #simCanvas {
+      touch-action: none;
+    }
+    input[type=range] {
+      accent-color: #2563eb;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #2563eb;
+      border: 3px solid #ffffff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- 主體區域：9:1 左右並列佈局（已移除頂部大標題列，最大化畫布垂直空間） -->
+  <main class="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 flex flex-col lg:flex-row gap-4">
+    
+    <!-- 左側展示區 (佔 90% 寬度) -->
+    <section class="w-full lg:w-[90%] flex flex-col gap-4">
+      
+      <!-- 主光學儀器畫布卡片 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 sm:p-5 shadow-md flex flex-col">
+        <!-- 四大儀器切換分頁 ＋ 測驗與重置下放操作列 -->
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <button data-inst="microscope" class="inst-tab py-2.5 px-3.5 rounded-2xl bg-indigo-700 text-white font-black text-base sm:text-lg shadow-md flex items-center gap-1.5 transition active:scale-95">
+              <span>🔬</span><span>1. 顯微鏡</span>
+            </button>
+            <button data-inst="telescope" class="inst-tab py-2.5 px-3.5 rounded-2xl bg-slate-100 text-slate-800 border-2 border-slate-300 hover:bg-slate-200 font-black text-base sm:text-lg flex items-center gap-1.5 transition active:scale-95">
+              <span>🔭</span><span>2. 望遠鏡</span>
+            </button>
+            <button data-inst="smartphone" class="inst-tab py-2.5 px-3.5 rounded-2xl bg-slate-100 text-slate-800 border-2 border-slate-300 hover:bg-slate-200 font-black text-base sm:text-lg flex items-center gap-1.5 transition active:scale-95">
+              <span>📱</span><span>3. 手機相機</span>
+            </button>
+            <button data-inst="polaroid" class="inst-tab py-2.5 px-3.5 rounded-2xl bg-slate-100 text-slate-800 border-2 border-slate-300 hover:bg-slate-200 font-black text-base sm:text-lg flex items-center gap-1.5 transition active:scale-95">
+              <span>📸</span><span>4. 拍立得</span>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2 text-base font-black text-slate-700 flex-wrap">
+            <label class="flex items-center gap-1.5 cursor-pointer bg-slate-100 px-3 py-2 rounded-2xl border border-slate-300">
+              <input type="checkbox" id="chk-labels" checked class="w-5 h-5 rounded text-indigo-600">
+              <span>標註</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer bg-amber-50 px-3 py-2 rounded-2xl border-2 border-amber-300">
+              <input type="checkbox" id="chk-letter-f" checked class="w-5 h-5 rounded text-amber-600">
+              <span class="text-amber-950">字母 F</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer bg-sky-50 px-3 py-2 rounded-2xl border-2 border-sky-300">
+              <input type="checkbox" id="chk-body-outline" checked class="w-5 h-5 rounded text-sky-600">
+              <span class="text-sky-950">機身</span>
+            </label>
+            <button id="btn-quiz" class="flex items-center gap-1.5 px-4 py-2 text-base sm:text-lg font-black rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white transition shadow-md active:scale-95">
+              <span>🏆</span>
+              <span>測驗</span>
+            </button>
+            <button id="btn-reset" class="flex items-center gap-1.5 px-3.5 py-2 text-base sm:text-lg font-black rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border-2 border-slate-300 transition shadow-sm active:scale-95">
+              <span>🔄</span>
+              <span>重置</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span id="badge-dot" class="inline-block w-4 h-4 rounded-full bg-indigo-600 animate-pulse"></span>
+            <span id="canvas-title" class="font-black text-2xl sm:text-3xl text-slate-900">複式顯微鏡：兩次放大倒立虛像</span>
+            <span id="badge-final-nature" class="text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-indigo-100 text-indigo-900 border border-indigo-300">
+              最終成像：倒立（上下左右相反）放大虛像
+            </span>
+          </div>
+        </div>
+
+        <!-- 畫布本體 -->
+        <div class="relative w-full aspect-[16/10] min-h-[500px] bg-white rounded-2xl border-2 border-slate-300 overflow-hidden cursor-grab active:cursor-grabbing touch-none">
+          <canvas id="simCanvas" class="w-full h-full block bg-white"></canvas>
+          
+          <div id="canvas-tip" class="absolute bottom-3 left-3 pointer-events-none text-sm sm:text-base font-black text-slate-700 flex items-center gap-2 bg-white/95 px-4 py-2 rounded-xl border-2 border-slate-300 shadow-md">
+            <span>👉</span>
+            <span>可在畫布上左右拖曳調整標本／鏡片對焦位置，觀察第一次實像與最終虛像變化！</span>
+          </div>
+
+          <div id="structure-pill" class="absolute top-3 right-3 text-sm sm:text-base font-black px-3.5 py-1.5 rounded-xl border-2 shadow-sm bg-indigo-50 text-indigo-950 border-indigo-300">
+            雙凸透鏡組合：短焦距物鏡 ＋ 長焦距目鏡
+          </div>
+        </div>
+
+        <!-- 特大字體數據看板 -->
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-center">
+          <div class="bg-amber-50 p-4 sm:p-5 rounded-2xl border-2 border-amber-300 shadow-sm">
+            <div id="card1-title" class="text-amber-950 font-black text-xl sm:text-2xl">核心透鏡配置</div>
+            <div id="card1-val" class="text-2xl sm:text-3xl font-black text-amber-700 mt-2">雙凸透鏡組合</div>
+            <div id="card1-sub" class="text-sm sm:text-base font-bold text-amber-800 mt-1">物鏡焦距短、目鏡焦距較長</div>
+          </div>
+
+          <div class="bg-blue-50 p-4 sm:p-5 rounded-2xl border-2 border-blue-300 shadow-sm">
+            <div id="card2-title" class="text-blue-950 font-black text-xl sm:text-2xl">第一次成像 (物鏡)</div>
+            <div id="card2-val" class="text-2xl sm:text-3xl font-black text-blue-700 mt-2">倒立 放大 實像</div>
+            <div id="card2-sub" class="text-sm sm:text-base font-bold text-blue-800 mt-1">標本置於物鏡 F物 ~ 2F物 之間</div>
+          </div>
+
+          <div class="bg-purple-50 p-4 sm:p-5 rounded-2xl border-2 border-purple-300 shadow-sm">
+            <div id="card3-title" class="text-purple-950 font-black text-xl sm:text-2xl">最終成像 (人眼/感光)</div>
+            <div id="card3-val" class="text-2xl sm:text-3xl font-black text-purple-700 mt-2">倒立 放大 虛像</div>
+            <div id="card3-sub" class="text-sm sm:text-base font-bold text-purple-800 mt-1">目鏡將第一次實像再次放大</div>
+          </div>
+
+          <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-sm">
+            <div id="card4-title" class="text-emerald-950 font-black text-xl sm:text-2xl">對焦清晰狀態</div>
+            <div id="card4-val" class="text-2xl sm:text-3xl font-black text-emerald-800 mt-2">100% 精準對焦</div>
+            <div id="card4-sub" class="text-sm sm:text-base font-bold text-emerald-800 mt-1">上下顛倒、左右也相反</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心觀念解說卡 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-5 shadow-md flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">💡</span>
+            <span id="guide-heading" class="font-black text-2xl sm:text-3xl text-slate-900">原理拆解：複式顯微鏡為什麼看到的「F」上下左右都相反？</span>
+          </div>
+          <span class="text-sm sm:text-base font-black text-indigo-800 bg-indigo-100 border border-indigo-300 px-3.5 py-1 rounded-xl">會考必考</span>
+        </div>
+
+        <div id="guide-content" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-base sm:text-lg font-bold">
+          <div class="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200">
+            <div class="text-blue-950 font-black text-lg sm:text-xl mb-1">1️⃣ 第一關：物鏡（相當於投影機）</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              玻片標本放在物鏡的 <strong>F物 與 2F物 之間</strong>，經過物鏡折射後，在鏡筒內部形成一個<strong>「倒立（上下顛倒、左右相反）、放大的實像」</strong>。
+            </p>
+          </div>
+          <div class="bg-purple-50 p-4 rounded-2xl border-2 border-purple-200">
+            <div class="text-purple-950 font-black text-lg sm:text-xl mb-1">2️⃣ 第二關：目鏡（相當於放大鏡）</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              這個倒立實像剛好落在目鏡的<strong>焦點 F目 以內</strong>，目鏡把它當成物體再放大一次，形成<strong>「正立放大虛像」</strong>——因為是把「已經上下左右顛倒的實像」正立放大，所以人眼最終看到的仍是<strong>上下顛倒且左右相反</strong>！
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 右側極簡大字體控制面板 (佔 10% 寬度) -->
+    <aside class="w-full lg:w-[10%] lg:min-w-[230px] flex flex-col gap-4">
+      
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>⚙️</span>
+          儀器調焦
+        </h2>
+
+        <!-- 主調焦滑桿 -->
+        <div class="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span id="slider1-label" class="text-base sm:text-lg font-black text-slate-800">標本距</span>
+            <span id="slider1-val" class="text-xl font-black text-indigo-700 font-mono">1.50 f</span>
+          </div>
+          <input type="range" id="range-param1" min="0" max="100" value="50" step="1" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- 一鍵自動清晰對焦 -->
+        <button id="btn-autofocus" class="w-full py-3.5 px-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg sm:text-xl shadow-md transition active:scale-95">
+          ✨ 精準對焦
+        </button>
+
+        <!-- 四大儀器成像性質總比較表 -->
+        <div class="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 space-y-2 text-sm sm:text-base font-bold">
+          <div class="font-black text-slate-900 text-base border-b border-slate-200 pb-1">📋 成像速查：</div>
+          <div class="py-1 border-b border-slate-200/70">
+            <div class="font-black text-indigo-800">🔬 顯微鏡</div>
+            <div class="text-slate-700 text-sm">倒立・放大・虛像</div>
+          </div>
+          <div class="py-1 border-b border-slate-200/70">
+            <div class="font-black text-sky-800">🔭 望遠鏡</div>
+            <div class="text-slate-700 text-sm">倒立・放大視角虛像</div>
+          </div>
+          <div class="py-1 border-b border-slate-200/70">
+            <div class="font-black text-emerald-800">📱 手機相機</div>
+            <div class="text-slate-700 text-sm">倒立・縮小・實像</div>
+          </div>
+          <div class="py-1">
+            <div class="font-black text-amber-800">📸 拍立得</div>
+            <div class="text-slate-700 text-sm">倒立・縮小・實像</div>
+          </div>
+        </div>
+
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- 隨堂測驗 Modal -->
+  <div id="quiz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border-2 border-slate-300 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-indigo-700 text-white flex items-center justify-center font-black">
+            🏆
+          </div>
+          <h3 class="font-black text-xl sm:text-2xl text-slate-900">四大光學儀器成像素養測驗</h3>
+        </div>
+        <button id="btn-close-quiz" class="text-slate-400 hover:text-slate-700 p-2 text-2xl font-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto max-h-[75vh] flex flex-col gap-4" id="quiz-content"></div>
+
+      <div class="px-6 py-4 border-t-2 border-slate-100 bg-slate-50 flex justify-between items-center">
+        <span id="quiz-progress" class="text-base font-bold text-slate-500">第 1 / 4 題</span>
+        <div class="flex gap-3">
+          <button id="btn-prev-quiz" class="px-5 py-2.5 rounded-xl bg-white border-2 border-slate-300 text-base font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40">上一題</button>
+          <button id="btn-next-quiz" class="px-6 py-2.5 rounded-xl bg-indigo-700 text-base font-bold text-white hover:bg-indigo-800 shadow-md">下一題</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl text-base font-bold flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300">
+    <span class="text-emerald-400 text-xl">✓</span>
+    <span id="toast-text">已更新</span>
+  </div>
+
+  <script>
+    const INST_CONFIG = {
+      microscope: {
+        title: '複式顯微鏡：兩次放大倒立虛像',
+        badge: '最終成像：倒立（上下左右相反）放大虛像',
+        pill: '雙凸透鏡組合：短焦距物鏡 ＋ 長焦距目鏡',
+        c1: ['核心透鏡配置', '雙凸透鏡組合', '物鏡焦距短、目鏡焦距較長'],
+        c2: ['第一次成像 (物鏡)', '倒立 放大 實像', '標本置於物鏡 F物 ~ 2F物 之間'],
+        c3: ['最終成像 (目鏡)', '倒立 放大 虛像', '目鏡將第一次實像再次放大'],
+        s1: ['標本距'],
+        s2: ['目鏡倍率'],
+        guideTitle: '原理拆解：複式顯微鏡為什麼看到的「F」上下左右都相反？',
+        guideHtml: `
+          <div class="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200">
+            <div class="text-blue-950 font-black text-lg sm:text-xl mb-1">1️⃣ 第一關：物鏡（相當於投影機）</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">玻片標本放在物鏡的 <strong>F物 與 2F物 之間</strong>，經過物鏡折射後，在鏡筒內部形成一個<strong>「倒立（上下顛倒、左右相反）、放大的實像」</strong>。</p>
+          </div>
+          <div class="bg-purple-50 p-4 rounded-2xl border-2 border-purple-200">
+            <div class="text-purple-950 font-black text-lg sm:text-xl mb-1">2️⃣ 第二關：目鏡（相當於放大鏡）</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">這個倒立實像剛好落在目鏡的<strong>焦點 F目 以內</strong>，目鏡把它當成物體再放大一次，形成<strong>「正立放大虛像」</strong>——因此人眼最終看到的仍是<strong>上下顛倒且左右相反</strong>！</p>
+          </div>`
+      },
+      telescope: {
+        title: '折射式天文望遠鏡：遠方星體雙凸透鏡成像',
+        badge: '最終成像：倒立放大視角虛像',
+        pill: '雙凸透鏡組合：長焦距大口徑物鏡 ＋ 短焦距目鏡',
+        c1: ['核心透鏡配置', '長焦物鏡＋短焦目鏡', '物鏡口徑大收集更多星光'],
+        c2: ['第一次成像 (物鏡)', '倒立 縮小 實像', '遠方平行光會聚於共同焦點 F'],
+        c3: ['最終成像 (目鏡)', '倒立 放大 虛像', '目鏡貼近實像作放大鏡觀察'],
+        s1: ['目鏡對焦'],
+        s2: ['星體視角'],
+        guideTitle: '原理拆解：折射式望遠鏡與顯微鏡的透鏡焦距有什麼相反之處？',
+        guideHtml: `
+          <div class="bg-sky-50 p-4 rounded-2xl border-2 border-sky-200">
+            <div class="text-sky-950 font-black text-lg sm:text-xl mb-1">1️⃣ 物鏡焦距長（收集遠處微弱平行光）</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">遠方星球距離遠大於 2F物，平行光線經大口徑<strong>長焦距物鏡</strong>後，在鏡筒內焦點處形成一個<strong>「倒立、縮小的實像」</strong>。</p>
+          </div>
+          <div class="bg-indigo-50 p-4 rounded-2xl border-2 border-indigo-200">
+            <div class="text-indigo-950 font-black text-lg sm:text-xl mb-1">2️⃣ 短焦距目鏡放大視角</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">調整鏡筒使此實像剛好落在<strong>短焦距目鏡的焦點 F目 內側</strong>，目鏡將它放大成<strong>倒立虛像</strong>，讓人眼感覺遙遠星體被拉近放大了！</p>
+          </div>`
+      },
+      smartphone: {
+        title: '手機相機模組：自動對焦音圈馬達與 CMOS 感光',
+        badge: 'CMOS 晶片上成像：倒立 縮小 實像',
+        pill: '單一高屈光力凸透鏡組 ＋ 固定位置 CMOS 感光晶片',
+        c1: ['核心光學構造', '凸透鏡＋CMOS晶片', '鏡片與感光元件距離固定極短'],
+        c2: ['物體位置條件', '遠大於 2F 外 (p > 2f)', '拍攝風景與人物皆在 2F 以外'],
+        c3: ['CMOS 晶片成像', '倒立 縮小 實像', '手機晶片再數位翻轉顯示正立照片'],
+        s1: ['景物距離'],
+        s2: ['馬達微調'],
+        guideTitle: '原理拆解：手機這麼薄，為什麼能拍下整棟高樓大廈？',
+        guideHtml: `
+          <div class="bg-emerald-50 p-4 rounded-2xl border-2 border-emerald-200">
+            <div class="text-emerald-950 font-black text-lg sm:text-xl mb-1">1️⃣ 極短焦距凸透鏡（f 僅約 4~6 mm）</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">因為手機鏡頭焦距極短，即使拍攝距離 1 公尺外的景物，物距也遠大於 <strong>2F</strong>，因此會在鏡頭後方極近處形成<strong>「倒立、縮小的實像」</strong>。</p>
+          </div>
+          <div class="bg-sky-50 p-4 rounded-2xl border-2 border-sky-200">
+            <div class="text-sky-950 font-black text-lg sm:text-xl mb-1">2️⃣ 音圈馬達前後微移鏡片對焦</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">手機相機通過微小馬達前後移動鏡片（改變鏡片到 CMOS 晶片的像距），讓不同距離的景物都能精準聚焦在感光元件上！</p>
+          </div>`
+      },
+      polaroid: {
+        title: '拍立得相機：凸透鏡成像與 45° 反光鏡底片匣',
+        badge: '底片感光層成像：倒立 縮小 實像',
+        pill: '凸透鏡鏡頭 ＋ 45° 內部平面反光鏡 ＋ 拍立得底片匣',
+        c1: ['核心光學構造', '凸透鏡＋45°反光鏡', '反光鏡將光路向下折入底片匣'],
+        c2: ['物體位置條件', '位於鏡頭 2F 以外', '拍攝人物距離通常大於 60 cm'],
+        c3: ['底片顯影成像', '倒立 縮小 實像', '感光藥水受光激發化學反應顯影'],
+        s1: ['拍攝距離'],
+        s2: ['折疊光路'],
+        guideTitle: '原理拆解：拍立得相機按下快門後，光線如何把影像印在底片上？',
+        guideHtml: `
+          <div class="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200">
+            <div class="text-amber-950 font-black text-lg sm:text-xl mb-1">1️⃣ 凸透鏡將景物縮小成實像</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">人物站在鏡頭 <strong>2F 以外</strong>，光線穿過凸透鏡會聚，形成<strong>「倒立、縮小的實像」</strong>（因為底片需要真實光線能量才能感光，所以必須是實像！）。</p>
+          </div>
+          <div class="bg-rose-50 p-4 rounded-2xl border-2 border-rose-200">
+            <div class="text-rose-950 font-black text-lg sm:text-xl mb-1">2️⃣ 機身內部 45° 反光鏡折疊光路</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">為了縮小機身厚度並把照片從下方吐出，拍立得機身內常設有一片 <strong>45° 平面反光鏡</strong>，將凸透鏡折射後的光線向下反射到水平放置的底片上！</p>
+          </div>`
+      }
+    };
+
+    const state = {
+      inst: 'microscope', // 'microscope', 'telescope', 'smartphone', 'polaroid'
+      param1: 50,         // 0 ~ 100
+      showLabels: true,
+      useLetterF: true,
+      showBodyOutline: true
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const W = rect.width || canvas.parentElement.clientWidth || 800;
+      const H = rect.height || canvas.parentElement.clientHeight || 480;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+
+      canvas.width = Math.max(300, W) * dpr;
+      canvas.height = Math.max(300, H) * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      renderSimulation();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function renderSimulation() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const W = rect.width > 0 ? rect.width : (canvas.width / dpr) || 800;
+      const H = rect.height > 0 ? rect.height : (canvas.height / dpr) || 480;
+
+      if (W <= 0 || H <= 0) return;
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+
+      if (state.inst === 'microscope') renderMicroscope(W, H);
+      else if (state.inst === 'telescope') renderTelescope(W, H);
+      else if (state.inst === 'smartphone') renderSmartphone(W, H);
+      else renderPolaroid(W, H);
+    }
+
+    // 繪製凸透鏡符號
+    function drawConvexLens(x, cy, halfH, label, subLabel) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(186, 230, 253, 0.55)';
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(x, cy - halfH);
+      ctx.quadraticCurveTo(x + 22, cy, x, cy + halfH);
+      ctx.quadraticCurveTo(x - 22, cy, x, cy - halfH);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      if (state.showLabels) {
+        ctx.fillStyle = '#0369a1';
+        ctx.font = '900 18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, x, cy - halfH - 26);
+        if (subLabel) {
+          ctx.font = 'bold 14px sans-serif';
+          ctx.fillText(subLabel, x, cy - halfH - 8);
+        }
+      }
+      ctx.restore();
+    }
+
+    // 繪製標本／物體（支援不對稱字母 F 或箭頭）
+    function drawSpecimen(x, baseY, hPx, color, invertY, invertX, isDashed, label) {
+      ctx.save();
+      ctx.translate(x, baseY);
+      if (invertX) ctx.scale(-1, 1);
+      if (invertY) ctx.scale(1, -1);
+      if (isDashed) ctx.setLineDash([6, 4]);
+
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = Math.max(4, Math.min(7, hPx * 0.1));
+      ctx.lineCap = 'round';
+
+      if (state.useLetterF) {
+        const w = hPx * 0.45;
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.3, 0);
+        ctx.lineTo(-w * 0.3, -hPx);
+        ctx.lineTo(w * 0.7, -hPx);
+        ctx.moveTo(-w * 0.3, -hPx * 0.52);
+        ctx.lineTo(w * 0.45, -hPx * 0.52);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, -hPx);
+        ctx.stroke();
+        const hh = Math.min(18, hPx * 0.3);
+        ctx.beginPath();
+        ctx.moveTo(0, -hPx);
+        ctx.lineTo(-10, -hPx + hh);
+        ctx.lineTo(10, -hPx + hh);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+
+      if (label && state.showLabels) {
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.font = '900 16px sans-serif';
+        ctx.textAlign = 'center';
+        const ly = invertY ? (baseY + hPx + 24) : (baseY - hPx - 14);
+        ctx.fillText(label, x, ly);
+        ctx.restore();
+      }
+    }
+
+    // ==========================================
+    // 1. 複式顯微鏡光路圖
+    // ==========================================
+    function renderMicroscope(W, H) {
+      const cy = H * 0.52;
+      const objLensX = W * 0.34;
+      const eyeLensX = W * 0.72;
+      const fObj = 64;
+      const fEye = 115;
+
+      // 主光軸
+      ctx.strokeStyle = '#64748b'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(20, cy); ctx.lineTo(W - 20, cy); ctx.stroke();
+
+      // 半透明真實複式顯微鏡外觀輪廓（橫臥光學光路視角）
+      if (state.showBodyOutline) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(203, 213, 225, 0.22)';
+        ctx.strokeStyle = 'rgba(71, 85, 105, 0.42)';
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+
+        // 1. 底部反光鏡與底座 (左側光源端)
+        ctx.beginPath();
+        ctx.roundRect(objLensX - 165, cy - 125, 22, 250, 10);
+        ctx.fill(); ctx.stroke();
+        // 聚光反光鏡弧線
+        ctx.beginPath();
+        ctx.arc(objLensX - 135, cy, 42, -Math.PI * 0.35, Math.PI * 0.35);
+        ctx.stroke();
+
+        // 2. 載物台與壓片夾
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.28)';
+        ctx.fillRect(objLensX - 102, cy - 95, 12, 190);
+        ctx.strokeRect(objLensX - 102, cy - 95, 12, 190);
+
+        // 3. C型彎曲鏡臂與粗細調節輪 (上方連接載物台與鏡筒)
+        ctx.fillStyle = 'rgba(203, 213, 225, 0.20)';
+        ctx.beginPath();
+        ctx.moveTo(objLensX - 143, cy - 115);
+        ctx.quadraticCurveTo(objLensX - 50, cy - 205, objLensX + 80, cy - 165);
+        ctx.lineTo(objLensX + 80, cy - 135);
+        ctx.quadraticCurveTo(objLensX - 45, cy - 170, objLensX - 143, cy - 85);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        // 粗細調節輪圓鈕
+        ctx.beginPath();
+        ctx.arc(objLensX - 75, cy - 155, 22, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+
+        // 4. 物鏡鼻輪與金屬鏡筒外殼 + 目鏡套筒
+        ctx.fillStyle = 'rgba(226, 232, 240, 0.24)';
+        ctx.beginPath();
+        ctx.roundRect(objLensX - 27, cy - 105, 54, 210, 12); // 物鏡轉盤護罩
+        ctx.roundRect(objLensX + 27, cy - 145, (eyeLensX - objLensX) - 47, 290, 16); // 主鏡筒
+        ctx.roundRect(eyeLensX - 20, cy - 152, 56, 304, 10); // 目鏡筒身
+        ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+
+      drawConvexLens(objLensX, cy, 95, '物鏡 (凸透鏡)', '焦距較短');
+      drawConvexLens(eyeLensX, cy, 135, '目鏡 (凸透鏡)', '焦距較長');
+
+      // 標示焦點
+      if (state.showLabels) {
+        [
+          { x: objLensX - fObj, t: 'F物' },
+          { x: objLensX - 2 * fObj, t: '2F物' },
+          { x: objLensX + fObj, t: 'F物' },
+          { x: eyeLensX - fEye, t: 'F目' }
+        ].forEach(pt => {
+          ctx.fillStyle = '#7c3aed';
+          ctx.beginPath(); ctx.arc(pt.x, cy, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.font = '900 15px monospace'; ctx.textAlign = 'center';
+          ctx.fillText(pt.t, pt.x, cy + 22);
+        });
+      }
+
+      // 標本物距 pObj (最佳對焦約在 1.45 * fObj)
+      const pObj = fObj * (1.25 + (state.param1 / 100) * 0.45);
+      const specX = objLensX - pObj;
+      const specH = 34;
+      const specTopY = cy - specH;
+
+      // 第一次成像 (倒立放大實像)
+      const qObj = (pObj * fObj) / (pObj - fObj);
+      const mObj = -qObj / pObj;
+      const img1X = Math.min(eyeLensX - 28, objLensX + qObj);
+      const img1H = Math.min(115, specH * Math.abs(mObj));
+      const img1TopY = cy + img1H;
+
+      // 繪製物鏡折射光線
+      ctx.save();
+      ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.moveTo(specX, specTopY);
+      ctx.lineTo(objLensX, specTopY);
+      ctx.lineTo(img1X, img1TopY);
+      ctx.lineTo(eyeLensX, img1TopY + ((img1TopY - specTopY) / (img1X - objLensX)) * (eyeLensX - img1X));
+      ctx.stroke();
+
+      ctx.strokeStyle = '#059669';
+      ctx.beginPath();
+      ctx.moveTo(specX, specTopY);
+      ctx.lineTo(objLensX, cy);
+      ctx.lineTo(img1X, img1TopY);
+      const hitEyeY2 = cy + ((img1TopY - cy) / (img1X - objLensX)) * (eyeLensX - objLensX);
+      ctx.lineTo(eyeLensX, hitEyeY2);
+      ctx.stroke();
+      ctx.restore();
+
+      // 第二次成像 (目鏡將 img1 放大為倒立放大虛像)
+      const pEye = Math.max(25, eyeLensX - img1X);
+      const eyeMagBoost = 2.2;
+      const img2X = Math.max(35, eyeLensX - pEye * eyeMagBoost);
+      const img2H = Math.min(185, img1H * eyeMagBoost);
+      const img2TopY = cy + img2H;
+
+      // 目鏡射向人眼與反向延長虛線
+      const eyePosX = W - 45;
+      const eyePosY = cy - 45;
+      ctx.save();
+      ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 2.8;
+      const hitEyeY1 = img1TopY + ((img1TopY - specTopY) / (img1X - objLensX)) * (eyeLensX - img1X);
+      ctx.beginPath(); ctx.moveTo(eyeLensX, hitEyeY1); ctx.lineTo(eyePosX, eyePosY); ctx.stroke();
+
+      ctx.strokeStyle = '#059669';
+      ctx.beginPath(); ctx.moveTo(eyeLensX, hitEyeY2); ctx.lineTo(eyePosX, eyePosY - 12); ctx.stroke();
+
+      // 反向延長虛線交於最終虛像頂端
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = '#9333ea';
+      ctx.beginPath();
+      ctx.moveTo(eyeLensX, hitEyeY1); ctx.lineTo(img2X, img2TopY);
+      ctx.moveTo(eyeLensX, hitEyeY2); ctx.lineTo(img2X, img2TopY);
+      ctx.stroke();
+      ctx.restore();
+
+      // 繪製標本、第一次實像、最終虛像、人眼
+      drawSpecimen(specX, cy, specH, '#d97706', false, false, false, '標本');
+      drawSpecimen(img1X, cy, img1H, '#2563eb', true, true, false, '第一次倒立實像');
+      drawSpecimen(img2X, cy, img2H, '#7c3aed', true, true, true, '最終放大虛像');
+      drawEyeIcon(eyePosX, eyePosY);
+
+      const focusDiff = Math.abs(state.param1 - 45);
+      document.getElementById('slider1-val').textContent = `${(pObj / fObj).toFixed(2)} f物`;
+      document.getElementById('card1-val').textContent = '雙凸透鏡組合';
+      document.getElementById('card4-val').textContent = focusDiff < 15 ? '100% 精準對焦' : '微微失焦 (請調載物台)';
+    }
+
+    // ==========================================
+    // 2. 折射式天文望遠鏡光路圖
+    // ==========================================
+    function renderTelescope(W, H) {
+      const cy = H * 0.52;
+      const objLensX = W * 0.28;
+      const eyeLensX = W * 0.72;
+      const focusX = W * 0.56; // 共焦點位置
+
+      ctx.strokeStyle = '#64748b'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(20, cy); ctx.lineTo(W - 20, cy); ctx.stroke();
+
+      // 半透明真實折射式天文望遠鏡外觀輪廓
+      if (state.showBodyOutline) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(224, 242, 254, 0.24)';
+        ctx.strokeStyle = 'rgba(3, 105, 161, 0.38)';
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+
+        // 1. 前端遮光罩與大口徑主鏡筒
+        ctx.beginPath();
+        ctx.roundRect(objLensX - 48, cy - 165, 65, 330, 8); // 遮光罩
+        ctx.moveTo(objLensX + 17, cy - 154);
+        ctx.lineTo(eyeLensX - 65, cy - 115);
+        ctx.lineTo(eyeLensX - 65, cy + 115);
+        ctx.lineTo(objLensX + 17, cy + 154);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+
+        // 2. 調焦座與目鏡筒
+        ctx.beginPath();
+        ctx.roundRect(eyeLensX - 65, cy - 98, 95, 196, 10);
+        ctx.fill(); ctx.stroke();
+
+        // 3. 上方小型尋星鏡
+        ctx.beginPath();
+        ctx.roundRect(objLensX + 95, cy - 188, 120, 26, 8);
+        ctx.fill(); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(objLensX + 125, cy - 162); ctx.lineTo(objLensX + 125, cy - 140);
+        ctx.moveTo(objLensX + 185, cy - 162); ctx.lineTo(objLensX + 185, cy - 134);
+        ctx.stroke();
+
+        // 4. 下方赤道儀雲台與三腳架示意
+        const mountX = (objLensX + eyeLensX) * 0.48;
+        ctx.beginPath();
+        ctx.moveTo(mountX - 24, cy + 138);
+        ctx.lineTo(mountX + 24, cy + 138);
+        ctx.lineTo(mountX + 16, cy + 172);
+        ctx.lineTo(mountX - 16, cy + 172);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(mountX - 10, cy + 172); ctx.lineTo(mountX - 55, H - 14);
+        ctx.moveTo(mountX, cy + 172); ctx.lineTo(mountX, H - 14);
+        ctx.moveTo(mountX + 10, cy + 172); ctx.lineTo(mountX + 55, H - 14);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      drawConvexLens(objLensX, cy, 145, '物鏡 (大口徑凸透鏡)', '焦距較長');
+      drawConvexLens(eyeLensX, cy, 90, '目鏡 (凸透鏡)', '焦距較短');
+
+      // 遠方星體平行光斜向入射 (兩道平行光束)
+      const beamSlope = 0.28;
+      const startX = 25;
+      const hitTopY = cy - 75;
+      const hitMidY = cy;
+      const hitBotY = cy + 75;
+
+      // 第一次實像交會於焦平面 focusX
+      const img1Y = cy + (focusX - objLensX) * beamSlope;
+
+      ctx.save();
+      ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 3;
+      [hitTopY, hitMidY, hitBotY].forEach(hy => {
+        const sy = hy - (objLensX - startX) * beamSlope;
+        ctx.beginPath();
+        ctx.moveTo(startX, sy);
+        ctx.lineTo(objLensX, hy);
+        ctx.lineTo(focusX, img1Y);
+        ctx.stroke();
+      });
+
+      // 目鏡對焦位置微調
+      const eyeShift = (state.param1 - 50) * 0.6;
+      const actualEyeX = eyeLensX + eyeShift;
+      const eyePosX = W - 45;
+      const eyePosY = cy - 35;
+
+      // 由第一次實像頂端射向目鏡並射向人眼
+      ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(focusX, img1Y);
+      ctx.lineTo(actualEyeX, img1Y);
+      ctx.lineTo(eyePosX, eyePosY);
+
+      ctx.moveTo(focusX, img1Y);
+      ctx.lineTo(actualEyeX, cy);
+      ctx.lineTo(eyePosX, eyePosY + 12);
+      ctx.stroke();
+
+      // 反向延長虛線形成放大視角虛像
+      const virtX = W * 0.22;
+      const virtH = Math.abs(img1Y - cy) * 2.1;
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = '#7c3aed';
+      ctx.beginPath();
+      ctx.moveTo(actualEyeX, img1Y); ctx.lineTo(virtX, cy + virtH);
+      ctx.moveTo(actualEyeX, cy); ctx.lineTo(virtX, cy + virtH);
+      ctx.stroke();
+      ctx.restore();
+
+      if (state.showLabels) {
+        ctx.fillStyle = '#d97706'; ctx.font = '900 17px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('✨ 遠方星體平行光入射', 25, cy - 125);
+        ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.arc(focusX, cy, 5.5, 0, Math.PI * 2); ctx.fill();
+        ctx.textAlign = 'center'; ctx.fillText('共焦點 F', focusX, cy - 16);
+      }
+
+      drawSpecimen(focusX, cy, Math.abs(img1Y - cy), '#2563eb', true, true, false, '第一次倒立縮小實像');
+      drawSpecimen(virtX, cy, virtH, '#7c3aed', true, true, true, '最終放大視角虛像');
+      drawEyeIcon(eyePosX, eyePosY);
+
+      document.getElementById('slider1-val').textContent = `${eyeShift >= 0 ? '+' : ''}${eyeShift.toFixed(0)} mm`;
+      document.getElementById('card4-val').textContent = Math.abs(eyeShift) < 8 ? '100% 精準共焦' : '目鏡未對準焦點';
+    }
+
+    // ==========================================
+    // 3. 手機相機成像光路圖
+    // ==========================================
+    function renderSmartphone(W, H) {
+      const cy = H * 0.52;
+      const lensX = W * 0.64;
+      const cmosX = W * 0.84;
+
+      ctx.strokeStyle = '#64748b'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(20, cy); ctx.lineTo(W - 20, cy); ctx.stroke();
+
+      // 手機超薄機身半透明真實外觀
+      ctx.save();
+      if (state.showBodyOutline) {
+        // 機身圓角外殼
+        ctx.fillStyle = 'rgba(203, 213, 225, 0.25)';
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.55)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.roundRect(lensX - 22, cy - 175, (cmosX - lensX) + 64, 350, 22);
+        ctx.fill();
+        ctx.stroke();
+
+        // 鏡頭模組凸起保護圈 (Camera Bump)
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.25)';
+        ctx.beginPath();
+        ctx.roundRect(lensX - 34, cy - 105, 22, 210, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        // 音圈馬達 VCM 音圈框線
+        ctx.strokeStyle = 'rgba(2, 132, 199, 0.35)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(lensX - 18, cy - 95, 36, 190);
+        ctx.setLineDash([]);
+
+        // 右側螢幕玻璃與「晶片數位翻轉成正立像」提示
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(cmosX + 36, cy - 155);
+        ctx.lineTo(cmosX + 36, cy + 155);
+        ctx.stroke();
+
+        ctx.fillStyle = '#0369a1';
+        ctx.font = '900 14px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('📱 手機螢幕', cmosX + 46, cy - 20);
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText('(數位翻轉正立)', cmosX + 46, cy + 2);
+      } else {
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(lensX - 24, cy - 155, (cmosX - lensX) + 55, 310);
+      }
+
+      // CMOS 感光元件板
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(cmosX - 5, cy - 95, 12, 190);
+      ctx.fillStyle = '#059669';
+      ctx.font = '900 17px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('CMOS 感光元件', cmosX + 10, cy - 110);
+      ctx.restore();
+
+      const actualLensX = lensX;
+      drawConvexLens(actualLensX, cy, 85, '手機凸透鏡組', '極短焦距 f');
+
+      // 外部景物位置
+      const objX = W * 0.14 + (state.param1 / 100) * (W * 0.22);
+      const objH = 105;
+      const objTopY = cy - objH;
+
+      // 焦點位置
+      const fPx = (cmosX - lensX) * 0.78;
+      const fLeftX = actualLensX - fPx;
+      const fRightX = actualLensX + fPx;
+
+      if (state.showLabels) {
+        [fLeftX, fRightX, actualLensX - 2 * fPx].forEach((fx, i) => {
+          ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.arc(fx, cy, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.font = '900 15px monospace'; ctx.textAlign = 'center';
+          ctx.fillText(i === 2 ? '2F' : 'F', fx, cy + 22);
+        });
+      }
+
+      // 計算實際成像位置 q
+      const pPx = actualLensX - objX;
+      const qPx = (pPx * fPx) / (pPx - fPx);
+      const imgX = actualLensX + qPx;
+      const imgH = objH * (qPx / pPx);
+      const imgTopY = cy + imgH;
+
+      // 光線追蹤
+      ctx.save();
+      ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 3;
+      const sl1 = (cy - objTopY) / (fRightX - actualLensX);
+      ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(actualLensX, objTopY); ctx.lineTo(cmosX, objTopY + sl1 * (cmosX - actualLensX)); ctx.stroke();
+
+      ctx.strokeStyle = '#059669';
+      const sl2 = (cy - objTopY) / (actualLensX - objX);
+      ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(cmosX, cy + sl2 * (cmosX - actualLensX)); ctx.stroke();
+      ctx.restore();
+
+      drawSpecimen(objX, cy, objH, '#d97706', false, false, false, '外部景物 (2F外)');
+      drawSpecimen(imgX, cy, imgH, '#2563eb', true, true, false, '倒立縮小實像');
+
+      const focusErr = Math.abs(imgX - cmosX);
+      document.getElementById('slider1-val').textContent = `${Math.round(30 + (100 - state.param1) * 1.5)} cm`;
+      document.getElementById('card4-val').textContent = focusErr < 6 ? '100% 精準對焦' : '畫面散焦 (請調對焦)';
+    }
+
+    // ==========================================
+    // 4. 拍立得相機成像光路圖
+    // ==========================================
+    function renderPolaroid(W, H) {
+      const cy = H * 0.44;
+      const lensX = W * 0.56;
+      const mirrorX = W * 0.78;
+      const filmY = H * 0.80;
+
+      ctx.strokeStyle = '#64748b'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(20, cy); ctx.lineTo(mirrorX + 20, cy); ctx.stroke();
+
+      // 拍立得機身經典半透明外觀
+      ctx.save();
+      if (state.showBodyOutline) {
+        // 拍立得經典階梯折疊機身輪廓
+        ctx.fillStyle = 'rgba(254, 243, 199, 0.28)';
+        ctx.strokeStyle = 'rgba(120, 53, 15, 0.55)';
+        ctx.lineWidth = 4;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(lensX - 18, cy - 148);
+        ctx.lineTo(mirrorX + 58, cy - 148);
+        ctx.lineTo(mirrorX + 58, filmY + 34);
+        ctx.lineTo(lensX - 58, filmY + 34);
+        ctx.lineTo(lensX - 58, cy + 92);
+        ctx.lineTo(lensX - 18, cy + 92);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 頂部光學取景窗與快門鈕
+        ctx.fillStyle = 'rgba(186, 230, 253, 0.35)';
+        ctx.beginPath();
+        ctx.roundRect(lensX + 10, cy - 142, 75, 24, 6);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.roundRect(lensX - 14, cy - 158, 26, 10, 4);
+        ctx.fill(); ctx.stroke();
+
+        // 前方鏡頭伸縮筒外框
+        ctx.fillStyle = 'rgba(226, 232, 240, 0.30)';
+        ctx.beginPath();
+        ctx.roundRect(lensX - 32, cy - 95, 34, 190, 8);
+        ctx.fill(); ctx.stroke();
+
+        // 左下方相紙吐出口與正在吐出的經典白邊相片
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(lensX - 66, filmY + 4, 12, 24);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.roundRect(lensX - 135, filmY + 8, 72, 16, 3);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#475569';
+        ctx.font = '900 13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('⬅️ 相紙吐出口', lensX - 102, filmY - 4);
+      } else {
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(lensX - 25, cy - 125, (mirrorX - lensX) + 70, filmY - cy + 150);
+      }
+
+      // 內部 45° 反光鏡
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(mirrorX - 55, cy + 65);
+      ctx.lineTo(mirrorX + 35, cy - 65);
+      ctx.stroke();
+      ctx.fillStyle = '#0369a1';
+      ctx.font = '900 16px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('45° 反光鏡', mirrorX + 18, cy - 35);
+
+      // 底部水平拍立得底片匣
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(mirrorX - 85, filmY - 6, 110, 14);
+      ctx.fillStyle = '#b45309';
+      ctx.textAlign = 'center';
+      ctx.fillText('📸 拍立得底片感光層（形成倒立縮小實像）', mirrorX - 30, filmY + 38);
+      ctx.restore();
+
+      drawConvexLens(lensX, cy, 85, '拍立得凸透鏡', '會聚光線');
+
+      const objX = W * 0.12 + (state.param1 / 100) * (W * 0.18);
+      const objH = 110;
+      const objTopY = cy - objH;
+
+      // 光線穿過凸透鏡並經 45° 反光鏡向下反射至底片
+      const hitMirrorY1 = cy + 16;
+      const hitMirrorY2 = cy + 28;
+      const filmHitX1 = mirrorX - 46;
+      const filmHitX2 = mirrorX - 18;
+
+      ctx.save();
+      ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(objX, objTopY);
+      ctx.lineTo(lensX, objTopY * 0.35 + cy * 0.65);
+      ctx.lineTo(mirrorX - 10, hitMirrorY1);
+      ctx.lineTo(filmHitX1, filmY - 6);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#059669';
+      ctx.beginPath();
+      ctx.moveTo(objX, objTopY);
+      ctx.lineTo(lensX, cy);
+      ctx.lineTo(mirrorX - 24, hitMirrorY2);
+      ctx.lineTo(filmHitX2, filmY - 6);
+      ctx.stroke();
+      ctx.restore();
+
+      drawSpecimen(objX, cy, objH, '#d97706', false, false, false, '拍攝對象 (2F外)');
+
+      document.getElementById('slider1-val').textContent = `${Math.round(60 + (100 - state.param1) * 1.4)} cm`;
+      document.getElementById('card4-val').textContent = '底片精準顯影';
+    }
+
+    function drawEyeIcon(ex, ey) {
+      ctx.save();
+      ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(ex, ey, 22, 14, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#0284c7'; ctx.beginPath(); ctx.arc(ex - 6, ey, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#0f172a'; ctx.font = '900 15px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('觀察者人眼', ex, ey + 30);
+      ctx.restore();
+    }
+
+    function switchInstrument(instKey) {
+      state.inst = instKey;
+      const cfg = INST_CONFIG[instKey];
+
+      document.querySelectorAll('.inst-tab').forEach(tab => {
+        if (tab.dataset.inst === instKey) {
+          tab.className = 'inst-tab py-2.5 px-3.5 rounded-2xl bg-indigo-700 text-white font-black text-base sm:text-lg shadow-md flex items-center gap-1.5 transition active:scale-95';
+        } else {
+          tab.className = 'inst-tab py-2.5 px-3.5 rounded-2xl bg-slate-100 text-slate-800 border-2 border-slate-300 hover:bg-slate-200 font-black text-base sm:text-lg flex items-center gap-1.5 transition active:scale-95';
+        }
+      });
+
+      document.getElementById('canvas-title').textContent = cfg.title;
+      document.getElementById('badge-final-nature').textContent = cfg.badge;
+      document.getElementById('structure-pill').textContent = cfg.pill;
+
+      document.getElementById('card1-title').textContent = cfg.c1[0];
+      document.getElementById('card1-val').textContent = cfg.c1[1];
+      document.getElementById('card1-sub').textContent = cfg.c1[2];
+
+      document.getElementById('card2-title').textContent = cfg.c2[0];
+      document.getElementById('card2-val').textContent = cfg.c2[1];
+      document.getElementById('card2-sub').textContent = cfg.c2[2];
+
+      document.getElementById('card3-title').textContent = cfg.c3[0];
+      document.getElementById('card3-val').textContent = cfg.c3[1];
+      document.getElementById('card3-sub').textContent = cfg.c3[2];
+
+      document.getElementById('slider1-label').textContent = cfg.s1[0];
+
+      document.getElementById('guide-heading').textContent = cfg.guideTitle;
+      document.getElementById('guide-content').innerHTML = cfg.guideHtml;
+
+      state.param1 = 50;
+      document.getElementById('range-param1').value = 50;
+
+      renderSimulation();
+    }
+
+    document.querySelectorAll('.inst-tab').forEach(tab => {
+      tab.addEventListener('click', () => switchInstrument(tab.dataset.inst));
+    });
+
+    document.getElementById('range-param1').addEventListener('input', (e) => { state.param1 = parseInt(e.target.value); renderSimulation(); });
+    document.getElementById('chk-labels').addEventListener('change', (e) => { state.showLabels = e.target.checked; renderSimulation(); });
+    document.getElementById('chk-letter-f').addEventListener('change', (e) => { state.useLetterF = e.target.checked; renderSimulation(); });
+    document.getElementById('chk-body-outline').addEventListener('change', (e) => { state.showBodyOutline = e.target.checked; renderSimulation(); });
+    document.getElementById('btn-autofocus').addEventListener('click', () => {
+      state.param1 = 50;
+      document.getElementById('range-param1').value = 50;
+      showToast('✨ 已精準對焦！');
+      renderSimulation();
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      switchInstrument(state.inst);
+      showToast('已重置預設參數');
+    });
+
+    // 畫布左右拖曳微調
+    let isDragging = false;
+    canvas.addEventListener('mousedown', () => { isDragging = true; });
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const rect = canvas.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+      state.param1 = ratio;
+      document.getElementById('range-param1').value = ratio;
+      renderSimulation();
+    });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    canvas.addEventListener('touchstart', () => { isDragging = true; }, { passive: false });
+    window.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      if (e.cancelable) e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(100, Math.round(((e.touches[0].clientX - rect.left) / rect.width) * 100)));
+      state.param1 = ratio;
+      document.getElementById('range-param1').value = ratio;
+      renderSimulation();
+    }, { passive: false });
+    window.addEventListener('touchend', () => { isDragging = false; });
+
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2400);
+    }
+
+    const quizData = [
+      {
+        question: '在載玻片上用簽字筆寫一個英文字母「F」，放在複式顯微鏡下觀察，視野中看到的像為何種形狀？',
+        options: [
+          '上下顛倒、左右不變的放大實像',
+          '上下不變、左右相反的放大虛像',
+          '上下顛倒且左右相反的放大虛像',
+          '正立不變的縮小實像'
+        ],
+        answer: 2,
+        explanation: '複式顯微鏡經過物鏡成倒立實像（上下左右皆相反），再經目鏡正立放大成虛像，因此最終看到的像仍然是「上下顛倒、左右相反的放大虛像」！'
+      },
+      {
+        question: '關於「複式顯微鏡」與「折射式天文望遠鏡」的透鏡構造比較，下列敘述何者正確？',
+        options: [
+          '兩者都是由兩片凸透鏡組成；顯微鏡物鏡焦距短，望遠鏡物鏡焦距長',
+          '兩者都是由兩片凹透鏡組成',
+          '顯微鏡用凹透鏡當物鏡，望遠鏡用凸透鏡當物鏡',
+          '兩者都是成正立縮小的實像'
+        ],
+        answer: 0,
+        explanation: '兩者皆為雙凸透鏡組合！顯微鏡觀察微小近物，需要「短焦距物鏡」放大；望遠鏡收集遠方星光，需要「大口徑長焦距物鏡」會聚遠處平行光。'
+      },
+      {
+        question: '我們使用「手機相機」或「拍立得相機」拍攝遠處風景時，鏡頭在感光元件（CMOS 或底片）上所形成的像，其性質為何？',
+        options: [
+          '正立、放大、虛像',
+          '倒立、縮小、實像',
+          '倒立、放大、實像',
+          '正立、縮小、虛像'
+        ],
+        answer: 1,
+        explanation: '相機鏡頭為凸透鏡，拍攝人物或風景時物距遠大於 2F，因此會在底片或 CMOS 感光晶片上形成「倒立、縮小、實像」（必須是實像才能讓底片或晶片感光）！'
+      },
+      {
+        question: '拍立得相機機身內部通常裝有一片傾斜 45° 的平面鏡，其主要光學作用為何？',
+        options: [
+          '將倒立實像放大 10 倍',
+          '改變光線行進方向，將穿過凸透鏡的光線向下折疊投射至水平放置的底片匣',
+          '把實像變成虛像',
+          '過濾紫外線'
+        ],
+        answer: 1,
+        explanation: '45° 平面反光鏡利用光的反射定律將水平光路向下轉折 90°，投射在機身底部的拍立得底片上，讓相機機身更緊湊並方便從下方吐出相片！'
+      }
+    ];
+
+    let currentQuizIndex = 0;
+    const userAnswers = {};
+    const quizModal = document.getElementById('quiz-modal');
+    const quizContent = document.getElementById('quiz-content');
+    const quizProgress = document.getElementById('quiz-progress');
+
+    function renderQuiz(index) {
+      const q = quizData[index];
+      quizProgress.textContent = `第 ${index + 1} / ${quizData.length} 題`;
+      document.getElementById('btn-prev-quiz').disabled = index === 0;
+      document.getElementById('btn-next-quiz').textContent = index === quizData.length - 1 ? '完成測驗' : '下一題';
+
+      const selected = userAnswers[index];
+      const isAnswered = selected !== undefined;
+
+      let html = `
+        <div class="space-y-4">
+          <div class="font-black text-slate-900 leading-snug text-xl sm:text-2xl">
+            <span class="inline-block bg-indigo-100 text-indigo-900 px-3 py-1 rounded-xl text-base mr-2 font-mono border border-indigo-200">Q${index + 1}</span>
+            ${q.question}
+          </div>
+          <div class="space-y-3 mt-4">
+      `;
+
+      q.options.forEach((opt, optIdx) => {
+        let btnStyle = "bg-slate-50 hover:bg-slate-100 border-2 border-slate-300 text-slate-800";
+        let markIcon = "";
+        if (isAnswered) {
+          if (optIdx === q.answer) {
+            btnStyle = "bg-emerald-100 border-2 border-emerald-500 text-emerald-950 font-black";
+            markIcon = "<span class='text-emerald-600 font-black text-xl'>✓ 正確</span>";
+          } else if (optIdx === selected) {
+            btnStyle = "bg-rose-100 border-2 border-rose-500 text-rose-950 font-black";
+            markIcon = "<span class='text-rose-600 font-black text-xl'>✕ 錯誤</span>";
+          } else {
+            btnStyle = "bg-slate-50 border-2 border-slate-200 text-slate-400 opacity-60";
+          }
+        }
+        html += `
+          <button data-opt="${optIdx}" class="quiz-opt-btn w-full text-left p-4 rounded-2xl ${btnStyle} flex items-center justify-between text-base sm:text-lg transition active:scale-[0.99]">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-slate-500 font-black text-lg w-6">${String.fromCharCode(65 + optIdx)}.</span>
+              <span class="font-bold">${opt}</span>
+            </div>
+            ${markIcon}
+          </button>
+        `;
+      });
+      html += `</div>`;
+
+      if (isAnswered) {
+        const isCorrect = selected === q.answer;
+        html += `
+          <div class="mt-4 p-4 rounded-2xl ${isCorrect ? 'bg-emerald-50 border-2 border-emerald-300' : 'bg-rose-50 border-2 border-rose-300'} text-base leading-relaxed">
+            <div class="font-black ${isCorrect ? 'text-emerald-700' : 'text-rose-700'} text-lg mb-1">
+              ${isCorrect ? '🎉 恭喜答對！' : '❌ 答錯了，觀念複習：'}
+            </div>
+            <div class="text-slate-800 font-bold">${q.explanation}</div>
+          </div>
+        `;
+      }
+      html += `</div>`;
+      quizContent.innerHTML = html;
+
+      if (!isAnswered) {
+        document.querySelectorAll('.quiz-opt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            userAnswers[index] = parseInt(btn.dataset.opt);
+            renderQuiz(index);
+          });
+        });
+      }
+    }
+
+    document.getElementById('btn-quiz').addEventListener('click', () => { quizModal.classList.remove('hidden'); renderQuiz(currentQuizIndex); });
+    document.getElementById('btn-close-quiz').addEventListener('click', () => { quizModal.classList.add('hidden'); });
+    document.getElementById('btn-prev-quiz').addEventListener('click', () => { if (currentQuizIndex > 0) { currentQuizIndex--; renderQuiz(currentQuizIndex); } });
+    document.getElementById('btn-next-quiz').addEventListener('click', () => {
+      if (currentQuizIndex < quizData.length - 1) { currentQuizIndex++; renderQuiz(currentQuizIndex); }
+      else { quizModal.classList.add('hidden'); showToast('測驗完成！'); }
+    });
+    quizModal.addEventListener('click', (e) => { if (e.target === quizModal) quizModal.classList.add('hidden'); });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      setTimeout(resizeCanvas, 80);
+    });
+    resizeCanvas();
+  </script>
+
+<!-- 網站導覽：回首頁按鈕 -->
+<a href="index.html" id="lab-home-btn" title="回到實驗室首頁"
+   style="position:fixed;left:12px;bottom:12px;z-index:45;display:flex;align-items:center;gap:6px;
+          padding:8px 14px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font:600 15px/1 system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;
+          text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.85">
+  <span style="font-size:17px">⌂</span>首頁
+</a>
+</body>
+</html>

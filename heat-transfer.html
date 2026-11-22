@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>國中理化：熱傳遞與熱平衡互動實驗室</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    #simCanvas {
+      touch-action: none;
+    }
+    input[type=range] {
+      accent-color: #ea580c;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #ea580c;
+      border: 3px solid #ffffff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- 主體區域：9:1 左右並列佈局（已移除頂部大標題列，最大化畫布垂直空間） -->
+  <main class="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 flex flex-col lg:flex-row gap-4">
+    
+    <!-- 左側展示區 (佔 90% 寬度) -->
+    <section class="w-full lg:w-[90%] flex flex-col gap-4">
+      
+      <!-- 主實驗畫布卡片 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 sm:p-5 shadow-md flex flex-col">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2.5">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span id="badge-dot" class="inline-block w-4 h-4 rounded-full bg-orange-600 animate-pulse"></span>
+            <span id="canvas-title" class="font-black text-2xl sm:text-3xl text-slate-900">熱傳導競賽：銅、鐵、玻璃導熱速率</span>
+            <span id="badge-state" class="text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-orange-100 text-orange-950 border border-orange-300">
+              導熱速率：銅 ＞ 鐵 ＞ 玻璃
+            </span>
+          </div>
+
+          <!-- 三大實驗分頁切換 ＋ 下放的測驗與重置按鈕 -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <div class="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-300 text-base sm:text-lg font-black flex-wrap">
+              <button id="tab-cond" class="px-3.5 py-2 rounded-xl bg-orange-600 text-white shadow-sm transition active:scale-95">
+                🔥 1. 熱傳導
+              </button>
+              <button id="tab-conv" class="px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:bg-slate-50 transition active:scale-95">
+                ♨️ 2. 對流與保溫瓶
+              </button>
+              <button id="tab-eq" class="px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:bg-slate-50 transition active:scale-95">
+                🌡️ 3. 冷熱水熱平衡
+              </button>
+            </div>
+
+            <button id="btn-quiz" class="flex items-center gap-1.5 px-4 py-2.5 text-base sm:text-lg font-black rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white transition shadow-md active:scale-95">
+              <span>🏆</span>
+              <span>測驗</span>
+            </button>
+            <button id="btn-reset" class="flex items-center gap-1.5 px-3.5 py-2.5 text-base sm:text-lg font-black rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border-2 border-slate-300 transition shadow-sm active:scale-95">
+              <span>🔄</span>
+              <span>重置</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 畫布本體 -->
+        <div class="relative w-full aspect-[16/10] min-h-[500px] bg-slate-950 rounded-2xl border-2 border-slate-700 overflow-hidden touch-none shadow-inner">
+          <canvas id="simCanvas" class="w-full h-full block bg-slate-950"></canvas>
+          
+          <div id="canvas-tip" class="absolute bottom-3 left-3 pointer-events-none text-sm sm:text-base font-black text-slate-100 flex items-center gap-2 bg-slate-900/95 px-4 py-2 rounded-xl border border-slate-700 shadow-md">
+            <span>🔥</span>
+            <span>點擊右側「點火加熱」：觀察熱量由高溫處傳向低溫處，銅棒上的蠟燭最先受熱掉落！</span>
+          </div>
+        </div>
+
+        <!-- 特大字體數據看板 -->
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-center">
+          <div class="bg-orange-50 p-4 sm:p-5 rounded-2xl border-2 border-orange-300 shadow-sm">
+            <div id="card1-title" class="text-orange-950 font-black text-xl sm:text-2xl">熱傳遞基本方向</div>
+            <div id="card1-val" class="text-2xl sm:text-3xl font-black text-orange-700 mt-2">高溫 ➔ 低溫</div>
+            <div id="card1-sub" class="text-sm sm:text-base font-bold text-orange-800 mt-1">有「溫度差」才會發生熱傳遞</div>
+          </div>
+
+          <div class="bg-rose-50 p-4 sm:p-5 rounded-2xl border-2 border-rose-300 shadow-sm">
+            <div id="card2-title" class="text-rose-950 font-black text-xl sm:text-2xl">第一名抵達（銅棒）</div>
+            <div id="card2-val" class="text-3xl sm:text-5xl font-black text-rose-600 mt-1 font-mono tracking-tight">最快導熱</div>
+            <div id="card2-sub" class="text-sm sm:text-base font-bold text-rose-800 mt-1">金屬含自由電子，傳導極快</div>
+          </div>
+
+          <div class="bg-sky-50 p-4 sm:p-5 rounded-2xl border-2 border-sky-300 shadow-sm">
+            <div id="card3-title" class="text-sky-950 font-black text-xl sm:text-2xl">第三名抵達（玻璃棒）</div>
+            <div id="card3-val" class="text-3xl sm:text-5xl font-black text-sky-700 mt-1 font-mono tracking-tight">熱不良導體</div>
+            <div id="card3-sub" class="text-sm sm:text-base font-bold text-sky-800 mt-1">非金屬與空氣導熱最慢</div>
+          </div>
+
+          <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-sm">
+            <div id="card4-title" class="text-emerald-950 font-black text-xl sm:text-2xl">熱平衡終點條件</div>
+            <div id="card4-val" class="text-2xl sm:text-3xl font-black text-emerald-800 mt-2">末溫完全相等</div>
+            <div id="card4-sub" class="text-sm sm:text-base font-bold text-emerald-800 mt-1">溫度相同後不再淨熱傳遞</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心觀念解說卡 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-5 shadow-md flex flex-col gap-3.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">💡</span>
+            <span class="font-black text-2xl sm:text-3xl text-slate-900">會考必殺總整理：三種熱傳播方式、保溫瓶構造與熱平衡公式</span>
+          </div>
+          <span class="text-sm sm:text-base font-black text-orange-800 bg-orange-100 border border-orange-300 px-3.5 py-1 rounded-xl">高頻考點</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-base sm:text-lg font-bold">
+          <div class="bg-orange-50 p-4 rounded-2xl border-2 border-orange-200">
+            <div class="text-orange-950 font-black text-lg sm:text-xl mb-1">1️⃣ 傳導・對流・輻射比較</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              • <strong>傳導：</strong>主要發生在<strong>固體</strong>（銀＞銅＞鐵＞玻璃＞水＞空氣）。<br>
+              • <strong>對流：</strong>發生在<strong>流體（液體、氣體）</strong>，熱上升、冷下降（冷氣裝上方、暖氣裝下方）。<br>
+              • <strong>輻射：</strong><strong>不需介質</strong>（太陽熱能穿過真空傳到地球），黑色粗糙面易吸熱也易散熱！
+            </p>
+          </div>
+          <div class="bg-sky-50 p-4 rounded-2xl border-2 border-sky-200">
+            <div class="text-sky-950 font-black text-lg sm:text-xl mb-1">2️⃣ 保溫瓶三大防熱設計</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              • <strong>真空夾層：</strong>抽成真空沒有空氣分子，同時阻絕<strong>熱傳導與熱對流</strong>！<br>
+              • <strong>內壁鍍銀：</strong>光滑銀色鏡面反射熱線，防止<strong>熱輻射</strong>！<br>
+              • <strong>塑膠／軟木塞：</strong>熱不良導體，減少熱傳導與對流散失。
+            </p>
+          </div>
+          <div class="bg-emerald-50 p-4 rounded-2xl border-2 border-emerald-200">
+            <div class="text-emerald-950 font-black text-lg sm:text-xl mb-1">3️⃣ 熱平衡公式（絕熱無散失）</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              • <strong>高溫物體放出的熱量 ＝ 低溫物體吸收的熱量</strong>：<br>
+              • $H_{\text{放}} = H_{\text{吸}} \implies m_1 \cdot s_1 \cdot (T_1 - T_{\text{末}}) = m_2 \cdot s_2 \cdot (T_{\text{末}} - T_2)$。
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 右側極簡大字體控制面板 (佔 10% 寬度) -->
+    <aside class="w-full lg:w-[10%] lg:min-w-[230px] flex flex-col gap-4">
+      
+      <!-- 面板 1：熱傳導控制 -->
+      <div id="ctrl-cond" class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>🔥</span>
+          傳導控制
+        </h2>
+
+        <button id="btn-heat-rods" class="w-full py-4 px-2 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-black text-lg sm:text-xl shadow-md transition active:scale-95">
+          🔥 點火加熱
+        </button>
+
+        <div class="bg-orange-50/90 p-3.5 rounded-2xl border-2 border-orange-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-orange-950">火力</span>
+            <span id="val-flame" class="text-xl font-black text-orange-700 font-mono">1.0x</span>
+          </div>
+          <input type="range" id="range-flame" min="0.5" max="2.0" value="1.0" step="0.5" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <div class="bg-slate-50 p-3 rounded-2xl border-2 border-slate-200 space-y-1.5 text-sm sm:text-base font-bold text-slate-700">
+          <div class="font-black text-slate-900">📊 導熱係數排名：</div>
+          <div class="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-black">1️⃣ 銅棒：401 W/mK</div>
+          <div class="p-2 rounded-xl bg-slate-100 border border-slate-300 text-slate-800 font-black">2️⃣ 鐵棒：80 W/mK</div>
+          <div class="p-2 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 font-black">3️⃣ 玻璃：1.1 W/mK</div>
+        </div>
+      </div>
+
+      <!-- 面板 2：對流與保溫瓶控制 -->
+      <div id="ctrl-conv" class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5 hidden">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>♨️</span>
+          場景切換
+        </h2>
+
+        <div class="grid grid-cols-1 gap-2.5">
+          <button id="btn-sub-beaker" class="py-3.5 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95">
+            🧪 燒杯熱對流
+          </button>
+          <button id="btn-sub-thermos" class="py-3.5 px-2 rounded-2xl bg-white border-2 border-slate-300 text-slate-800 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95">
+            🍶 保溫瓶構造
+          </button>
+        </div>
+
+        <div id="box-heat-pos" class="space-y-2 pt-2 border-t border-slate-200">
+          <div class="text-base sm:text-lg font-black text-slate-800">加熱位置：</div>
+          <div class="grid grid-cols-1 gap-2">
+            <button id="btn-heat-bot" class="py-3 px-2 rounded-xl bg-orange-600 text-white font-black text-base sm:text-lg">🔥 底部加熱 (全杯沸騰)</button>
+            <button id="btn-heat-top" class="py-3 px-2 rounded-xl bg-white border border-slate-300 text-slate-800 font-black text-base sm:text-lg">🕯️ 頂部加熱 (無法對流)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 面板 3：冷熱水混合熱平衡控制 -->
+      <div id="ctrl-eq" class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3 hidden">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>🌡️</span>
+          混合參數
+        </h2>
+
+        <button id="btn-mix-start" class="w-full py-3.5 px-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg sm:text-xl shadow-md transition active:scale-95">
+          ▶️ 開始混合
+        </button>
+
+        <div class="bg-rose-50/90 p-3 rounded-2xl border-2 border-rose-200 space-y-1.5">
+          <div class="flex justify-between items-center text-base font-black text-rose-950">
+            <span>🔥 熱水質量</span>
+            <span id="val-m1" class="font-mono text-rose-700">100g</span>
+          </div>
+          <input type="range" id="range-m1" min="50" max="300" value="100" step="50" class="w-full h-4 bg-slate-300 rounded-lg cursor-pointer">
+          <div class="flex justify-between items-center text-base font-black text-rose-950 pt-1">
+            <span>🔥 熱水初溫</span>
+            <span id="val-t1" class="font-mono text-rose-700">80°C</span>
+          </div>
+          <input type="range" id="range-t1" min="50" max="100" value="80" step="5" class="w-full h-4 bg-slate-300 rounded-lg cursor-pointer">
+        </div>
+
+        <div class="bg-sky-50/90 p-3 rounded-2xl border-2 border-sky-200 space-y-1.5">
+          <div class="flex justify-between items-center text-base font-black text-sky-950">
+            <span>❄️ 冷水質量</span>
+            <span id="val-m2" class="font-mono text-sky-700">200g</span>
+          </div>
+          <input type="range" id="range-m2" min="50" max="300" value="200" step="50" class="w-full h-4 bg-slate-300 rounded-lg cursor-pointer">
+          <div class="flex justify-between items-center text-base font-black text-sky-950 pt-1">
+            <span>❄️ 冷水初溫</span>
+            <span id="val-t2" class="font-mono text-sky-700">20°C</span>
+          </div>
+          <input type="range" id="range-t2" min="5" max="40" value="20" step="5" class="w-full h-4 bg-slate-300 rounded-lg cursor-pointer">
+        </div>
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- 隨堂測驗 Modal -->
+  <div id="quiz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border-2 border-slate-300 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-orange-600 text-white flex items-center justify-center font-black">
+            🏆
+          </div>
+          <h3 class="font-black text-xl sm:text-2xl text-slate-900">熱傳遞與熱平衡素養測驗</h3>
+        </div>
+        <button id="btn-close-quiz" class="text-slate-400 hover:text-slate-700 p-2 text-2xl font-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto max-h-[75vh] flex flex-col gap-4" id="quiz-content"></div>
+
+      <div class="px-6 py-4 border-t-2 border-slate-100 bg-slate-50 flex justify-between items-center">
+        <span id="quiz-progress" class="text-base font-bold text-slate-500">第 1 / 4 題</span>
+        <div class="flex gap-3">
+          <button id="btn-prev-quiz" class="px-5 py-2.5 rounded-xl bg-white border-2 border-slate-300 text-base font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40">上一題</button>
+          <button id="btn-next-quiz" class="px-6 py-2.5 rounded-xl bg-orange-600 text-base font-bold text-white hover:bg-orange-700 shadow-md">下一題</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl text-base font-bold flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300">
+    <span class="text-emerald-400 text-xl">✓</span>
+    <span id="toast-text">已更新</span>
+  </div>
+
+  <script>
+    const state = {
+      tab: 'cond',         // 'cond', 'conv', 'eq'
+      heating: true,
+      flameMult: 1.0,
+      rodProgress: [0, 0, 0], // 0 ~ 1 導熱進度
+      convSub: 'beaker',   // 'beaker' 或 'thermos'
+      heatPos: 'bot',      // 'bot' 或 'top'
+      convTime: 0,
+      m1: 100, t1: 80,
+      m2: 200, t2: 20,
+      eqRunning: true,
+      eqProgress: 0        // 0 ~ 1
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const W = rect.width || canvas.parentElement.clientWidth || 800;
+      const H = rect.height || canvas.parentElement.clientHeight || 480;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas.width = Math.max(300, W) * dpr;
+      canvas.height = Math.max(300, H) * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    let lastTs = null;
+    function animate(ts) {
+      if (lastTs === null) lastTs = ts;
+      const dt = Math.min(0.05, (ts - lastTs) / 1000);
+      lastTs = ts;
+
+      state.convTime += dt;
+
+      if (state.tab === 'cond' && state.heating) {
+        const rates = [0.22, 0.11, 0.032]; // 銅、鐵、玻璃導熱速度
+        for (let i = 0; i < 3; i++) {
+          state.rodProgress[i] = Math.min(1.0, state.rodProgress[i] + rates[i] * state.flameMult * dt);
+        }
+      }
+
+      if (state.tab === 'eq' && state.eqRunning) {
+        state.eqProgress = Math.min(1.0, state.eqProgress + 0.22 * dt);
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const W = rect.width > 0 ? rect.width : (canvas.width / dpr) || 800;
+      const H = rect.height > 0 ? rect.height : (canvas.height / dpr) || 480;
+
+      if (W > 0 && H > 0) {
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = '#060a12';
+        ctx.fillRect(0, 0, W, H);
+
+        if (state.tab === 'cond') renderConductionScene(W, H);
+        else if (state.tab === 'conv') renderConvectionScene(W, H);
+        else renderEquilibriumScene(W, H);
+      }
+
+      updateDashboard();
+      requestAnimationFrame(animate);
+    }
+
+    // ==========================================
+    // 場景 1：熱傳導競賽（銅棒、鐵棒、玻璃棒）
+    // ==========================================
+    function renderConductionScene(W, H) {
+      const startX = 165;
+      const endX = W - 110;
+      const rodLen = endX - startX;
+      const rods = [
+        { name: '1️⃣ 銅棒 (導電/導熱極佳)', y: H * 0.25, baseCol: '#d97706', prog: state.rodProgress[0] },
+        { name: '2️⃣ 鐵棒 (一般金屬導體)', y: H * 0.49, baseCol: '#64748b', prog: state.rodProgress[1] },
+        { name: '3️⃣ 玻璃棒 (非金屬不良導體)', y: H * 0.73, baseCol: '#38bdf8', prog: state.rodProgress[2] }
+      ];
+
+      ctx.save();
+      // 左側酒精燈火焰加熱區
+      if (state.heating) {
+        const flicker = Math.sin(state.convTime * 18) * 6;
+        const grad = ctx.createRadialGradient(startX - 18, H * 0.49, 10, startX - 18, H * 0.49, 165);
+        grad.addColorStop(0, 'rgba(249, 115, 22, 0.85)');
+        grad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(startX - 18 + flicker * 0.3, H * 0.49, 165, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.font = '900 42px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🔥', startX - 42, H * 0.26);
+        ctx.fillText('🔥', startX - 42, H * 0.50);
+        ctx.fillText('🔥', startX - 42, H * 0.74);
+      }
+
+      rods.forEach(rod => {
+        // 棒身底色
+        ctx.fillStyle = rod.baseCol;
+        ctx.fillRect(startX, rod.y - 12, rodLen, 24);
+
+        // 熱量傳導赤紅漸層（高溫 ➔ 低溫）
+        const heatW = rodLen * rod.prog;
+        if (heatW > 2) {
+          const hGrad = ctx.createLinearGradient(startX, rod.y, startX + heatW, rod.y);
+          hGrad.addColorStop(0, '#ef4444');
+          hGrad.addColorStop(0.7, '#f97316');
+          hGrad.addColorStop(1, 'rgba(251, 191, 36, 0.15)');
+          ctx.fillStyle = hGrad;
+          ctx.fillRect(startX, rod.y - 12, heatW, 24);
+        }
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '900 19px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(rod.name, startX, rod.y - 22);
+
+        // 4 根測溫小蠟燭（達到該位置熱度即掉落）
+        [0.25, 0.50, 0.75, 1.0].forEach((posRatio, idx) => {
+          const cx = startX + rodLen * posRatio;
+          const melted = rod.prog >= posRatio;
+          const dropY = melted ? rod.y + 42 : rod.y + 12;
+
+          ctx.fillStyle = melted ? '#fb7185' : '#fef08a';
+          ctx.fillRect(cx - 4, dropY, 8, 22);
+          if (!melted) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(cx - 1.5, dropY + 22, 3, 6);
+          } else if (idx === 3) {
+            ctx.fillStyle = '#34d399';
+            ctx.font = '900 17px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('✅ 全數導熱完成！', endX + 14, rod.y + 6);
+          }
+        });
+      });
+
+      ctx.restore();
+    }
+
+    // ==========================================
+    // 場景 2：熱對流與保溫瓶構造解剖
+    // ==========================================
+    function renderConvectionScene(W, H) {
+      if (state.convSub === 'beaker') {
+        const bx = W * 0.34;
+        const bw = 240;
+        const topY = H * 0.22;
+        const botY = H * 0.72;
+
+        ctx.save();
+        // 燒杯與水體
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.22)';
+        ctx.fillRect(bx, topY + 20, bw, botY - topY - 20);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(bx, topY);
+        ctx.lineTo(bx, botY);
+        ctx.lineTo(bx + bw, botY);
+        ctx.lineTo(bx + bw, topY);
+        ctx.stroke();
+
+        if (state.heatPos === 'bot') {
+          // 底部酒精燈加熱
+          ctx.font = '900 44px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('🔥', bx + bw / 2, botY + 46);
+
+          // 動態上升熱流（紅色）與兩側下降冷流（藍色）
+          const phase = (state.convTime * 60) % 140;
+          ctx.strokeStyle = '#f43f5e';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(bx + bw / 2, botY - 25);
+          ctx.lineTo(bx + bw / 2, topY + 45);
+          ctx.stroke();
+
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(bx + 35, topY + 55);
+          ctx.lineTo(bx + 35, botY - 35);
+          ctx.moveTo(bx + bw - 35, topY + 55);
+          ctx.lineTo(bx + bw - 35, botY - 35);
+          ctx.stroke();
+
+          // 流動粒子
+          ctx.fillStyle = '#fb7185';
+          ctx.beginPath();
+          ctx.arc(bx + bw / 2, botY - 30 - phase * 1.1, 8, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#38bdf8';
+          ctx.beginPath();
+          ctx.arc(bx + 35, topY + 50 + phase * 1.1, 7, 0, Math.PI * 2);
+          ctx.arc(bx + bw - 35, topY + 50 + phase * 1.1, 7, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.textAlign = 'left';
+          ctx.fillStyle = '#fda4af';
+          ctx.font = '900 21px sans-serif';
+          ctx.fillText('⬆️ 熱水密度變小・向上浮起', bx + bw + 28, H * 0.36);
+          ctx.fillStyle = '#7dd3fc';
+          ctx.fillText('⬇️ 上方冷水密度較大・向下沉降', bx + bw + 28, H * 0.52);
+          ctx.fillStyle = '#34d399';
+          ctx.fillText('✅ 形成完整熱對流循環，整杯水均勻變熱！', bx + bw + 28, H * 0.68);
+        } else {
+          // 頂部加熱（熱水留在上方不下降，底部依然冰冷）
+          ctx.font = '900 44px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('🔥', bx + bw / 2, topY + 14);
+
+          const hGrad = ctx.createLinearGradient(0, topY + 20, 0, botY);
+          hGrad.addColorStop(0, 'rgba(239, 68, 68, 0.65)');
+          hGrad.addColorStop(0.35, 'rgba(56, 189, 248, 0.22)');
+          ctx.fillStyle = hGrad;
+          ctx.fillRect(bx, topY + 20, bw, botY - topY - 20);
+
+          ctx.textAlign = 'left';
+          ctx.fillStyle = '#fb7185';
+          ctx.font = '900 21px sans-serif';
+          ctx.fillText('⚠️ 頂部熱水密度小・停留在最上層', bx + bw + 28, H * 0.38);
+          ctx.fillStyle = '#7dd3fc';
+          ctx.fillText('❄️ 無法產生熱對流，且水是熱不良導體，底部依然冰冷！', bx + bw + 28, H * 0.56);
+        }
+        ctx.restore();
+      } else {
+        // 保溫瓶剖面解剖圖
+        const cx = W * 0.32;
+        const topY = H * 0.18;
+        const botY = H * 0.80;
+        const outerW = 190;
+        const innerW = 148;
+
+        ctx.save();
+        // 外殼
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(cx - outerW / 2, topY + 35, outerW, botY - topY - 35);
+
+        // 雙層真空夾層
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+        ctx.fillRect(cx - outerW / 2 + 2, topY + 37, outerW - 4, botY - topY - 39);
+
+        // 鍍銀內膽
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.28)';
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 4;
+        ctx.fillRect(cx - innerW / 2, topY + 35, innerW, botY - topY - 56);
+        ctx.strokeRect(cx - innerW / 2, topY + 35, innerW, botY - topY - 56);
+
+        // 軟木塞/塑膠瓶蓋
+        ctx.fillStyle = '#d97706';
+        ctx.fillRect(cx - 48, topY + 8, 96, 36);
+
+        // 三大防熱標註引線
+        ctx.textAlign = 'left';
+        ctx.font = '900 20px sans-serif';
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText('1️⃣ 塑膠／軟木瓶塞 ➔ 防止「熱傳導與對流」', cx + outerW / 2 + 28, topY + 32);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText('2️⃣ 雙層玻璃真空夾層 ➔ 無空氣分子，阻絕「傳導與對流」', cx + outerW / 2 + 28, H * 0.46);
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText('3️⃣ 內壁光滑鍍銀鏡面 ➔ 反射熱線，防止「熱輻射」', cx + outerW / 2 + 28, H * 0.68);
+        ctx.restore();
+      }
+    }
+
+    // ==========================================
+    // 場景 3：冷熱水混合熱平衡 T-t 曲線圖
+    // ==========================================
+    function renderEquilibriumScene(W, H) {
+      const padL = 90;
+      const padR = 55;
+      const padT = 56;
+      const padB = 74;
+      const plotW = W - padL - padR;
+      const plotH = H - padT - padB;
+
+      const tFinal = (state.m1 * state.t1 + state.m2 * state.t2) / (state.m1 + state.m2);
+
+      function tempToY(temp) {
+        return padT + plotH - (temp / 100) * plotH;
+      }
+
+      ctx.save();
+      // 坐標軸
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(padL, padT);
+      ctx.lineTo(padL, padT + plotH);
+      ctx.lineTo(padL + plotW, padT + plotH);
+      ctx.stroke();
+
+      // 水平溫度刻度線 (0 ~ 100°C)
+      for (let t = 0; t <= 100; t += 20) {
+        const y = tempToY(t);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '900 17px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${t}°C`, padL - 12, y + 6);
+      }
+
+      // 平衡末溫虛線
+      const eqY = tempToY(tFinal);
+      ctx.strokeStyle = '#34d399';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath();
+      ctx.moveTo(padL, eqY);
+      ctx.lineTo(padL + plotW, eqY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#34d399';
+      ctx.font = '900 20px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`🎯 熱平衡末溫 T末 = ${tFinal.toFixed(1)}°C`, padL + plotW, eqY - 12);
+
+      // 繪製熱水降溫曲線（珊瑚紅）與冷水升溫曲線（天藍色）
+      const drawW = plotW * state.eqProgress;
+      ctx.lineWidth = 5;
+
+      // 熱水曲線
+      ctx.strokeStyle = '#f43f5e';
+      ctx.beginPath();
+      for (let x = 0; x <= drawW; x += 4) {
+        const ratio = x / plotW;
+        const curT = tFinal + (state.t1 - tFinal) * Math.exp(-4.5 * ratio);
+        const y = tempToY(curT);
+        if (x === 0) ctx.moveTo(padL + x, y);
+        else ctx.lineTo(padL + x, y);
+      }
+      ctx.stroke();
+
+      // 冷水曲線
+      ctx.strokeStyle = '#38bdf8';
+      ctx.beginPath();
+      for (let x = 0; x <= drawW; x += 4) {
+        const ratio = x / plotW;
+        const curT = tFinal - (tFinal - state.t2) * Math.exp(-4.5 * ratio);
+        const y = tempToY(curT);
+        if (x === 0) ctx.moveTo(padL + x, y);
+        else ctx.lineTo(padL + x, y);
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = '#fda4af';
+      ctx.font = '900 18px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`🔥 熱水 (${state.m1}g, ${state.t1}°C) 放熱降溫`, padL + 14, tempToY(state.t1) - 10);
+
+      ctx.fillStyle = '#7dd3fc';
+      ctx.fillText(`❄️ 冷水 (${state.m2}g, ${state.t2}°C) 吸熱升溫`, padL + 14, tempToY(state.t2) + 24);
+
+      ctx.restore();
+    }
+
+    function updateDashboard() {
+      document.getElementById('val-flame').textContent = `${state.flameMult.toFixed(1)}x`;
+      document.getElementById('val-m1').textContent = `${state.m1}g`;
+      document.getElementById('val-t1').textContent = `${state.t1}°C`;
+      document.getElementById('val-m2').textContent = `${state.m2}g`;
+      document.getElementById('val-t2').textContent = `${state.t2}°C`;
+
+      if (state.tab === 'eq') {
+        const tFinal = (state.m1 * state.t1 + state.m2 * state.t2) / (state.m1 + state.m2);
+        const hCal = state.m1 * 1 * (state.t1 - tFinal);
+        document.getElementById('card1-title').textContent = '熱水放出熱量 (H放)';
+        document.getElementById('card1-val').textContent = `${Math.round(hCal)} cal`;
+        document.getElementById('card1-sub').textContent = `m₁ × 1 × (${state.t1} − ${tFinal.toFixed(1)})`;
+        document.getElementById('card2-title').textContent = '冷水吸收熱量 (H吸)';
+        document.getElementById('card2-val').textContent = `${Math.round(hCal)} cal`;
+        document.getElementById('card2-sub').textContent = `m₂ × 1 × (${tFinal.toFixed(1)} − ${state.t2})`;
+        document.getElementById('card3-title').textContent = '冷熱水質量比';
+        document.getElementById('card3-val').textContent = `${state.m1} : ${state.m2}`;
+        document.getElementById('card3-sub').textContent = '溫度變化量與質量成反比';
+        document.getElementById('card4-title').textContent = '熱平衡最終溫度';
+        document.getElementById('card4-val').textContent = `${tFinal.toFixed(1)} °C`;
+        document.getElementById('card4-sub').textContent = '高溫放熱 ＝ 低溫吸熱';
+      }
+    }
+
+    const tabCond = document.getElementById('tab-cond');
+    const tabConv = document.getElementById('tab-conv');
+    const tabEq = document.getElementById('tab-eq');
+    const ctrlCond = document.getElementById('ctrl-cond');
+    const ctrlConv = document.getElementById('ctrl-conv');
+    const ctrlEq = document.getElementById('ctrl-eq');
+
+    function setTab(t) {
+      state.tab = t;
+      [tabCond, tabConv, tabEq].forEach(b => {
+        b.className = 'px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:bg-slate-50 transition active:scale-95';
+      });
+      [ctrlCond, ctrlConv, ctrlEq].forEach(p => p.classList.add('hidden'));
+
+      if (t === 'cond') {
+        tabCond.className = 'px-3.5 py-2 rounded-xl bg-orange-600 text-white shadow-sm transition active:scale-95';
+        ctrlCond.classList.remove('hidden');
+        document.getElementById('canvas-title').textContent = '熱傳導競賽：銅、鐵、玻璃導熱速率';
+      } else if (t === 'conv') {
+        tabConv.className = 'px-3.5 py-2 rounded-xl bg-sky-700 text-white shadow-sm transition active:scale-95';
+        ctrlConv.classList.remove('hidden');
+        document.getElementById('canvas-title').textContent = '熱對流循環與保溫瓶防熱構造';
+      } else {
+        tabEq.className = 'px-3.5 py-2 rounded-xl bg-emerald-600 text-white shadow-sm transition active:scale-95';
+        ctrlEq.classList.remove('hidden');
+        document.getElementById('canvas-title').textContent = '冷熱水混合熱平衡溫度曲線（H放 ＝ H吸）';
+        state.eqProgress = 0;
+        state.eqRunning = true;
+      }
+    }
+
+    tabCond.addEventListener('click', () => setTab('cond'));
+    tabConv.addEventListener('click', () => setTab('conv'));
+    tabEq.addEventListener('click', () => setTab('eq'));
+
+    document.getElementById('btn-heat-rods').addEventListener('click', () => {
+      state.rodProgress = [0, 0, 0];
+      state.heating = true;
+    });
+    document.getElementById('range-flame').addEventListener('input', (e) => { state.flameMult = parseFloat(e.target.value); });
+
+    document.getElementById('btn-sub-beaker').addEventListener('click', () => {
+      state.convSub = 'beaker';
+      document.getElementById('btn-sub-beaker').className = 'py-3.5 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95';
+      document.getElementById('btn-sub-thermos').className = 'py-3.5 px-2 rounded-2xl bg-white border-2 border-slate-300 text-slate-800 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95';
+      document.getElementById('box-heat-pos').classList.remove('hidden');
+    });
+
+    document.getElementById('btn-sub-thermos').addEventListener('click', () => {
+      state.convSub = 'thermos';
+      document.getElementById('btn-sub-thermos').className = 'py-3.5 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95';
+      document.getElementById('btn-sub-beaker').className = 'py-3.5 px-2 rounded-2xl bg-white border-2 border-slate-300 text-slate-800 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95';
+      document.getElementById('box-heat-pos').classList.add('hidden');
+    });
+
+    document.getElementById('btn-heat-bot').addEventListener('click', () => {
+      state.heatPos = 'bot';
+      document.getElementById('btn-heat-bot').className = 'py-3 px-2 rounded-xl bg-orange-600 text-white font-black text-base sm:text-lg';
+      document.getElementById('btn-heat-top').className = 'py-3 px-2 rounded-xl bg-white border border-slate-300 text-slate-800 font-black text-base sm:text-lg';
+    });
+
+    document.getElementById('btn-heat-top').addEventListener('click', () => {
+      state.heatPos = 'top';
+      document.getElementById('btn-heat-top').className = 'py-3 px-2 rounded-xl bg-orange-600 text-white font-black text-base sm:text-lg';
+      document.getElementById('btn-heat-bot').className = 'py-3 px-2 rounded-xl bg-white border border-slate-300 text-slate-800 font-black text-base sm:text-lg';
+    });
+
+    document.getElementById('btn-mix-start').addEventListener('click', () => {
+      state.eqProgress = 0;
+      state.eqRunning = true;
+    });
+    ['m1', 't1', 'm2', 't2'].forEach(k => {
+      document.getElementById(`range-${k}`).addEventListener('input', (e) => {
+        state[k] = parseInt(e.target.value);
+        state.eqProgress = 1.0;
+      });
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      state.rodProgress = [0, 0, 0];
+      state.m1 = 100; state.t1 = 80; state.m2 = 200; state.t2 = 20;
+      setTab('cond');
+      showToast('實驗參數已重置');
+    });
+
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+    }
+
+    const quizData = [
+      {
+        question: '將粗細與長度完全相同的「銅棒、鐵棒、玻璃棒」一端同時放入沸水中加熱，另一端黏上相同的蠟燭，請問哪一根棒子上的蠟燭會「最先掉落」？',
+        options: ['銅棒', '鐵棒', '玻璃棒', '三根同時掉落'],
+        answer: 0,
+        explanation: '金屬的熱傳導速率遠快於非金屬，且在常見金屬中「銅」的導熱性優於「鐵」，因此銅棒最先將熱量傳到另一端！'
+      },
+      {
+        question: '關於「保溫瓶」內部構造與防止熱量散失的原理配對，下列哪一項敘述「錯誤」？',
+        options: [
+          '雙層玻璃夾層抽成真空 ➔ 防止熱傳導與熱對流',
+          '玻璃內壁鍍上一層光亮銀色鏡面 ➔ 防止熱輻射',
+          '使用塑膠或軟木瓶塞 ➔ 加快熱對流散熱',
+          '太陽的熱能傳到地球 ➔ 主要依靠熱輻射（不需介質）'
+        ],
+        answer: 2,
+        explanation: '塑膠與軟木塞屬於熱的不良導體，主要用來減少「熱傳導」並阻擋熱空氣上升散失（熱對流），而非加快散熱！'
+      },
+      {
+        question: '在絕熱良好的容器中，將 100 公克、80°C 的熱水與 200 公克、20°C 的冷水充分混合，達成熱平衡後的末溫為多少 °C？',
+        options: ['30°C', '40°C', '50°C', '60°C'],
+        answer: 1,
+        explanation: '設末溫為 T，由 H放 ＝ H吸 得：100 × 1 × (80 − T) ＝ 200 × 1 × (T − 20) ➔ 80 − T ＝ 2T − 40 ➔ 3T ＝ 120 ➔ T ＝ 40°C！'
+      },
+      {
+        question: '夏天在室內安裝冷氣機時，通常會把冷氣出風口裝在牆壁「高處」；而冬天使用電暖器時則放在「低處」，這主要是利用熱傳播的哪一種原理？',
+        options: ['熱傳導', '熱對流（冷空氣下降、熱空氣上升）', '熱輻射', '光的折射'],
+        answer: 1,
+        explanation: '氣體與液體主要靠「熱對流」傳熱：冷空氣密度較大向下沉降，熱空氣密度較小向上浮起，冷氣裝高處才能使全室均勻降溫！'
+      }
+    ];
+
+    let currentQuizIndex = 0;
+    const userAnswers = {};
+    const quizModal = document.getElementById('quiz-modal');
+    const quizContent = document.getElementById('quiz-content');
+    const quizProgress = document.getElementById('quiz-progress');
+
+    function renderQuiz(index) {
+      const q = quizData[index];
+      quizProgress.textContent = `第 ${index + 1} / ${quizData.length} 題`;
+      document.getElementById('btn-prev-quiz').disabled = index === 0;
+      document.getElementById('btn-next-quiz').textContent = index === quizData.length - 1 ? '完成測驗' : '下一題';
+
+      const selected = userAnswers[index];
+      const isAnswered = selected !== undefined;
+
+      let html = `
+        <div class="space-y-4">
+          <div class="font-black text-slate-900 leading-snug text-xl sm:text-2xl">
+            <span class="inline-block bg-orange-100 text-orange-900 px-3 py-1 rounded-xl text-base mr-2 font-mono border border-orange-200">Q${index + 1}</span>
+            ${q.question}
+          </div>
+          <div class="space-y-3 mt-4">
+      `;
+
+      q.options.forEach((opt, optIdx) => {
+        let btnStyle = "bg-slate-50 hover:bg-slate-100 border-2 border-slate-300 text-slate-800";
+        let markIcon = "";
+        if (isAnswered) {
+          if (optIdx === q.answer) {
+            btnStyle = "bg-emerald-100 border-2 border-emerald-500 text-emerald-950 font-black";
+            markIcon = "<span class='text-emerald-600 font-black text-xl'>✓ 正確</span>";
+          } else if (optIdx === selected) {
+            btnStyle = "bg-rose-100 border-2 border-rose-500 text-rose-950 font-black";
+            markIcon = "<span class='text-rose-600 font-black text-xl'>✕ 錯誤</span>";
+          } else {
+            btnStyle = "bg-slate-50 border-2 border-slate-200 text-slate-400 opacity-60";
+          }
+        }
+        html += `
+          <button data-opt="${optIdx}" class="quiz-opt-btn w-full text-left p-4 rounded-2xl ${btnStyle} flex items-center justify-between text-base sm:text-lg transition active:scale-[0.99]">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-slate-500 font-black text-lg w-6">${String.fromCharCode(65 + optIdx)}.</span>
+              <span class="font-bold">${opt}</span>
+            </div>
+            ${markIcon}
+          </button>
+        `;
+      });
+      html += `</div>`;
+
+      if (isAnswered) {
+        const isCorrect = selected === q.answer;
+        html += `
+          <div class="mt-4 p-4 rounded-2xl ${isCorrect ? 'bg-emerald-50 border-2 border-emerald-300' : 'bg-rose-50 border-2 border-rose-300'} text-base leading-relaxed">
+            <div class="font-black ${isCorrect ? 'text-emerald-700' : 'text-rose-700'} text-lg mb-1">
+              ${isCorrect ? '🎉 恭喜答對！' : '❌ 答錯了，觀念複習：'}
+            </div>
+            <div class="text-slate-800 font-bold">${q.explanation}</div>
+          </div>
+        `;
+      }
+      html += `</div>`;
+      quizContent.innerHTML = html;
+
+      if (!isAnswered) {
+        document.querySelectorAll('.quiz-opt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            userAnswers[index] = parseInt(btn.dataset.opt);
+            renderQuiz(index);
+          });
+        });
+      }
+    }
+
+    document.getElementById('btn-quiz').addEventListener('click', () => { quizModal.classList.remove('hidden'); renderQuiz(currentQuizIndex); });
+    document.getElementById('btn-close-quiz').addEventListener('click', () => { quizModal.classList.add('hidden'); });
+    document.getElementById('btn-prev-quiz').addEventListener('click', () => { if (currentQuizIndex > 0) { currentQuizIndex--; renderQuiz(currentQuizIndex); } });
+    document.getElementById('btn-next-quiz').addEventListener('click', () => {
+      if (currentQuizIndex < quizData.length - 1) { currentQuizIndex++; renderQuiz(currentQuizIndex); }
+      else { quizModal.classList.add('hidden'); showToast('測驗完成！'); }
+    });
+    quizModal.addEventListener('click', (e) => { if (e.target === quizModal) quizModal.classList.add('hidden'); });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      requestAnimationFrame(animate);
+    });
+    resizeCanvas();
+  </script>
+
+<!-- 網站導覽：回首頁按鈕 -->
+<a href="index.html" id="lab-home-btn" title="回到實驗室首頁"
+   style="position:fixed;left:12px;bottom:12px;z-index:45;display:flex;align-items:center;gap:6px;
+          padding:8px 14px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font:600 15px/1 system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;
+          text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.85">
+  <span style="font-size:17px">⌂</span>首頁
+</a>
+</body>
+</html>

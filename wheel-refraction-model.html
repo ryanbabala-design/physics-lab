@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>用車輪模型與寬光帶解釋折射原理教學模擬器</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    #simCanvas {
+      touch-action: none;
+    }
+    input[type=range] {
+      accent-color: #0284c7;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #0284c7;
+      border: 3px solid #ffffff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-[#f8f6f0] text-slate-800 min-h-screen flex flex-col">
+
+  <!-- 主體區域：9:1 左右並列佈局（已移除頂部大標題列，最大化畫布垂直空間） -->
+  <main class="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 flex flex-col lg:flex-row gap-4">
+    
+    <!-- 左側展示區 (佔 90% 寬度) -->
+    <section class="w-full lg:w-[90%] flex flex-col gap-4">
+      
+      <!-- 主畫布卡片 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 sm:p-5 shadow-md flex flex-col">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2.5">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span id="badge-mode-dot" class="inline-block w-4 h-4 rounded-full bg-sky-500 animate-pulse"></span>
+            <span id="canvas-title" class="font-black text-2xl sm:text-3xl text-slate-900">車輪輪軸與寬光帶偏轉</span>
+            <span id="badge-model-type" class="text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-sky-100 text-sky-900 border border-sky-300">
+              波前恆垂直光通道 (90°)
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-700 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-2 rounded-2xl border border-slate-300">
+              <input type="checkbox" id="chk-band" checked class="w-5 h-5 rounded text-sky-600 focus:ring-0">
+              <span class="text-sky-900 font-black">寬光帶</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-purple-50 px-3 py-2 rounded-2xl border-2 border-purple-300">
+              <input type="checkbox" id="chk-orig-path" checked class="w-5 h-5 rounded text-purple-600 focus:ring-0">
+              <span class="text-purple-900 font-black">原始路徑</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-2 rounded-2xl border border-slate-300">
+              <input type="checkbox" id="chk-normal" checked class="w-5 h-5 rounded text-rose-600 focus:ring-0">
+              <span class="text-rose-700 font-black">法線</span>
+            </label>
+            <button id="btn-quiz" class="flex items-center gap-1.5 px-4 py-2 text-base sm:text-lg font-black rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white transition shadow-md active:scale-95">
+              <span>🏆</span>
+              <span>測驗</span>
+            </button>
+            <button id="btn-reset" class="flex items-center gap-1.5 px-3.5 py-2 text-base sm:text-lg font-black rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border-2 border-slate-300 transition shadow-sm active:scale-95">
+              <span>🔄</span>
+              <span>重置</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 畫布本體 (米白色溫潤底色) -->
+        <div class="relative w-full aspect-[16/10] min-h-[500px] bg-[#fdfbf7] rounded-2xl border-2 border-slate-300 overflow-hidden cursor-grab active:cursor-grabbing touch-none shadow-inner">
+          <canvas id="simCanvas" class="w-full h-full block bg-[#fdfbf7]"></canvas>
+          
+          <div class="absolute bottom-3 left-3 pointer-events-none text-sm sm:text-base font-black text-slate-700 flex items-center gap-2 bg-white/95 px-4 py-2 rounded-xl border-2 border-slate-300 shadow-md">
+            <span>👉</span>
+            <span>手指或滑鼠可直接在畫布上方拖曳旋轉入射角度</span>
+          </div>
+
+          <!-- 控制懸浮按鈕：播放/暫停 -->
+          <div class="absolute top-3 left-3 flex items-center gap-2 z-10 bg-white/95 backdrop-blur-sm p-1.5 rounded-2xl border-2 border-slate-300 shadow-md">
+            <button id="btn-toggle-pause" class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white font-black text-base sm:text-lg hover:bg-indigo-700 shadow-sm transition active:scale-95">
+              <span id="icon-pause">⏸️</span>
+              <span id="text-pause">暫停</span>
+            </button>
+          </div>
+
+          <div id="theory-status-pill" class="absolute top-3 right-3 text-sm sm:text-base font-black px-3.5 py-1.5 rounded-xl border-2 shadow-sm bg-amber-50 text-amber-900 border-amber-300">
+            左輪先入水減速 ➔ 輪軸自動偏向法線 (∠r &lt; ∠i)
+          </div>
+        </div>
+
+        <!-- 特大字體數據看板 (教室大電視專用) -->
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-center">
+          <div class="bg-rose-50 p-4 sm:p-5 rounded-2xl border-2 border-rose-300 shadow-sm">
+            <div class="text-rose-950 font-black text-xl sm:text-2xl">入射角 (∠i)</div>
+            <div id="stat-angle-i" class="text-3xl sm:text-5xl font-black text-rose-600 mt-1 font-mono tracking-tight">40.0°</div>
+            <div class="text-sm sm:text-base font-bold text-rose-800 mt-1">寬帶軸線與法線夾角</div>
+          </div>
+
+          <div class="bg-sky-50 p-4 sm:p-5 rounded-2xl border-2 border-sky-300 shadow-sm">
+            <div class="text-sky-950 font-black text-xl sm:text-2xl">折射角 (∠r)</div>
+            <div id="stat-angle-r" class="text-3xl sm:text-5xl font-black text-sky-700 mt-1 font-mono tracking-tight">28.9°</div>
+            <div id="stat-r-desc" class="text-sm sm:text-base font-bold text-sky-800 mt-1">偏向法線 (角度變小)</div>
+          </div>
+
+          <div class="bg-amber-50 p-4 sm:p-5 rounded-2xl border-2 border-amber-300 shadow-sm">
+            <div class="text-amber-950 font-black text-xl sm:text-2xl">傳播速度變化</div>
+            <div id="stat-speed-change" class="text-3xl sm:text-5xl font-black text-amber-700 mt-1 font-mono tracking-tight">v₂ &lt; v₁</div>
+            <div id="stat-speed-desc" class="text-sm sm:text-base font-bold text-amber-800 mt-1">水中速度為空氣的 0.75倍</div>
+          </div>
+
+          <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-sm">
+            <div class="text-emerald-950 font-black text-xl sm:text-2xl">波長 / 波前變化</div>
+            <div id="stat-lambda-state" class="text-2xl sm:text-3xl font-black text-emerald-800 mt-2">波長縮短 (λ₂ &lt; λ₁)</div>
+            <div class="text-sm sm:text-base font-bold text-emerald-800 mt-1">波前恆垂直光通道 (90°)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心觀念解說卡：車輪模型本質 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-5 shadow-md flex flex-col gap-3.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">🚗</span>
+            <span class="font-black text-2xl sm:text-3xl text-slate-900">車輪模型（寬光帶）如何秒懂折射本質？</span>
+          </div>
+          <span class="text-sm sm:text-base font-black text-sky-800 bg-sky-100 border border-sky-300 px-3.5 py-1 rounded-xl">國中會考核心觀念</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-base sm:text-lg font-bold">
+          <div class="bg-sky-50 p-4 rounded-2xl border-2 border-sky-200 flex flex-col justify-between">
+            <div>
+              <div class="text-sky-950 font-black text-lg sm:text-xl flex items-center gap-2 mb-1.5">
+                <span class="w-3.5 h-3.5 rounded-full bg-sky-600"></span>
+                日常經驗類比：車輛斜向駛入泥地/草地
+              </div>
+              <p class="text-slate-700 leading-relaxed text-sm sm:text-base">
+                想像一輛推車斜著開進草地（車軸永遠與前進方向成 90° 垂直）：<br>
+                1. <strong>左輪先碰觸草地：</strong>因阻力增大而<strong>立刻減速</strong>！<br>
+                2. <strong>右輪仍在柏油路面：</strong>此時仍維持<strong>高速前進</strong>。<br>
+                3. <strong>速度差導致轉向：</strong>右輪跑得比左輪快，整根車軸自動往左旋轉，行進方向因此「朝草地垂直線（法線）偏折」！
+              </p>
+            </div>
+            <div class="text-sm sm:text-base font-black text-sky-900 bg-sky-200/80 px-3 py-2 rounded-xl mt-3">
+              🎯 結論：快入慢（波速變慢） ➔ 必定偏向法線！
+            </div>
+          </div>
+
+          <div class="bg-emerald-50 p-4 rounded-2xl border-2 border-emerald-200 flex flex-col justify-between">
+            <div>
+              <div class="text-emerald-950 font-black text-lg sm:text-xl flex items-center gap-2 mb-1.5">
+                <span class="w-3.5 h-3.5 rounded-full bg-emerald-600"></span>
+                光的波動本質與會考重點
+              </div>
+              <p class="text-slate-700 leading-relaxed text-sm sm:text-base">
+                • <strong>頻率不變：</strong>光由空氣進入水中，頻率由光源決定，恆定不變。<br>
+                • <strong>波速變慢：</strong>$v_{\text{水}} < v_{\text{空氣}}$，阻力大速度變小。<br>
+                • <strong>波長縮短：</strong>由波速公式 $v = f \times \lambda$ 可知，當波速變小且頻率不變時，波長 $\lambda$ 必定隨之縮短！
+              </p>
+            </div>
+            <div class="text-sm sm:text-base font-black text-emerald-900 bg-emerald-200/80 px-3 py-2 rounded-xl mt-3">
+              ⚡ 會考鐵律：快入慢 ➔ 頻率不變、速度變慢、波長縮短、偏向法線！
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 右側極簡大字體控制面板 (佔 10% 寬度) -->
+    <aside class="w-full lg:w-[10%] lg:min-w-[230px] flex flex-col gap-4">
+      
+      <!-- 控制台 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>⚙️</span>
+          參數調控
+        </h2>
+
+        <!-- 入射角滑桿 -->
+        <div class="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-slate-800">入射角</span>
+            <span id="val-angle-i" class="text-xl font-black text-rose-600 font-mono">40.0°</span>
+          </div>
+          <input type="range" id="range-angle-i" min="0" max="68" value="40" step="1" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- 水槽介質折射率 n -->
+        <div class="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-slate-800">介質</span>
+            <span id="val-ref-index" class="text-base font-black text-sky-700 font-mono">1.33 水</span>
+          </div>
+          <div class="grid grid-cols-3 lg:grid-cols-1 gap-2">
+            <button data-n="1.33" class="btn-med py-3 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl shadow-sm transition">💧 水 1.33</button>
+            <button data-n="1.50" class="btn-med py-3 px-2 rounded-2xl bg-white text-slate-700 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-slate-100 transition">🪟 玻璃 1.50</button>
+            <button data-n="2.42" class="btn-med py-3 px-2 rounded-2xl bg-white text-slate-700 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-slate-100 transition">💎 鑽石 2.42</button>
+          </div>
+        </div>
+
+        <!-- 寬光帶寬度 -->
+        <div class="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-slate-800">光帶寬</span>
+            <span id="val-track-w" class="text-xl font-black text-indigo-700 font-mono">54px</span>
+          </div>
+          <input type="range" id="range-track-w" min="36" max="76" value="54" step="2" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- 前進速度調控 -->
+        <div class="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-slate-800">推進速</span>
+            <span id="val-speed" class="text-xl font-black text-indigo-700 font-mono">2.0</span>
+          </div>
+          <input type="range" id="range-speed" min="0.8" max="4.0" value="2.0" step="0.2" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- 隨堂測驗 Modal -->
+  <div id="quiz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border-2 border-slate-300 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-sky-700 text-white flex items-center justify-center font-black">
+            🏆
+          </div>
+          <h3 class="font-black text-xl sm:text-2xl text-slate-900">車輪模型與折射本質測驗</h3>
+        </div>
+        <button id="btn-close-quiz" class="text-slate-400 hover:text-slate-700 p-2 text-2xl font-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto max-h-[75vh] flex flex-col gap-4" id="quiz-content"></div>
+
+      <div class="px-6 py-4 border-t-2 border-slate-100 bg-slate-50 flex justify-between items-center">
+        <span id="quiz-progress" class="text-base font-bold text-slate-500">第 1 / 4 題</span>
+        <div class="flex gap-3">
+          <button id="btn-prev-quiz" class="px-5 py-2.5 rounded-xl bg-white border-2 border-slate-300 text-base font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40">上一題</button>
+          <button id="btn-next-quiz" class="px-6 py-2.5 rounded-xl bg-sky-700 text-base font-bold text-white hover:bg-sky-800 shadow-md">下一題</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl text-base font-bold flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300">
+    <span class="text-emerald-400 text-xl">✓</span>
+    <span id="toast-text">已更新</span>
+  </div>
+
+  <script>
+    const state = {
+      angleI: 40.0,
+      refIndex: 1.33,
+      trackW: 54,
+      speed: 2.0,
+      isPaused: false,
+      showBand: true,
+      showOrigPath: true,
+      showNormal: true,
+      timeOffset: 0
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const rangeAngleI = document.getElementById('range-angle-i');
+    const valAngleI = document.getElementById('val-angle-i');
+    const valRefIndex = document.getElementById('val-ref-index');
+    const rangeTrackW = document.getElementById('range-track-w');
+    const valTrackW = document.getElementById('val-track-w');
+    const rangeSpeed = document.getElementById('range-speed');
+    const valSpeed = document.getElementById('val-speed');
+
+    const statAngleI = document.getElementById('stat-angle-i');
+    const statAngleR = document.getElementById('stat-angle-r');
+    const statRDesc = document.getElementById('stat-r-desc');
+    const statSpeedChange = document.getElementById('stat-speed-change');
+    const statSpeedDesc = document.getElementById('stat-speed-desc');
+    const statLambdaState = document.getElementById('stat-lambda-state');
+
+    const medBtns = document.querySelectorAll('.btn-med');
+    const chkBand = document.getElementById('chk-band');
+    const chkOrigPath = document.getElementById('chk-orig-path');
+    const chkNormal = document.getElementById('chk-normal');
+    const btnReset = document.getElementById('btn-reset');
+    const btnTogglePause = document.getElementById('btn-toggle-pause');
+    const iconPause = document.getElementById('icon-pause');
+    const textPause = document.getElementById('text-pause');
+
+    function safeRoundRect(c, x, y, w, h, r) {
+      if (typeof c.roundRect === 'function') {
+        c.beginPath();
+        c.roundRect(x, y, w, h, r);
+      } else {
+        c.beginPath();
+        c.moveTo(x + r, y);
+        c.lineTo(x + w - r, y);
+        c.quadraticCurveTo(x + w, y, x + w, y + r);
+        c.lineTo(x + w, y + h - r);
+        c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        c.lineTo(x + r, y + h);
+        c.quadraticCurveTo(x, y + h, x, y + h - r);
+        c.lineTo(x, y + r);
+        c.quadraticCurveTo(x, y, x + r, y);
+        c.closePath();
+      }
+    }
+
+    function drawBadgeText(c, text, x, y, textColor, bgColor, borderColor, fontSize = 16, align = 'center') {
+      c.save();
+      c.font = `900 ${fontSize}px -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif`;
+      c.textBaseline = 'middle';
+
+      const metrics = c.measureText(text);
+      const padX = 12;
+      const padY = 6;
+      const boxW = metrics.width + padX * 2;
+      const boxH = fontSize * 1.35 + padY * 2;
+
+      let boxX = x - boxW / 2;
+      if (align === 'left') boxX = x;
+      else if (align === 'right') boxX = x - boxW;
+
+      const boxY = y - boxH / 2;
+
+      c.shadowColor = 'rgba(15, 23, 42, 0.08)';
+      c.shadowBlur = 6;
+      c.shadowOffsetY = 2;
+
+      c.fillStyle = bgColor;
+      safeRoundRect(c, boxX, boxY, boxW, boxH, 10);
+      c.fill();
+
+      c.shadowColor = 'transparent';
+      c.strokeStyle = borderColor;
+      c.lineWidth = 2;
+      c.stroke();
+
+      c.fillStyle = textColor;
+      c.textAlign = 'center';
+      c.fillText(text, boxX + boxW / 2, y + 1);
+      c.restore();
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const W = rect.width || canvas.parentElement.clientWidth || 800;
+      const H = rect.height || canvas.parentElement.clientHeight || 500;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+
+      canvas.width = Math.max(300, W) * dpr;
+      canvas.height = Math.max(300, H) * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function calcPhysics() {
+      const radI = (state.angleI * Math.PI) / 180;
+      const v1 = state.speed;
+      const n = state.refIndex;
+      const v2 = v1 / n;
+      const sinR = Math.sin(radI) / n;
+      const radR = Math.asin(Math.min(0.999, sinR));
+      const degR = radR * (180 / Math.PI);
+      return { v1, v2, radI, radR, degR };
+    }
+
+    function getWavefrontPositions(t, cx, cy, p, W1) {
+      const halfW = W1 / 2;
+      const cosI = Math.cos(p.radI);
+      const sinI = Math.sin(p.radI);
+      const cosR = Math.cos(p.radR);
+      const sinR = Math.sin(p.radR);
+
+      const interHalfX = halfW / cosI;
+      const interLX = cx - interHalfX;
+      const interRX = cx + interHalfX;
+
+      const tHalfTurn = (halfW * Math.tan(p.radI)) / p.v1;
+      const tL = -tHalfTurn;
+      const tR = +tHalfTurn;
+
+      const lInMedium = (t > tL);
+      const rInMedium = (t > tR);
+
+      let lx, ly, rx, ry;
+
+      if (!lInMedium) {
+        const dt = t - tL;
+        lx = interLX + p.v1 * dt * sinI;
+        ly = cy + p.v1 * dt * cosI;
+      } else {
+        const dt = t - tL;
+        lx = interLX + p.v2 * dt * sinR;
+        ly = cy + p.v2 * dt * cosR;
+      }
+
+      if (!rInMedium) {
+        const dt = t - tR;
+        rx = interRX + p.v1 * dt * sinI;
+        ry = cy + p.v1 * dt * cosI;
+      } else {
+        const dt = t - tR;
+        rx = interRX + p.v2 * dt * sinR;
+        ry = cy + p.v2 * dt * cosR;
+      }
+
+      return { lx, ly, rx, ry, lInMedium, rInMedium };
+    }
+
+    function drawHuygensBandGuide(c, cx, cy, p, W1, H) {
+      c.save();
+
+      const halfW = W1 / 2;
+      const interHalfX = halfW / Math.cos(p.radI);
+      const interL = { x: cx - interHalfX, y: cy };
+      const interR = { x: cx + interHalfX, y: cy };
+
+      const lenIn = Math.max(W1, H) * 1.3;
+      const lenOut = Math.max(W1, H) * 1.3;
+
+      const inL = { x: interL.x - lenIn * Math.sin(p.radI), y: interL.y - lenIn * Math.cos(p.radI) };
+      const inR = { x: interR.x - lenIn * Math.sin(p.radI), y: interR.y - lenIn * Math.cos(p.radI) };
+      const outL = { x: interL.x + lenOut * Math.sin(p.radR), y: interL.y + lenOut * Math.cos(p.radR) };
+      const outR = { x: interR.x + lenOut * Math.sin(p.radR), y: interR.y + lenOut * Math.cos(p.radR) };
+
+      c.fillStyle = 'rgba(245, 158, 11, 0.12)';
+      c.beginPath();
+      c.moveTo(inL.x, inL.y);
+      c.lineTo(interL.x, interL.y);
+      c.lineTo(interR.x, interR.y);
+      c.lineTo(inR.x, inR.y);
+      c.closePath();
+      c.fill();
+
+      c.fillStyle = 'rgba(16, 185, 129, 0.14)';
+      c.beginPath();
+      c.moveTo(interL.x, interL.y);
+      c.lineTo(outL.x, outL.y);
+      c.lineTo(outR.x, outR.y);
+      c.lineTo(interR.x, interR.y);
+      c.closePath();
+      c.fill();
+
+      c.strokeStyle = '#b45309';
+      c.lineWidth = 2.5;
+      c.setLineDash([6, 5]);
+      c.beginPath();
+      c.moveTo(inL.x, inL.y);
+      c.lineTo(interL.x, interL.y);
+      c.moveTo(inR.x, inR.y);
+      c.lineTo(interR.x, interR.y);
+      c.stroke();
+
+      c.strokeStyle = '#059669';
+      c.beginPath();
+      c.moveTo(interL.x, interL.y);
+      c.lineTo(outL.x, outL.y);
+      c.moveTo(interR.x, interR.y);
+      c.lineTo(outR.x, outR.y);
+      c.stroke();
+
+      c.restore();
+
+      if (state.angleI < 14) {
+        drawBadgeText(c, '①② 兩輪幾乎同時入水 (無速差・不偏折)', cx, cy - 38, '#0f172a', 'rgba(255, 255, 255, 0.96)', '#cbd5e1', 18, 'center');
+      } else {
+        drawBadgeText(c, '① 左輪先入水 (減速)', interL.x - 18, cy - 36, '#e11d48', 'rgba(255, 241, 242, 0.96)', '#fda4af', 18, 'right');
+        drawBadgeText(c, '② 右輪後入水 (高速)', interR.x + 18, cy + 36, '#1d4ed8', 'rgba(239, 246, 255, 0.96)', '#93c5fd', 18, 'left');
+      }
+    }
+
+    function animate() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const W = rect.width > 0 ? rect.width : (canvas.width / dpr) || 800;
+      const H = rect.height > 0 ? rect.height : (canvas.height / dpr) || 500;
+
+      if (W <= 0 || H <= 0) {
+        requestAnimationFrame(animate);
+        return;
+      }
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#fdfbf7';
+      ctx.fillRect(0, 0, W, H);
+
+      const originX = W / 2;
+      const interfaceY = H * 0.50;
+      const physics = calcPhysics();
+      const trackW = state.trackW;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(14, 165, 233, 0.12)';
+      ctx.fillRect(0, interfaceY, W, H - interfaceY);
+
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(0, interfaceY);
+      ctx.lineTo(W, interfaceY);
+      ctx.stroke();
+      ctx.restore();
+
+      drawBadgeText(ctx, '空氣介質 (上方，阻力小、速度快 v₁)', 25, interfaceY - 82, '#334155', 'rgba(255, 255, 255, 0.96)', '#cbd5e1', 18, 'left');
+      drawBadgeText(ctx, `水槽介質 (下方，阻力大、速度慢 v₂ = v₁ / ${state.refIndex.toFixed(2)})`, 25, interfaceY + 86, '#0369a1', 'rgba(240, 249, 255, 0.96)', '#7dd3fc', 18, 'left');
+
+      if (state.showNormal) {
+        ctx.save();
+        ctx.strokeStyle = '#be123c';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 5]);
+        ctx.beginPath();
+        ctx.moveTo(originX, 24);
+        ctx.lineTo(originX, H - 20);
+        ctx.stroke();
+        ctx.restore();
+
+        drawBadgeText(ctx, '法線 (垂直界面 90°)', originX, 34, '#be123c', 'rgba(255, 241, 242, 0.96)', '#fecdd3', 18, 'center');
+      }
+
+      if (state.showOrigPath && state.angleI > 0) {
+        drawOriginalStraightPath(ctx, originX, interfaceY, physics, H);
+      }
+
+      if (state.showBand) {
+        drawHuygensBandGuide(ctx, originX, interfaceY, physics, trackW, H);
+      }
+
+      const waveSpacing = 82;
+      if (!state.isPaused) {
+        state.timeOffset = (state.timeOffset + state.speed) % waveSpacing;
+      }
+
+      const dtStep = waveSpacing / physics.v1;
+      const tPhase = state.timeOffset / physics.v1;
+      const maxTimeSpan = Math.max(W, H) * 1.1 / physics.v2;
+
+      for (let t = -maxTimeSpan + tPhase; t <= maxTimeSpan; t += dtStep) {
+        drawWheelVehicleAtTime(ctx, t, originX, interfaceY, physics, trackW, H);
+      }
+
+      drawAngleArcs(ctx, originX, interfaceY, physics);
+
+      updateDashboard(physics);
+      requestAnimationFrame(animate);
+    }
+
+    function drawOriginalStraightPath(c, cx, cy, p, H) {
+      c.save();
+      const origLen = (H - cy) / Math.cos(p.radI);
+      const origEndX = cx + origLen * Math.sin(p.radI);
+      const origEndY = cy + origLen * Math.cos(p.radI);
+
+      c.strokeStyle = '#7e22ce';
+      c.lineWidth = 2.5;
+      c.setLineDash([6, 5]);
+      c.beginPath();
+      c.moveTo(cx, cy);
+      c.lineTo(origEndX, origEndY);
+      c.stroke();
+      c.restore();
+
+      const canvasW = canvas.width / Math.min(window.devicePixelRatio || 1, 1.5);
+      const badgeX = Math.min(canvasW - 150, Math.max(cx + 140, origEndX + 10));
+      const badgeY = Math.min(H - 36, origEndY - 18);
+      drawBadgeText(c, '光的原始未偏折路徑', badgeX, badgeY, '#6b21a8', 'rgba(250, 245, 255, 0.96)', '#d8b4fe', 18, 'center');
+    }
+
+    function drawWheelVehicleAtTime(c, t, cx, cy, p, W1, H) {
+      const slice = getWavefrontPositions(t, cx, cy, p, W1);
+      const lx = slice.lx, ly = slice.ly;
+      const rx = slice.rx, ry = slice.ry;
+
+      if ((ly < -30 && ry < -30) || (ly > H + 30 && ry > H + 30)) return;
+
+      c.save();
+      c.strokeStyle = '#1e293b';
+      c.lineWidth = 4.5;
+      c.lineCap = 'round';
+      c.beginPath();
+      c.moveTo(lx, ly);
+      c.lineTo(rx, ry);
+      c.stroke();
+
+      if (slice.lInMedium === slice.rInMedium) {
+        const mx = (lx + rx) / 2;
+        const my = (ly + ry) / 2;
+        const axLen = Math.hypot(rx - lx, ry - ly);
+        if (axLen > 20) {
+          const ux = (rx - lx) / axLen;
+          const uy = (ry - ly) / axLen;
+          const vx = -uy;
+          const vy = ux;
+          const sz = 8;
+
+          c.strokeStyle = 'rgba(30, 41, 59, 0.55)';
+          c.lineWidth = 1.8;
+          c.beginPath();
+          c.moveTo(mx + ux * sz, my + uy * sz);
+          c.lineTo(mx + ux * sz + vx * sz, my + uy * sz + vy * sz);
+          c.lineTo(mx + vx * sz, my + vy * sz);
+          c.stroke();
+        }
+      }
+
+      c.fillStyle = slice.lInMedium ? '#9f1239' : '#e11d48';
+      c.strokeStyle = '#ffffff';
+      c.lineWidth = 2.5;
+      c.beginPath();
+      c.arc(lx, ly, 7.5, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+
+      c.fillStyle = slice.rInMedium ? '#0369a1' : '#2563eb';
+      c.beginPath();
+      c.arc(rx, ry, 7.5, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+
+      c.restore();
+    }
+
+    function drawAngleArcs(c, cx, cy, p) {
+      if (state.angleI < 4) return;
+
+      c.save();
+      const r = 70;
+
+      c.strokeStyle = '#be123c';
+      c.lineWidth = 3.5;
+      c.beginPath();
+      c.arc(cx, cy, r, -Math.PI / 2 - p.radI, -Math.PI / 2);
+      c.stroke();
+
+      const midAngleI = -Math.PI / 2 - p.radI / 2;
+      const labelX_I = cx + Math.cos(midAngleI) * (r + 55);
+      const labelY_I = cy + Math.sin(midAngleI) * (r + 55);
+      drawBadgeText(c, `∠i = ${state.angleI.toFixed(0)}°`, labelX_I, labelY_I, '#be123c', 'rgba(255, 241, 242, 0.96)', '#fecdd3', 20, 'center');
+
+      c.strokeStyle = '#059669';
+      c.lineWidth = 3.5;
+      c.beginPath();
+      c.arc(cx, cy, r + 20, Math.PI / 2 - p.radR, Math.PI / 2);
+      c.stroke();
+
+      const midAngleR = Math.PI / 2 - p.radR / 2;
+      const labelX_R = cx + Math.cos(midAngleR) * (r + 65);
+      const labelY_R = cy + Math.sin(midAngleR) * (r + 65);
+      drawBadgeText(c, `∠r = ${p.degR.toFixed(1)}°`, labelX_R, labelY_R, '#059669', 'rgba(236, 253, 245, 0.96)', '#a7f3d0', 20, 'center');
+
+      c.restore();
+    }
+
+    function updateDashboard(p) {
+      if (statAngleI) statAngleI.textContent = `${state.angleI.toFixed(1)}°`;
+      valAngleI.textContent = `${state.angleI.toFixed(1)}°`;
+
+      statAngleR.textContent = `${p.degR.toFixed(1)}°`;
+      statRDesc.textContent = `偏向法線 (∠r < ∠i: ${p.degR.toFixed(1)}° < ${state.angleI.toFixed(0)}°)`;
+
+      statSpeedChange.textContent = `v₂ < v₁`;
+      statSpeedDesc.textContent = `水中阻力大・波速減慢 (v₂ ＝ v₁ / ${state.refIndex.toFixed(2)})`;
+      statLambdaState.textContent = '波長縮短 (帶距變窄)';
+    }
+
+    rangeAngleI.addEventListener('input', (e) => {
+      state.angleI = parseFloat(e.target.value);
+    });
+
+    rangeTrackW.addEventListener('input', (e) => {
+      state.trackW = parseInt(e.target.value);
+      valTrackW.textContent = `${state.trackW}px`;
+    });
+
+    rangeSpeed.addEventListener('input', (e) => {
+      state.speed = parseFloat(e.target.value);
+      valSpeed.textContent = `${state.speed.toFixed(1)}`;
+    });
+
+    medBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.refIndex = parseFloat(btn.dataset.n);
+        medBtns.forEach(b => {
+          b.className = 'btn-med py-3 px-2 rounded-2xl bg-white text-slate-700 border-2 border-slate-300 font-black text-lg sm:text-xl hover:bg-slate-100 transition';
+        });
+        btn.className = 'btn-med py-3 px-2 rounded-2xl bg-sky-700 text-white font-black text-lg sm:text-xl shadow-sm transition';
+        const medShort = btn.textContent.trim().split(' ')[1] || '';
+        valRefIndex.textContent = `${state.refIndex.toFixed(2)} ${medShort}`;
+        showToast(`已切換介質折射率 n = ${state.refIndex}`);
+      });
+    });
+
+    btnTogglePause.addEventListener('click', () => {
+      state.isPaused = !state.isPaused;
+      if (state.isPaused) {
+        iconPause.textContent = '▶️';
+        textPause.textContent = '播放';
+        btnTogglePause.className = 'flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white font-black text-base sm:text-lg hover:bg-emerald-700 shadow-sm transition active:scale-95';
+        showToast('動畫已暫停，方便觀察兩側波前位置');
+      } else {
+        iconPause.textContent = '⏸️';
+        textPause.textContent = '暫停';
+        btnTogglePause.className = 'flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white font-black text-base sm:text-lg hover:bg-indigo-700 shadow-sm transition active:scale-95';
+      }
+    });
+
+    chkBand.addEventListener('change', (e) => { state.showBand = e.target.checked; });
+    chkOrigPath.addEventListener('change', (e) => { state.showOrigPath = e.target.checked; });
+    chkNormal.addEventListener('change', (e) => { state.showNormal = e.target.checked; });
+
+    btnReset.addEventListener('click', () => {
+      state.angleI = 40.0;
+      state.refIndex = 1.33;
+      state.trackW = 54;
+      state.speed = 2.0;
+      state.isPaused = false;
+      state.showBand = true;
+      state.showOrigPath = true;
+      state.showNormal = true;
+      state.timeOffset = 0;
+
+      rangeAngleI.value = 40;
+      rangeTrackW.value = 54;
+      rangeSpeed.value = 2.0;
+      valTrackW.textContent = '54 px';
+      valSpeed.textContent = '2.0 px/格';
+      iconPause.textContent = '⏸️';
+      textPause.textContent = '暫停';
+      btnTogglePause.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 text-white font-black text-xs sm:text-sm hover:bg-indigo-700 shadow-sm transition active:scale-95';
+
+      medBtns[0].click();
+      showToast('實驗參數已重置');
+    });
+
+    let isDragging = false;
+    function handleDrag(e) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.touches ? e.touches[0].clientX : e.clientX;
+      const cy = e.touches ? e.touches[0].clientY : e.clientY;
+      const x = cx - rect.left;
+      const y = cy - rect.top;
+
+      const originX = rect.width / 2;
+      const interfaceY = rect.height * 0.50;
+
+      const dx = originX - x;
+      const dy = interfaceY - y;
+
+      if (dy > 15) {
+        let deg = Math.atan2(Math.abs(dx), dy) * (180 / Math.PI);
+        deg = Math.max(0, Math.min(68, deg));
+        state.angleI = Math.round(deg);
+        rangeAngleI.value = state.angleI;
+      }
+    }
+
+    canvas.addEventListener('mousedown', (e) => { isDragging = true; handleDrag(e); });
+    window.addEventListener('mousemove', (e) => { if (isDragging) handleDrag(e); });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    canvas.addEventListener('touchstart', (e) => { isDragging = true; handleDrag(e); }, { passive: false });
+    window.addEventListener('touchmove', (e) => { if (isDragging) { if (e.cancelable) e.preventDefault(); handleDrag(e); } }, { passive: false });
+    window.addEventListener('touchend', () => { isDragging = false; });
+
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+    }
+
+    const quizData = [
+      {
+        question: '在「車輪寬帶模型」中，車輛從空氣（平滑路面）斜著駛入水中（高阻力介質）時，整輛車會自動「向法線方向偏折」，其最根本的原因是什麼？',
+        options: [
+          '水給予車輪向下的垂直重力',
+          '先進入水中的一側車輪先減速，外側車輪仍在空氣高速行駛，左右輪速差導致波前自動轉向',
+          '水使車輛水平速度增大',
+          '車輪與水面產生完全彈性碰撞'
+        ],
+        answer: 1,
+        explanation: '這正是光折射的物理本質（惠更斯原理）！波前具有寬度，一側先進入速度慢的介質先減速，另一側速度仍快，左右速度差引發波前旋轉，偏向法線！'
+      },
+      {
+        question: '在波動光學中，「波前（紅藍兩端點連線）」與「光線前進方向（光通道）」的幾何夾角恆為幾度？',
+        options: [
+          '0°（完全平行）',
+          '45°',
+          '90°（互相垂直）',
+          '隨入射角大小而改變'
+        ],
+        answer: 2,
+        explanation: '在均勻介質中，波的前進方向（光線）永遠垂直（90°）於波前（車軸），無論在空氣中或折射進入水中後皆然！'
+      },
+      {
+        question: '當一束光從空氣斜射入水中時，下列哪一組物理量的變化完全正確？',
+        options: [
+          '頻率不變、波速變慢、波長縮短、偏向法線',
+          '頻率變小、波速不變、波長不變',
+          '頻率變大、波速變快、偏離法線',
+          '波速變快、波長變長'
+        ],
+        answer: 0,
+        explanation: '光由空氣進入水中（快入慢）：頻率由光源決定「保持不變」；波速變慢（v 變小）；根據 v = f × λ，波長 λ 隨之「縮短」；光線「偏向法線」！'
+      },
+      {
+        question: '若車輛是「垂直（入射角 0°）」駛入水中，兩側車輪同時入水，則會發生什麼現象？',
+        options: [
+          '車輛行進方向發生 90° 劇烈轉彎',
+          '兩輪同時減速，行進方向完全不偏折',
+          '車輛發生全反射彈回',
+          '車輛速度維持不變'
+        ],
+        answer: 1,
+        explanation: '垂直入射時（入射角 0°），兩側車輪完全同時接觸界面並同時減速，不存在左右輪速差，因此行進方向「直線穿透、完全不偏折」！'
+      }
+    ];
+
+    let currentQuizIndex = 0;
+    const userAnswers = {};
+
+    const quizModal = document.getElementById('quiz-modal');
+    const quizContent = document.getElementById('quiz-content');
+    const quizProgress = document.getElementById('quiz-progress');
+    const btnQuiz = document.getElementById('btn-quiz');
+    const btnCloseQuiz = document.getElementById('btn-close-quiz');
+    const btnPrevQuiz = document.getElementById('btn-prev-quiz');
+    const btnNextQuiz = document.getElementById('btn-next-quiz');
+
+    function renderQuiz(index) {
+      const q = quizData[index];
+      quizProgress.textContent = `第 ${index + 1} / ${quizData.length} 題`;
+      btnPrevQuiz.disabled = index === 0;
+      btnNextQuiz.textContent = index === quizData.length - 1 ? '完成測驗' : '下一題';
+
+      const selected = userAnswers[index];
+      const isAnswered = selected !== undefined;
+
+      let html = `
+        <div class="space-y-4">
+          <div class="font-black text-slate-900 leading-snug text-xl sm:text-2xl">
+            <span class="inline-block bg-sky-100 text-sky-900 px-3 py-1 rounded-xl text-base mr-2 font-mono border border-sky-200">Q${index + 1}</span>
+            ${q.question}
+          </div>
+          <div class="space-y-3 mt-4">
+      `;
+
+      q.options.forEach((opt, optIdx) => {
+        let btnStyle = "bg-slate-50 hover:bg-slate-100 border-2 border-slate-300 text-slate-800";
+        let markIcon = "";
+
+        if (isAnswered) {
+          if (optIdx === q.answer) {
+            btnStyle = "bg-emerald-100 border-2 border-emerald-500 text-emerald-950 font-black";
+            markIcon = "<span class='text-emerald-600 font-black text-xl'>✓ 正確</span>";
+          } else if (optIdx === selected) {
+            btnStyle = "bg-rose-100 border-2 border-rose-500 text-rose-950 font-black";
+            markIcon = "<span class='text-rose-600 font-black text-xl'>✕ 錯誤</span>";
+          } else {
+            btnStyle = "bg-slate-50 border-2 border-slate-200 text-slate-400 opacity-60";
+          }
+        }
+
+        html += `
+          <button data-opt="${optIdx}" class="quiz-opt-btn w-full text-left p-4 rounded-2xl ${btnStyle} flex items-center justify-between text-base sm:text-lg transition active:scale-[0.99]">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-slate-500 font-black text-lg w-6">${String.fromCharCode(65 + optIdx)}.</span>
+              <span class="font-bold">${opt}</span>
+            </div>
+            ${markIcon}
+          </button>
+        `;
+      });
+
+      html += `</div>`;
+
+      if (isAnswered) {
+        const isCorrect = selected === q.answer;
+        html += `
+          <div class="mt-4 p-4 rounded-2xl ${isCorrect ? 'bg-emerald-50 border-2 border-emerald-300' : 'bg-rose-50 border-2 border-rose-300'} text-base leading-relaxed">
+            <div class="font-black ${isCorrect ? 'text-emerald-700' : 'text-rose-700'} text-lg mb-1">
+              ${isCorrect ? '🎉 恭喜答對！' : '❌ 答錯了，觀念複習：'}
+            </div>
+            <div class="text-slate-800 font-bold">${q.explanation}</div>
+          </div>
+        `;
+      }
+
+      html += `</div>`;
+      quizContent.innerHTML = html;
+
+      if (!isAnswered) {
+        document.querySelectorAll('.quiz-opt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            userAnswers[index] = parseInt(btn.dataset.opt);
+            renderQuiz(index);
+          });
+        });
+      }
+    }
+
+    btnQuiz.addEventListener('click', () => {
+      quizModal.classList.remove('hidden');
+      renderQuiz(currentQuizIndex);
+    });
+
+    btnCloseQuiz.addEventListener('click', () => {
+      quizModal.classList.add('hidden');
+    });
+
+    btnPrevQuiz.addEventListener('click', () => {
+      if (currentQuizIndex > 0) {
+        currentQuizIndex--;
+        renderQuiz(currentQuizIndex);
+      }
+    });
+
+    btnNextQuiz.addEventListener('click', () => {
+      if (currentQuizIndex < quizData.length - 1) {
+        currentQuizIndex++;
+        renderQuiz(currentQuizIndex);
+      } else {
+        quizModal.classList.add('hidden');
+        showToast('測驗完成！');
+      }
+    });
+
+    quizModal.addEventListener('click', (e) => {
+      if (e.target === quizModal) quizModal.classList.add('hidden');
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      animate();
+    });
+    resizeCanvas();
+  </script>
+
+<!-- 網站導覽：回首頁按鈕 -->
+<a href="index.html" id="lab-home-btn" title="回到實驗室首頁"
+   style="position:fixed;left:12px;bottom:12px;z-index:45;display:flex;align-items:center;gap:6px;
+          padding:8px 14px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font:600 15px/1 system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;
+          text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.85">
+  <span style="font-size:17px">⌂</span>首頁
+</a>
+</body>
+</html>

@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>國中理化：波動傳播與橫波縱波探究實驗室</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    #simCanvas {
+      touch-action: none;
+    }
+    input[type=range] {
+      accent-color: #2563eb;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #2563eb;
+      border: 3px solid #ffffff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- 主體區域：9:1 左右並列佈局（已移除頂部大標題列，最大化畫布垂直空間） -->
+  <main class="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 flex flex-col lg:flex-row gap-4">
+    
+    <!-- 左側展示區 (佔 90% 寬度) -->
+    <section class="w-full lg:w-[90%] flex flex-col gap-4">
+      
+      <!-- 主波動畫布卡片 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 sm:p-5 shadow-md flex flex-col">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2.5">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span id="badge-dot" class="inline-block w-4 h-4 rounded-full bg-blue-600 animate-pulse"></span>
+            <span id="canvas-title" class="font-black text-2xl sm:text-3xl text-slate-900">波動傳播與橫波縱波探究</span>
+            <span id="badge-sub" class="text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-blue-100 text-blue-900 border border-blue-300">
+              振動方向 ⊥ 波前進方向
+            </span>
+          </div>
+
+          <!-- 橫波/縱波切換 ＋ 標尺開關 ＋ 下放的隨堂測驗與重置按鈕 -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <div class="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-300 text-base sm:text-lg font-black">
+              <button id="btn-mode-transverse" class="px-3.5 py-2 rounded-xl bg-blue-700 text-white shadow-sm transition active:scale-95">
+                〰️ 橫波
+              </button>
+              <button id="btn-mode-longitudinal" class="px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:bg-slate-50 transition active:scale-95">
+                🌀 縱波
+              </button>
+            </div>
+
+            <label class="flex items-center gap-2 cursor-pointer bg-amber-50 px-3 py-2 rounded-2xl border-2 border-amber-300 text-base sm:text-lg font-black text-amber-950">
+              <input type="checkbox" id="chk-rulers" checked class="w-5 h-5 rounded text-amber-600">
+              <span>波長/振幅標尺</span>
+            </label>
+
+            <button id="btn-quiz" class="flex items-center gap-1.5 px-4 py-2.5 text-base sm:text-lg font-black rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white transition shadow-md active:scale-95">
+              <span>🏆</span>
+              <span>測驗</span>
+            </button>
+            <button id="btn-reset" class="flex items-center gap-1.5 px-3.5 py-2.5 text-base sm:text-lg font-black rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border-2 border-slate-300 transition shadow-sm active:scale-95">
+              <span>🔄</span>
+              <span>重置</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 畫布本體 -->
+        <div class="relative w-full aspect-[16/10] min-h-[500px] bg-slate-950 rounded-2xl border-2 border-slate-700 overflow-hidden cursor-pointer touch-none shadow-inner">
+          <canvas id="simCanvas" class="w-full h-full block bg-slate-950"></canvas>
+          
+          <!-- 左上角單步與播放控制列 -->
+          <div class="absolute top-3 left-3 flex items-center gap-2 z-10 bg-slate-900/95 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-700 shadow-md flex-wrap">
+            <button id="btn-play-pause" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base sm:text-lg shadow-sm transition active:scale-95">
+              ⏸️ 暫停
+            </button>
+            <button id="btn-step-quarter" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-base sm:text-lg shadow-sm transition active:scale-95">
+              ⏭️ +1/4 週期
+            </button>
+            <button id="btn-step-full" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-black text-base sm:text-lg transition active:scale-95">
+              ⏭️ +1 週期
+            </button>
+          </div>
+
+          <div id="canvas-tip" class="absolute bottom-3 left-3 pointer-events-none text-sm sm:text-base font-black text-slate-100 flex items-center gap-2 bg-slate-900/95 px-4 py-2 rounded-xl border border-slate-700 shadow-md">
+            <span>🎀</span>
+            <span>觀察「紅彩帶」：波向右傳遞能量時，彩帶只在原處上下垂直振動，水平位置絕不前進！</span>
+          </div>
+        </div>
+
+        <!-- 特大字體數據看板 -->
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-center">
+          <div class="bg-blue-50 p-4 sm:p-5 rounded-2xl border-2 border-blue-300 shadow-sm">
+            <div class="text-blue-950 font-black text-xl sm:text-2xl">頻率 f / 週期 T</div>
+            <div id="stat-freq-period" class="text-2xl sm:text-4xl font-black text-blue-700 mt-1.5 font-mono tracking-tight">1.0 Hz / 1.00 s</div>
+            <div class="text-sm sm:text-base font-bold text-blue-800 mt-1">頻率由波源決定（T ＝ 1 / f）</div>
+          </div>
+
+          <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-sm">
+            <div class="text-emerald-950 font-black text-xl sm:text-2xl">波傳播速率 (v)</div>
+            <div id="stat-speed" class="text-3xl sm:text-5xl font-black text-emerald-700 mt-1 font-mono tracking-tight">24.0 cm/s</div>
+            <div class="text-sm sm:text-base font-bold text-emerald-800 mt-1">由介質性質決定（v ＝ f × λ）</div>
+          </div>
+
+          <div class="bg-amber-50 p-4 sm:p-5 rounded-2xl border-2 border-amber-300 shadow-sm">
+            <div class="text-amber-950 font-black text-xl sm:text-2xl">完整波長 (λ)</div>
+            <div id="stat-lambda" class="text-3xl sm:text-5xl font-black text-amber-700 mt-1 font-mono tracking-tight">24.0 cm</div>
+            <div id="stat-lambda-sub" class="text-sm sm:text-base font-bold text-amber-800 mt-1">相鄰兩波峰（或波谷）距離</div>
+          </div>
+
+          <div class="bg-rose-50 p-4 sm:p-5 rounded-2xl border-2 border-rose-300 shadow-sm">
+            <div class="text-rose-950 font-black text-xl sm:text-2xl">介質質點運動</div>
+            <div id="stat-particle" class="text-2xl sm:text-3xl font-black text-rose-700 mt-2">原地上下振動</div>
+            <div class="text-sm sm:text-base font-bold text-rose-800 mt-1">1 週期振動總路程 ＝ 4A</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心觀念解說卡 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-5 shadow-md flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">💡</span>
+            <span class="font-black text-2xl sm:text-3xl text-slate-900">會考必殺總整理：橫波與縱波比較、介質運動鐵律</span>
+          </div>
+          <span class="text-sm sm:text-base font-black text-blue-800 bg-blue-100 border border-blue-300 px-3.5 py-1 rounded-xl">高頻考點</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-base sm:text-lg font-bold">
+          <div class="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200">
+            <div class="text-blue-950 font-black text-lg sm:text-xl mb-1">1️⃣ 橫波 vs 縱波差異</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              • <strong>橫波：</strong>介質振動與波前進<strong>互相垂直</strong>（繩波、水波），具波峰與波谷。<br>
+              • <strong>縱波：</strong>介質振動與波前進<strong>互相平行</strong>（彈簧波、聲波），具密部與疏部。
+            </p>
+          </div>
+          <div class="bg-rose-50 p-4 rounded-2xl border-2 border-rose-200">
+            <div class="text-rose-950 font-black text-lg sm:text-xl mb-1">2️⃣ 介質動了多少？</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              • 波動只傳遞<strong>能量與波形</strong>，<strong>介質只在原處振動，絕不隨波前進</strong>！<br>
+              • 質點每振動 <strong>1 個週期 (T)</strong>，來回共走過 <strong>4 個振幅（4A）</strong>！
+            </p>
+          </div>
+          <div class="bg-emerald-50 p-4 rounded-2xl border-2 border-emerald-200">
+            <div class="text-emerald-950 font-black text-lg sm:text-xl mb-1">3️⃣ 決定波速的關鍵</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              • <strong>頻率 (f)</strong> 由波源決定；<strong>波速 (v)</strong> 由介質決定。<br>
+              • 同一條均勻繩子上，手搖變快（f 變大）時，<strong>波速 v 不變、波長 λ 變短</strong>！
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 右側極簡大字體控制面板 (佔 10% 寬度) -->
+    <aside class="w-full lg:w-[10%] lg:min-w-[230px] flex flex-col gap-4">
+      
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>⚙️</span>
+          參數控制
+        </h2>
+
+        <!-- 1. 頻率 f -->
+        <div class="bg-blue-50/90 p-3.5 rounded-2xl border-2 border-blue-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-lg sm:text-xl font-black text-blue-950">頻率 f</span>
+            <span id="val-freq" class="text-xl font-black text-blue-700 font-mono">1.0Hz</span>
+          </div>
+          <input type="range" id="range-freq" min="0.5" max="2.5" value="1.0" step="0.1" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- 2. 振幅 A -->
+        <div class="bg-rose-50/90 p-3.5 rounded-2xl border-2 border-rose-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-lg sm:text-xl font-black text-rose-950">振幅 A</span>
+            <span id="val-amp" class="text-xl font-black text-rose-600 font-mono">5.0cm</span>
+          </div>
+          <input type="range" id="range-amp" min="2.0" max="8.0" value="5.0" step="0.5" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- 3. 波速 v -->
+        <div class="bg-emerald-50/90 p-3.5 rounded-2xl border-2 border-emerald-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-lg sm:text-xl font-black text-emerald-950">波速 v</span>
+            <span id="val-speed" class="text-xl font-black text-emerald-700 font-mono">24cm/s</span>
+          </div>
+          <input type="range" id="range-speed" min="12" max="36" value="24" step="2" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- 課堂引導演示快捷鍵 -->
+        <div class="space-y-2 pt-2 border-t border-slate-200">
+          <div class="text-base sm:text-lg font-black text-slate-800">會考演示：</div>
+          <div class="grid grid-cols-2 lg:grid-cols-1 gap-2">
+            <button id="preset-quarter-demo" class="py-3 px-2 rounded-2xl bg-amber-100 border-2 border-amber-400 text-amber-950 hover:bg-amber-200 font-black text-lg sm:text-xl transition active:scale-95">
+              🎯 1/4 週期
+            </button>
+            <button id="preset-double-freq" class="py-3 px-2 rounded-2xl bg-white border-2 border-slate-300 text-slate-800 hover:bg-slate-100 font-black text-lg sm:text-xl transition active:scale-95">
+              ⚡ 加倍頻率
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- 隨堂測驗 Modal -->
+  <div id="quiz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border-2 border-slate-300 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-blue-700 text-white flex items-center justify-center font-black">
+            🏆
+          </div>
+          <h3 class="font-black text-xl sm:text-2xl text-slate-900">波動傳播與橫波縱波素養測驗</h3>
+        </div>
+        <button id="btn-close-quiz" class="text-slate-400 hover:text-slate-700 p-2 text-2xl font-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto max-h-[75vh] flex flex-col gap-4" id="quiz-content"></div>
+
+      <div class="px-6 py-4 border-t-2 border-slate-100 bg-slate-50 flex justify-between items-center">
+        <span id="quiz-progress" class="text-base font-bold text-slate-500">第 1 / 4 題</span>
+        <div class="flex gap-3">
+          <button id="btn-prev-quiz" class="px-5 py-2.5 rounded-xl bg-white border-2 border-slate-300 text-base font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40">上一題</button>
+          <button id="btn-next-quiz" class="px-6 py-2.5 rounded-xl bg-blue-700 text-base font-bold text-white hover:bg-blue-800 shadow-md">下一題</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl text-base font-bold flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300">
+    <span class="text-emerald-400 text-xl">✓</span>
+    <span id="toast-text">已更新</span>
+  </div>
+
+  <script>
+    const state = {
+      waveMode: 'transverse', // 'transverse' (橫波) 或 'longitudinal' (縱波)
+      freq: 1.0,              // Hz (0.5 ~ 2.5)
+      ampCm: 5.0,             // cm (2.0 ~ 8.0)
+      speedCm: 24.0,          // cm/s (12 ~ 36)
+      isPaused: false,
+      phaseRad: 0,            // 當前波源相位 (rad)
+      showRulers: true
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const btnModeTrans = document.getElementById('btn-mode-transverse');
+    const btnModeLong = document.getElementById('btn-mode-longitudinal');
+    const btnPlayPause = document.getElementById('btn-play-pause');
+    const canvasTitle = document.getElementById('canvas-title');
+    const badgeSub = document.getElementById('badge-sub');
+    const canvasTip = document.getElementById('canvas-tip');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const W = rect.width || canvas.parentElement.clientWidth || 800;
+      const H = rect.height || canvas.parentElement.clientHeight || 470;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+
+      canvas.width = Math.max(300, W) * dpr;
+      canvas.height = Math.max(300, H) * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    let lastTimestamp = null;
+
+    function animate(ts) {
+      if (lastTimestamp === null) lastTimestamp = ts;
+      const dt = Math.min(0.05, (ts - lastTimestamp) / 1000);
+      lastTimestamp = ts;
+
+      if (!state.isPaused) {
+        state.phaseRad += 2 * Math.PI * state.freq * dt;
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const W = rect.width > 0 ? rect.width : (canvas.width / dpr) || 800;
+      const H = rect.height > 0 ? rect.height : (canvas.height / dpr) || 470;
+
+      if (W > 0 && H > 0) {
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = '#060a12';
+        ctx.fillRect(0, 0, W, H);
+
+        if (state.waveMode === 'transverse') {
+          renderTransverseWave(W, H);
+        } else {
+          renderLongitudinalWave(W, H);
+        }
+      }
+
+      updateDashboard();
+      requestAnimationFrame(animate);
+    }
+
+    // ==========================================
+    // 橫波渲染（繩波 ＋ 紅色蝴蝶結彩帶）
+    // ==========================================
+    function renderTransverseWave(W, H) {
+      const startX = 95;
+      const endX = W - 45;
+      const ropeLenPx = endX - startX;
+      const centerY = H * 0.54;
+
+      const cmToPx = ropeLenPx / 60.0;
+      const lambdaCm = state.speedCm / state.freq;
+      const lambdaPx = lambdaCm * cmToPx;
+      const ampPx = state.ampCm * (H * 0.032);
+
+      // 1. 水平平衡中心虛線與波前進方向箭頭（右上角專屬安全留白區）
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(startX, centerY);
+      ctx.lineTo(endX, centerY);
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.fillStyle = '#38bdf8';
+      ctx.lineWidth = 4;
+      const arrowY = 46;
+      ctx.beginPath();
+      ctx.moveTo(W * 0.58, arrowY);
+      ctx.lineTo(W - 44, arrowY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(W - 32, arrowY);
+      ctx.lineTo(W - 50, arrowY - 9);
+      ctx.lineTo(W - 50, arrowY + 9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.font = '900 19px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('波前進方向 (能量傳遞) ➔', W - 36, arrowY - 14);
+      ctx.restore();
+
+      function getWaveY(x) {
+        const distPx = x - startX;
+        const k = (2 * Math.PI) / lambdaPx;
+        return centerY - ampPx * Math.sin(state.phaseRad - k * distPx);
+      }
+
+      // 2. 左端波源上下振動活塞手柄
+      const handY = getWaveY(startX);
+      ctx.save();
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(startX - 38, centerY - ampPx - 16);
+      ctx.lineTo(startX - 38, centerY + ampPx + 16);
+      ctx.stroke();
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(startX, handY, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fde047';
+      ctx.font = '900 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('波源', startX - 38, centerY - ampPx - 26);
+      ctx.restore();
+
+      // 3. 繪製連續平滑繩波曲線
+      ctx.save();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 6.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let x = startX; x <= endX; x += 3) {
+        const y = getWaveY(x);
+        if (x === startX) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      for (let x = startX + 35; x <= endX - 15; x += 45) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.beginPath();
+        ctx.arc(x, getWaveY(x), 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // 4. 紅色蝴蝶結彩帶（固定在 x = startX + ropeLenPx * 0.36 處）
+      const ribbonX = startX + ropeLenPx * 0.36;
+      const ribbonY = getWaveY(ribbonX);
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(251, 113, 133, 0.75)';
+      ctx.lineWidth = 2.8;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(ribbonX, centerY - ampPx - 14);
+      ctx.lineTo(ribbonX, centerY + ampPx + 14);
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#f43f5e';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(ribbonX, ribbonY);
+      ctx.lineTo(ribbonX - 20, ribbonY - 12);
+      ctx.lineTo(ribbonX - 20, ribbonY + 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(ribbonX, ribbonY);
+      ctx.lineTo(ribbonX + 20, ribbonY - 12);
+      ctx.lineTo(ribbonX + 20, ribbonY + 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffe4e6';
+      ctx.beginPath();
+      ctx.arc(ribbonX, ribbonY, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 紅彩帶標籤放在軌道下方獨立安全留白區（不與波谷重疊）
+      ctx.fillStyle = '#fda4af';
+      ctx.font = '900 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🎀 紅彩帶 (僅原地上下振動)', ribbonX, Math.min(H - 54, centerY + ampPx + 46));
+      ctx.restore();
+
+      // 5. 波長 λ 與振幅 A 標尺
+      if (state.showRulers) {
+        drawTransverseRulers(startX, endX, centerY, lambdaPx, ampPx, lambdaCm, H);
+      }
+    }
+
+    function drawTransverseRulers(startX, endX, centerY, lambdaPx, ampPx, lambdaCm, H) {
+      ctx.save();
+      const k = (2 * Math.PI) / lambdaPx;
+      let firstCrestDist = ((state.phaseRad - Math.PI / 2) % (2 * Math.PI));
+      if (firstCrestDist < 0) firstCrestDist += 2 * Math.PI;
+      firstCrestDist /= k;
+
+      let c1X = startX + firstCrestDist;
+      if (c1X < startX + 35) c1X += lambdaPx;
+      const c2X = c1X + lambdaPx;
+
+      if (c2X <= endX - 20) {
+        const topY = Math.max(92, centerY - ampPx - 24);
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(c1X, topY);
+        ctx.lineTo(c2X, topY);
+        ctx.moveTo(c1X, topY - 8); ctx.lineTo(c1X, topY + 8);
+        ctx.moveTo(c2X, topY - 8); ctx.lineTo(c2X, topY + 8);
+        ctx.stroke();
+
+        ctx.fillStyle = '#fde047';
+        ctx.font = '900 18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`波長 λ = ${lambdaCm.toFixed(1)} cm`, (c1X + c2X) / 2, topY - 12);
+      }
+
+      if (c1X < endX - 25) {
+        ctx.fillStyle = '#7dd3fc';
+        ctx.font = '900 17px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('波峰', c1X, centerY - ampPx - 8);
+      }
+      const troughX = c1X + lambdaPx / 2;
+      if (troughX < endX - 25 && Math.abs(troughX - (startX + (endX - startX) * 0.36)) > 75) {
+        ctx.fillStyle = '#7dd3fc';
+        ctx.font = '900 17px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('波谷', troughX, centerY + ampPx + 22);
+      }
+
+      // 右側振幅 A 標尺
+      const ampMarkerX = endX - 24;
+      ctx.strokeStyle = '#34d399';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(ampMarkerX, centerY);
+      ctx.lineTo(ampMarkerX, centerY - ampPx);
+      ctx.moveTo(ampMarkerX - 7, centerY); ctx.lineTo(ampMarkerX + 7, centerY);
+      ctx.moveTo(ampMarkerX - 7, centerY - ampPx); ctx.lineTo(ampMarkerX + 7, centerY - ampPx);
+      ctx.stroke();
+
+      ctx.fillStyle = '#6ee7b7';
+      ctx.font = '900 18px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`振幅 A=${state.ampCm.toFixed(1)}cm`, ampMarkerX - 12, centerY - ampPx / 2 + 6);
+
+      ctx.restore();
+    }
+
+    // ==========================================
+    // 縱波渲染（彈簧疏密波 ＋ 藍色標記線圈）
+    // ==========================================
+    function renderLongitudinalWave(W, H) {
+      const startX = 95;
+      const endX = W - 45;
+      const springLenPx = endX - startX;
+      const centerY = H * 0.54;
+
+      const cmToPx = springLenPx / 60.0;
+      const lambdaCm = state.speedCm / state.freq;
+      const lambdaPx = lambdaCm * cmToPx;
+      const maxDispPx = Math.min(lambdaPx * 0.24, state.ampCm * 3.8);
+
+      // 右上角安全留白區波前進方向大箭頭
+      ctx.save();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.fillStyle = '#38bdf8';
+      ctx.lineWidth = 4;
+      const arrowY = 46;
+      ctx.beginPath();
+      ctx.moveTo(W * 0.56, arrowY);
+      ctx.lineTo(W - 44, arrowY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(W - 32, arrowY);
+      ctx.lineTo(W - 50, arrowY - 9);
+      ctx.lineTo(W - 50, arrowY + 9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.font = '900 19px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('縱波前進方向 (與振動方向平行) ➔', W - 36, arrowY - 14);
+      ctx.restore();
+
+      const ringCount = 65;
+      const targetIndex = 24;
+      const k = (2 * Math.PI) / lambdaPx;
+
+      let targetEqX = 0;
+      let targetCurX = 0;
+
+      for (let i = 0; i <= ringCount; i++) {
+        const eqX = startX + (springLenPx * i) / ringCount;
+        const distPx = eqX - startX;
+        const dx = maxDispPx * Math.sin(state.phaseRad - k * distPx);
+        const curX = eqX + dx;
+        const compression = Math.cos(state.phaseRad - k * distPx);
+
+        if (i === targetIndex) {
+          targetEqX = eqX;
+          targetCurX = curX;
+        }
+
+        ctx.save();
+        if (i === targetIndex) {
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 6;
+        } else if (compression > 0.35) {
+          ctx.strokeStyle = '#fb923c';
+          ctx.lineWidth = 3.5;
+        } else {
+          ctx.strokeStyle = 'rgba(203, 213, 225, 0.72)';
+          ctx.lineWidth = 2.5;
+        }
+
+        ctx.beginPath();
+        ctx.ellipse(curX, centerY, 13, 46, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 藍色標記彈簧圈的水平運動軌跡標尺（置於彈簧下方安全區）
+      ctx.save();
+      const trackY = centerY + 74;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(targetEqX - maxDispPx, trackY);
+      ctx.lineTo(targetEqX + maxDispPx, trackY);
+      ctx.moveTo(targetEqX - maxDispPx, trackY - 7); ctx.lineTo(targetEqX - maxDispPx, trackY + 7);
+      ctx.moveTo(targetEqX + maxDispPx, trackY - 7); ctx.lineTo(targetEqX + maxDispPx, trackY + 7);
+      ctx.stroke();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(targetCurX, trackY, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#7dd3fc';
+      ctx.font = '900 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🔵 藍色標記圈（僅原地左右水平振動）', targetEqX, trackY + 28);
+      ctx.restore();
+
+      if (state.showRulers) {
+        let firstCompDist = (state.phaseRad % (2 * Math.PI));
+        if (firstCompDist < 0) firstCompDist += 2 * Math.PI;
+        firstCompDist /= k;
+
+        let m1X = startX + firstCompDist;
+        if (m1X < startX + 35) m1X += lambdaPx;
+        const m2X = m1X + lambdaPx;
+
+        ctx.save();
+        if (m1X < endX - 25) {
+          ctx.fillStyle = '#fdba74';
+          ctx.font = '900 18px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('密部', m1X, centerY - 62);
+        }
+        const rareX = m1X + lambdaPx / 2;
+        if (rareX < endX - 25) {
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '900 18px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('疏部', rareX, centerY - 62);
+        }
+        if (m2X <= endX - 20) {
+          const rulerY = centerY - 94;
+          ctx.strokeStyle = '#fbbf24';
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.moveTo(m1X, rulerY);
+          ctx.lineTo(m2X, rulerY);
+          ctx.moveTo(m1X, rulerY - 8); ctx.lineTo(m1X, rulerY + 8);
+          ctx.moveTo(m2X, rulerY - 8); ctx.lineTo(m2X, rulerY + 8);
+          ctx.stroke();
+
+          ctx.fillStyle = '#fde047';
+          ctx.font = '900 18px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`波長 λ = ${lambdaCm.toFixed(1)} cm`, (m1X + m2X) / 2, rulerY - 12);
+        }
+        ctx.restore();
+      }
+    }
+
+    function updateDashboard() {
+      const period = 1 / state.freq;
+      const lambdaCm = state.speedCm / state.freq;
+
+      document.getElementById('val-freq').textContent = `${state.freq.toFixed(1)}Hz`;
+      document.getElementById('val-amp').textContent = `${state.ampCm.toFixed(1)}cm`;
+      document.getElementById('val-speed').textContent = `${state.speedCm.toFixed(0)}cm/s`;
+
+      document.getElementById('stat-freq-period').textContent = `${state.freq.toFixed(1)} Hz / ${period.toFixed(2)} s`;
+      document.getElementById('stat-speed').textContent = `${state.speedCm.toFixed(1)} cm/s`;
+      document.getElementById('stat-lambda').textContent = `${lambdaCm.toFixed(1)} cm`;
+
+      if (state.waveMode === 'transverse') {
+        document.getElementById('stat-lambda-sub').textContent = '相鄰兩波峰（或兩波谷）距離';
+        document.getElementById('stat-particle').textContent = '原地上下振動';
+      } else {
+        document.getElementById('stat-lambda-sub').textContent = '相鄰兩密部（或兩疏部）中心距離';
+        document.getElementById('stat-particle').textContent = '原地左右振動';
+      }
+    }
+
+    function setWaveMode(m) {
+      state.waveMode = m;
+      if (m === 'transverse') {
+        btnModeTrans.className = 'px-3.5 py-2 rounded-xl bg-blue-700 text-white shadow-sm transition active:scale-95';
+        btnModeLong.className = 'px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:bg-slate-50 transition active:scale-95';
+        badgeSub.textContent = '振動方向 ⊥ 波前進方向';
+        canvasTip.innerHTML = '<span>🎀</span><span>觀察「紅彩帶」：波向右傳遞能量時，彩帶只在原處上下垂直振動，水平位置絕不前進！</span>';
+      } else {
+        btnModeLong.className = 'px-3.5 py-2 rounded-xl bg-indigo-700 text-white shadow-sm transition active:scale-95';
+        btnModeTrans.className = 'px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:bg-slate-50 transition active:scale-95';
+        badgeSub.textContent = '振動方向 ∥ 波前進方向';
+        canvasTip.innerHTML = '<span>🌀</span><span>觀察「藍色標記圈」：波向右前進時，線圈只在原處左右水平往復振動，形成疏密相間的縱波！</span>';
+      }
+    }
+
+    btnModeTrans.addEventListener('click', () => setWaveMode('transverse'));
+    btnModeLong.addEventListener('click', () => setWaveMode('longitudinal'));
+
+    btnPlayPause.addEventListener('click', () => {
+      state.isPaused = !state.isPaused;
+      btnPlayPause.textContent = state.isPaused ? '▶️ 繼續' : '⏸️ 暫停';
+      btnPlayPause.className = state.isPaused
+        ? 'px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base sm:text-lg shadow-sm transition active:scale-95'
+        : 'px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base sm:text-lg shadow-sm transition active:scale-95';
+    });
+
+    document.getElementById('btn-step-quarter').addEventListener('click', () => {
+      state.isPaused = true;
+      btnPlayPause.textContent = '▶️ 繼續';
+      btnPlayPause.className = 'px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base sm:text-lg shadow-sm transition active:scale-95';
+      state.phaseRad += Math.PI / 2;
+      showToast('已前進 1/4 週期（波形右移 λ/4，質點移動 1 個振幅 A）');
+    });
+
+    document.getElementById('btn-step-full').addEventListener('click', () => {
+      state.isPaused = true;
+      btnPlayPause.textContent = '▶️ 繼續';
+      state.phaseRad += 2 * Math.PI;
+      showToast('已前進 1 個完整週期（波形右移 1 個波長 λ，質點共走 4A）');
+    });
+
+    document.getElementById('range-freq').addEventListener('input', (e) => { state.freq = parseFloat(e.target.value); });
+    document.getElementById('range-amp').addEventListener('input', (e) => { state.ampCm = parseFloat(e.target.value); });
+    document.getElementById('range-speed').addEventListener('input', (e) => { state.speedCm = parseFloat(e.target.value); });
+    document.getElementById('chk-rulers').addEventListener('change', (e) => { state.showRulers = e.target.checked; });
+
+    document.getElementById('preset-quarter-demo').addEventListener('click', () => {
+      state.isPaused = true;
+      state.phaseRad = Math.PI / 2;
+      btnPlayPause.textContent = '▶️ 繼續';
+      showToast('已定格波形！請點擊左上角「⏭️ +1/4 週期」觀察質點下一刻移動方向');
+    });
+
+    document.getElementById('preset-double-freq').addEventListener('click', () => {
+      state.freq = 2.0;
+      state.speedCm = 24.0;
+      document.getElementById('range-freq').value = 2.0;
+      document.getElementById('range-speed').value = 24;
+      showToast('頻率加倍至 2.0 Hz：波速維持 24 cm/s 不變，波長自動減半為 12.0 cm！');
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      state.freq = 1.0;
+      state.ampCm = 5.0;
+      state.speedCm = 24.0;
+      state.isPaused = false;
+      state.phaseRad = 0;
+      document.getElementById('range-freq').value = 1.0;
+      document.getElementById('range-amp').value = 5.0;
+      document.getElementById('range-speed').value = 24;
+      btnPlayPause.textContent = '⏸️ 暫停';
+      setWaveMode('transverse');
+      showToast('波動參數已重置');
+    });
+
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2600);
+    }
+
+    const quizData = [
+      {
+        question: '手握長繩一端上下擺動產生向右前進的橫波，在繩子中央綁一條紅色蝴蝶結彩帶。請問當波向右傳播時，紅彩帶的運動方式為何？',
+        options: [
+          '隨著波浪一起向右前進到繩子另一端',
+          '只在原處上下垂直往復振動，水平位置不前進',
+          '只在原處左右水平往復振動',
+          '完全靜止不動'
+        ],
+        answer: 1,
+        explanation: '波動只傳遞能量與波形，介質本身絕不隨波前進！橫波的介質振動方向與波前進方向互相垂直，因此紅彩帶只在原處上下垂直振動！'
+      },
+      {
+        question: '某週期性繩波的振幅為 4 公分、波長為 20 公分、頻率為 2 Hz。請問經過 1 秒鐘後，波形前進了多少公分？繩上一質點振動走過的總路徑長為多少公分？',
+        options: [
+          '波形前進 40 公分；質點走過 32 公分',
+          '波形前進 20 公分；質點走過 16 公分',
+          '波形前進 32 公分；質點走過 40 公分',
+          '波形前進 40 公分；質點走過 8 公分'
+        ],
+        answer: 0,
+        explanation: '波速 v ＝ f × λ ＝ 2 × 20 ＝ 40 cm/s，故 1 秒波形前進 40 公分；1 秒振動 2 個週期，每 1 個週期質點來回走 4 個振幅（4 × 4 ＝ 16 cm），故 2 週期共走 32 公分！'
+      },
+      {
+        question: '關於「聲波在空氣中傳播」的波動類型分類，下列敘述何者正確？',
+        options: [
+          '屬於橫波，空氣分子上下振動',
+          '屬於縱波，空氣分子平行於聲波前進方向前後振動，形成疏密波',
+          '屬於電磁波，不需要空氣也能傳播',
+          '屬於橫波，具有波峰與波谷'
+        ],
+        answer: 1,
+        explanation: '空氣中的聲波屬於力學波中的「縱波（疏密波）」，空氣分子沿著聲波傳播方向前後推擠振動，產生密部與疏部！'
+      },
+      {
+        question: '在同一條鬆緊程度固定的均勻長繩上，小華加快手上下搖動的頻率（頻率變為原來的 2 倍），請問繩波的「波速」與「波長」會如何變化？',
+        options: [
+          '波速變為 2 倍，波長不變',
+          '波速不變，波長變為原來的 1/2',
+          '波速變為 1/2，波長不變',
+          '波速與波長皆變為 2 倍'
+        ],
+        answer: 1,
+        explanation: '波速只由「介質（繩子的鬆緊與材質）」決定！同一條繩子波速 v 固定不變，根據 v ＝ f × λ，當頻率 f 變為 2 倍時，波長 λ 必定減半變為原來的 1/2！'
+      }
+    ];
+
+    let currentQuizIndex = 0;
+    const userAnswers = {};
+    const quizModal = document.getElementById('quiz-modal');
+    const quizContent = document.getElementById('quiz-content');
+    const quizProgress = document.getElementById('quiz-progress');
+
+    function renderQuiz(index) {
+      const q = quizData[index];
+      quizProgress.textContent = `第 ${index + 1} / ${quizData.length} 題`;
+      document.getElementById('btn-prev-quiz').disabled = index === 0;
+      document.getElementById('btn-next-quiz').textContent = index === quizData.length - 1 ? '完成測驗' : '下一題';
+
+      const selected = userAnswers[index];
+      const isAnswered = selected !== undefined;
+
+      let html = `
+        <div class="space-y-4">
+          <div class="font-black text-slate-900 leading-snug text-xl sm:text-2xl">
+            <span class="inline-block bg-blue-100 text-blue-900 px-3 py-1 rounded-xl text-base mr-2 font-mono border border-blue-200">Q${index + 1}</span>
+            ${q.question}
+          </div>
+          <div class="space-y-3 mt-4">
+      `;
+
+      q.options.forEach((opt, optIdx) => {
+        let btnStyle = "bg-slate-50 hover:bg-slate-100 border-2 border-slate-300 text-slate-800";
+        let markIcon = "";
+        if (isAnswered) {
+          if (optIdx === q.answer) {
+            btnStyle = "bg-emerald-100 border-2 border-emerald-500 text-emerald-950 font-black";
+            markIcon = "<span class='text-emerald-600 font-black text-xl'>✓ 正確</span>";
+          } else if (optIdx === selected) {
+            btnStyle = "bg-rose-100 border-2 border-rose-500 text-rose-950 font-black";
+            markIcon = "<span class='text-rose-600 font-black text-xl'>✕ 錯誤</span>";
+          } else {
+            btnStyle = "bg-slate-50 border-2 border-slate-200 text-slate-400 opacity-60";
+          }
+        }
+        html += `
+          <button data-opt="${optIdx}" class="quiz-opt-btn w-full text-left p-4 rounded-2xl ${btnStyle} flex items-center justify-between text-base sm:text-lg transition active:scale-[0.99]">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-slate-500 font-black text-lg w-6">${String.fromCharCode(65 + optIdx)}.</span>
+              <span class="font-bold">${opt}</span>
+            </div>
+            ${markIcon}
+          </button>
+        `;
+      });
+      html += `</div>`;
+
+      if (isAnswered) {
+        const isCorrect = selected === q.answer;
+        html += `
+          <div class="mt-4 p-4 rounded-2xl ${isCorrect ? 'bg-emerald-50 border-2 border-emerald-300' : 'bg-rose-50 border-2 border-rose-300'} text-base leading-relaxed">
+            <div class="font-black ${isCorrect ? 'text-emerald-700' : 'text-rose-700'} text-lg mb-1">
+              ${isCorrect ? '🎉 恭喜答對！' : '❌ 答錯了，觀念複習：'}
+            </div>
+            <div class="text-slate-800 font-bold">${q.explanation}</div>
+          </div>
+        `;
+      }
+      html += `</div>`;
+      quizContent.innerHTML = html;
+
+      if (!isAnswered) {
+        document.querySelectorAll('.quiz-opt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            userAnswers[index] = parseInt(btn.dataset.opt);
+            renderQuiz(index);
+          });
+        });
+      }
+    }
+
+    document.getElementById('btn-quiz').addEventListener('click', () => { quizModal.classList.remove('hidden'); renderQuiz(currentQuizIndex); });
+    document.getElementById('btn-close-quiz').addEventListener('click', () => { quizModal.classList.add('hidden'); });
+    document.getElementById('btn-prev-quiz').addEventListener('click', () => { if (currentQuizIndex > 0) { currentQuizIndex--; renderQuiz(currentQuizIndex); } });
+    document.getElementById('btn-next-quiz').addEventListener('click', () => {
+      if (currentQuizIndex < quizData.length - 1) { currentQuizIndex++; renderQuiz(currentQuizIndex); }
+      else { quizModal.classList.add('hidden'); showToast('測驗完成！'); }
+    });
+    quizModal.addEventListener('click', (e) => { if (e.target === quizModal) quizModal.classList.add('hidden'); });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      requestAnimationFrame(animate);
+    });
+    resizeCanvas();
+  </script>
+
+<!-- 網站導覽：回首頁按鈕 -->
+<a href="index.html" id="lab-home-btn" title="回到實驗室首頁"
+   style="position:fixed;left:12px;bottom:12px;z-index:45;display:flex;align-items:center;gap:6px;
+          padding:8px 14px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font:600 15px/1 system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;
+          text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.85">
+  <span style="font-size:17px">⌂</span>首頁
+</a>
+</body>
+</html>

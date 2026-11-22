@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>國中理化：針孔成像互動實驗室</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    #simCanvas {
+      touch-action: none;
+    }
+    input[type=range] {
+      accent-color: #d97706;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #d97706;
+      border: 3px solid #ffffff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- 主體區域：9:1 左右並列佈局（已移除頂部大標題列，最大化畫布垂直空間） -->
+  <main class="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 flex flex-col lg:flex-row gap-4">
+    
+    <!-- 左側展示區 (佔 90% 寬度) -->
+    <section class="w-full lg:w-[90%] flex flex-col gap-4">
+      
+      <!-- 主光學畫布卡片 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 sm:p-5 shadow-md flex flex-col">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2.5">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span id="badge-dot" class="inline-block w-4 h-4 rounded-full bg-amber-500 animate-pulse"></span>
+            <span id="canvas-title" class="font-black text-2xl sm:text-3xl text-slate-900">針孔成像光路與暗箱實驗</span>
+            <span id="badge-nature" class="text-sm sm:text-base font-black px-3 py-1 rounded-xl bg-amber-100 text-amber-950 border border-amber-300">
+              上下左右皆相反・倒立實像
+            </span>
+          </div>
+
+          <!-- 顯示開關 ＋ 下放的隨堂測驗與重置按鈕 -->
+          <div class="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-700 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer bg-amber-50 px-3 py-2 rounded-2xl border-2 border-amber-300">
+              <input type="checkbox" id="chk-rays" checked class="w-5 h-5 rounded text-amber-600">
+              <span class="text-amber-950 font-black">邊緣光束</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-2 rounded-2xl border border-slate-300">
+              <input type="checkbox" id="chk-dims" checked class="w-5 h-5 rounded text-sky-700">
+              <span>相似三角形標尺</span>
+            </label>
+
+            <button id="btn-quiz" class="flex items-center gap-1.5 px-4 py-2.5 text-base sm:text-lg font-black rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white transition shadow-md active:scale-95">
+              <span>🏆</span>
+              <span>測驗</span>
+            </button>
+            <button id="btn-reset" class="flex items-center gap-1.5 px-3.5 py-2.5 text-base sm:text-lg font-black rounded-2xl bg-white hover:bg-slate-100 text-slate-700 border-2 border-slate-300 transition shadow-sm active:scale-95">
+              <span>🔄</span>
+              <span>重置</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 畫布本體 -->
+        <div class="relative w-full aspect-[16/10] min-h-[500px] bg-slate-950 rounded-2xl border-2 border-slate-700 overflow-hidden cursor-grab active:cursor-grabbing touch-none shadow-inner">
+          <canvas id="simCanvas" class="w-full h-full block bg-slate-950"></canvas>
+          
+          <div id="canvas-tip" class="absolute bottom-3 left-3 pointer-events-none text-sm sm:text-base font-black text-slate-100 flex items-center gap-2 bg-slate-900/95 px-4 py-2 rounded-xl border border-slate-700 shadow-md">
+            <span>👉</span>
+            <span>可直接左右拖曳「燭火光源」或「半透明紙屏」，驗證物距與像距的相似三角形比例！</span>
+          </div>
+        </div>
+
+        <!-- 特大字體數據看板 -->
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-center">
+          <div class="bg-amber-50 p-4 sm:p-5 rounded-2xl border-2 border-amber-300 shadow-sm">
+            <div class="text-amber-950 font-black text-xl sm:text-2xl">物距 (p) / 像距 (q)</div>
+            <div id="stat-pq" class="text-2xl sm:text-4xl font-black text-amber-700 mt-1.5 font-mono tracking-tight">20cm / 20cm</div>
+            <div class="text-sm sm:text-base font-bold text-amber-800 mt-1">像高 / 物高 ＝ 像距 / 物距</div>
+          </div>
+
+          <div class="bg-sky-50 p-4 sm:p-5 rounded-2xl border-2 border-sky-300 shadow-sm">
+            <div class="text-sky-950 font-black text-xl sm:text-2xl">成像放大倍率</div>
+            <div id="stat-mag" class="text-3xl sm:text-5xl font-black text-sky-700 mt-1 font-mono tracking-tight">1.00 倍</div>
+            <div id="stat-mag-sub" class="text-sm sm:text-base font-bold text-sky-800 mt-1">等大實像（q ＝ p）</div>
+          </div>
+
+          <div class="bg-purple-50 p-4 sm:p-5 rounded-2xl border-2 border-purple-300 shadow-sm">
+            <div class="text-purple-950 font-black text-xl sm:text-2xl">亮度與清晰度</div>
+            <div id="stat-clarity" class="text-2xl sm:text-3xl font-black text-purple-700 mt-2">清晰銳利・適中亮度</div>
+            <div id="stat-clarity-sub" class="text-sm sm:text-base font-bold text-purple-800 mt-1">針孔越大越亮但越模糊</div>
+          </div>
+
+          <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-sm">
+            <div class="text-emerald-950 font-black text-xl sm:text-2xl">成像幾何性質</div>
+            <div class="text-2xl sm:text-3xl font-black text-emerald-800 mt-2">上下左右皆相反</div>
+            <div class="text-sm sm:text-base font-bold text-emerald-800 mt-1">光的直線傳播・可投影實像</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心觀念解說卡 -->
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-5 shadow-md flex flex-col gap-3.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">💡</span>
+            <span class="font-black text-2xl sm:text-3xl text-slate-900">會考必殺總整理：針孔成像原理與考題陷阱</span>
+          </div>
+          <span class="text-sm sm:text-base font-black text-amber-800 bg-amber-100 border border-amber-300 px-3.5 py-1 rounded-xl">高頻考點</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-base sm:text-lg font-bold">
+          <div class="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200">
+            <div class="text-amber-950 font-black text-lg sm:text-xl mb-1">1️⃣ 為什麼上下左右都相反？</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              • 因為<strong>光在均勻介質中沿直線傳播</strong>，上方光線斜向穿過針孔射向下方，左側光線射向右側。<br>
+              • 在紙屏背面觀察時，相當於把原圖案在平面上<strong>旋轉 180°</strong>！
+            </p>
+          </div>
+          <div class="bg-sky-50 p-4 rounded-2xl border-2 border-sky-200">
+            <div class="text-sky-950 font-black text-lg sm:text-xl mb-1">2️⃣ 孔洞變大或變多會怎樣？</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              • <strong>針孔變大：</strong>通過光線變多，像<strong>變亮但變模糊</strong>（孔太大時只剩亮光斑，無法成像）。<br>
+              • <strong>刺兩個小孔：</strong>紙屏上會出現<strong>兩個獨立、互不重疊的倒立實像</strong>（樹蔭下日偏食光斑即此原理）！
+            </p>
+          </div>
+          <div class="bg-emerald-50 p-4 rounded-2xl border-2 border-emerald-200">
+            <div class="text-emerald-950 font-black text-lg sm:text-xl mb-1">3️⃣ 針孔形狀會影響像嗎？</div>
+            <p class="text-slate-700 text-sm sm:text-base leading-relaxed">
+              • 只要針孔<strong>足夠小</strong>，無論刺出三角形、正方形或圓形小孔，紙屏上的像<strong>永遠取決於發光物體形狀</strong>，與小孔形狀無關！
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 右側極簡大字體控制面板 (佔 10% 寬度) -->
+    <aside class="w-full lg:w-[10%] lg:min-w-[230px] flex flex-col gap-4">
+      
+      <div class="bg-white border-2 border-slate-300 rounded-3xl p-4 shadow-md flex flex-col gap-3.5">
+        
+        <!-- 紙屏背面主觀視野預覽窗 -->
+        <div class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-2.5 flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <span class="font-black text-slate-800 text-base">👁️ 紙屏成像</span>
+            <span class="text-xs font-black px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">倒立實像</span>
+          </div>
+          <div class="relative w-full h-[105px] bg-slate-950 rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center">
+            <canvas id="screenCanvas" width="220" height="105" class="w-full h-full block"></canvas>
+          </div>
+        </div>
+
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-1.5 border-b-2 border-slate-100 pb-2">
+          <span>⚙️</span>
+          實驗參數
+        </h2>
+
+        <!-- 發光物體種類 -->
+        <div class="grid grid-cols-2 lg:grid-cols-1 gap-2">
+          <button id="btn-obj-candle" class="py-3 px-2 rounded-2xl bg-amber-600 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95">
+            🕯️ 燭火
+          </button>
+          <button id="btn-obj-letter" class="py-3 px-2 rounded-2xl bg-white border-2 border-slate-300 text-slate-800 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95">
+            🔤 字母 F
+          </button>
+        </div>
+
+        <!-- 1. 物距 p -->
+        <div class="bg-amber-50/90 p-3 rounded-2xl border-2 border-amber-200 space-y-1.5">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-amber-950">物距 p</span>
+            <span id="val-p" class="text-xl font-black text-amber-700 font-mono">20cm</span>
+          </div>
+          <input type="range" id="range-p" min="10" max="35" value="20" step="1" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- 2. 像距 q -->
+        <div class="bg-sky-50/90 p-3 rounded-2xl border-2 border-sky-200 space-y-1.5">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-sky-950">像距 q</span>
+            <span id="val-q" class="text-xl font-black text-sky-700 font-mono">20cm</span>
+          </div>
+          <input type="range" id="range-q" min="10" max="35" value="20" step="1" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- 3. 針孔孔徑大小 -->
+        <div class="bg-purple-50/90 p-3 rounded-2xl border-2 border-purple-200 space-y-1.5">
+          <div class="flex justify-between items-center">
+            <span class="text-base sm:text-lg font-black text-purple-950">孔徑</span>
+            <span id="val-hole" class="text-lg font-black text-purple-700 font-mono">極小孔</span>
+          </div>
+          <input type="range" id="range-hole" min="1" max="10" value="2" step="1" class="w-full h-4 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <!-- 4. 針孔數量 -->
+        <div class="grid grid-cols-2 lg:grid-cols-1 gap-2 pt-1 border-t border-slate-200">
+          <button id="btn-hole-1" class="py-2.5 px-2 rounded-xl bg-indigo-700 text-white font-black text-lg shadow-xs">
+            🔘 單針孔
+          </button>
+          <button id="btn-hole-2" class="py-2.5 px-2 rounded-xl bg-white border-2 border-slate-300 text-slate-800 font-black text-lg">
+            🔘🔘 雙針孔
+          </button>
+        </div>
+
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- 隨堂測驗 Modal -->
+  <div id="quiz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border-2 border-slate-300 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center font-black">
+            🏆
+          </div>
+          <h3 class="font-black text-xl sm:text-2xl text-slate-900">針孔成像與光的直進素養測驗</h3>
+        </div>
+        <button id="btn-close-quiz" class="text-slate-400 hover:text-slate-700 p-2 text-2xl font-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto max-h-[75vh] flex flex-col gap-4" id="quiz-content"></div>
+
+      <div class="px-6 py-4 border-t-2 border-slate-100 bg-slate-50 flex justify-between items-center">
+        <span id="quiz-progress" class="text-base font-bold text-slate-500">第 1 / 4 題</span>
+        <div class="flex gap-3">
+          <button id="btn-prev-quiz" class="px-5 py-2.5 rounded-xl bg-white border-2 border-slate-300 text-base font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40">上一題</button>
+          <button id="btn-next-quiz" class="px-6 py-2.5 rounded-xl bg-amber-600 text-base font-bold text-white hover:bg-amber-700 shadow-md">下一題</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl text-base font-bold flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300">
+    <span class="text-emerald-400 text-xl">✓</span>
+    <span id="toast-text">已更新</span>
+  </div>
+
+  <script>
+    const state = {
+      objType: 'candle',  // 'candle' 或 'letter'
+      p: 20,              // 物距 cm (10 ~ 35)
+      q: 20,              // 像距 cm (10 ~ 35)
+      holeSize: 2,        // 1 ~ 10
+      holeCount: 1,       // 1 或 2
+      showRays: true,
+      showDims: true,
+      flicker: 0
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const screenCanvas = document.getElementById('screenCanvas');
+    const sCtx = screenCanvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const W = rect.width || canvas.parentElement.clientWidth || 800;
+      const H = rect.height || canvas.parentElement.clientHeight || 480;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas.width = Math.max(300, W) * dpr;
+      canvas.height = Math.max(300, H) * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function animate() {
+      state.flicker += 0.14;
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const W = rect.width > 0 ? rect.width : (canvas.width / dpr) || 800;
+      const H = rect.height > 0 ? rect.height : (canvas.height / dpr) || 480;
+
+      if (W > 0 && H > 0) {
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = '#060a12';
+        ctx.fillRect(0, 0, W, H);
+        renderMainScene(W, H);
+        renderScreenPreview();
+      }
+
+      updateDashboard();
+      requestAnimationFrame(animate);
+    }
+
+    function drawCandleOrLetter(c, x, cy, halfH, isInverted, isScreenView, alpha = 1) {
+      c.save();
+      c.translate(x, cy);
+      if (isInverted) {
+        c.scale(isScreenView ? -1 : 1, -1);
+      }
+      c.globalAlpha = alpha;
+
+      if (state.objType === 'candle') {
+        // 蠟燭本體
+        const bodyH = halfH * 1.1;
+        const bodyW = Math.max(8, halfH * 0.28);
+        c.fillStyle = '#f8fafc';
+        c.fillRect(-bodyW / 2, 0, bodyW, bodyH);
+
+        // 火焰
+        const sway = Math.sin(state.flicker) * 2;
+        c.fillStyle = '#f59e0b';
+        c.beginPath();
+        c.moveTo(0, 0);
+        c.quadraticCurveTo(-bodyW * 0.9, -halfH * 0.45, sway, -halfH);
+        c.quadraticCurveTo(bodyW * 0.9, -halfH * 0.45, 0, 0);
+        c.fill();
+
+        c.fillStyle = '#fef08a';
+        c.beginPath();
+        c.moveTo(0, -2);
+        c.quadraticCurveTo(-bodyW * 0.45, -halfH * 0.35, sway * 0.6, -halfH * 0.72);
+        c.quadraticCurveTo(bodyW * 0.45, -halfH * 0.35, 0, -2);
+        c.fill();
+      } else {
+        // 不對稱字母 F
+        const w = halfH * 0.62;
+        c.strokeStyle = '#fbbf24';
+        c.lineWidth = Math.max(4, halfH * 0.14);
+        c.lineCap = 'round';
+        c.beginPath();
+        c.moveTo(-w * 0.4, halfH * 0.9);
+        c.lineTo(-w * 0.4, -halfH * 0.9);
+        c.lineTo(w * 0.7, -halfH * 0.9);
+        c.moveTo(-w * 0.4, 0);
+        c.lineTo(w * 0.45, 0);
+        c.stroke();
+      }
+
+      c.restore();
+    }
+
+    function renderMainScene(W, H) {
+      const cy = H * 0.48;
+      const boardX = W * 0.50;
+      const cmToPx = (W * 0.42) / 35;
+
+      const objX = boardX - state.p * cmToPx;
+      const screenX = boardX + state.q * cmToPx;
+      const objHalfH = 54;
+      const mag = state.q / state.p;
+      const imgHalfH = objHalfH * mag;
+
+      // 1. 水平基準線
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.32)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(20, cy);
+      ctx.lineTo(W - 20, cy);
+      ctx.stroke();
+      ctx.restore();
+
+      // 2. 針孔位置列表（單孔或雙孔）
+      const holesY = state.holeCount === 1 ? [cy] : [cy - 34, cy + 34];
+      const gapHalf = 3 + state.holeSize * 1.4;
+
+      // 3. 繪製來自頂端與底端的直線光束
+      if (state.showRays) {
+        holesY.forEach((hy, idx) => {
+          const topObjY = cy - objHalfH;
+          const botObjY = cy + objHalfH;
+
+          const topHitY = hy + ((hy - topObjY) / (boardX - objX)) * (screenX - boardX);
+          const botHitY = hy + ((hy - botObjY) / (boardX - objX)) * (screenX - boardX);
+
+          ctx.save();
+          // 頂端光線（琥珀金）
+          ctx.strokeStyle = idx === 0 ? 'rgba(251, 191, 36, 0.85)' : 'rgba(56, 189, 248, 0.8)';
+          ctx.lineWidth = 2.8;
+          ctx.beginPath();
+          ctx.moveTo(objX, topObjY);
+          ctx.lineTo(boardX, hy);
+          ctx.lineTo(screenX, topHitY);
+          ctx.stroke();
+
+          // 底端光線（珊瑚紅）
+          ctx.strokeStyle = idx === 0 ? 'rgba(251, 113, 133, 0.85)' : 'rgba(52, 211, 153, 0.8)';
+          ctx.beginPath();
+          ctx.moveTo(objX, botObjY);
+          ctx.lineTo(boardX, hy);
+          ctx.lineTo(screenX, botHitY);
+          ctx.stroke();
+          ctx.restore();
+        });
+      }
+
+      // 4. 不透明針孔擋板
+      ctx.save();
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 8;
+      ctx.lineCap = 'butt';
+
+      let curY = 44;
+      const botBoardY = H - 74;
+      holesY.forEach(hy => {
+        ctx.beginPath();
+        ctx.moveTo(boardX, curY);
+        ctx.lineTo(boardX, hy - gapHalf);
+        ctx.stroke();
+        curY = hy + gapHalf;
+      });
+      ctx.beginPath();
+      ctx.moveTo(boardX, curY);
+      ctx.lineTo(boardX, botBoardY);
+      ctx.stroke();
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '900 19px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(state.holeCount === 1 ? '不透明針孔板' : '雙針孔擋板', boardX, 32);
+      ctx.restore();
+
+      // 5. 半透明紙屏與倒立實像
+      ctx.save();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(screenX, 56);
+      ctx.lineTo(screenX, H - 80);
+      ctx.stroke();
+
+      ctx.fillStyle = '#7dd3fc';
+      ctx.font = '900 19px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('半透明紙屏', screenX, 42);
+      ctx.restore();
+
+      // 左側發光物體
+      drawCandleOrLetter(ctx, objX, cy, objHalfH, false, false, 1);
+      ctx.save();
+      ctx.fillStyle = '#fde047';
+      ctx.font = '900 19px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('發光物體', objX, cy - objHalfH - 16);
+      ctx.restore();
+
+      // 右側紙屏上的倒立實像（依孔徑大時模糊變亮、單/雙孔數量繪製）
+      const blurPx = Math.max(0, (state.holeSize - 2) * 1.4);
+      const brightnessAlpha = Math.min(1, 0.55 + state.holeSize * 0.055);
+      holesY.forEach(hy => {
+        const imgCy = hy + ((hy - cy) / (boardX - objX)) * (screenX - boardX);
+        ctx.save();
+        if (blurPx > 0.2) ctx.filter = `blur(${blurPx}px)`;
+        drawCandleOrLetter(ctx, screenX + 12, imgCy, imgHalfH, true, false, brightnessAlpha);
+        ctx.restore();
+      });
+
+      // 6. 物距 p 與像距 q 尺寸標尺（置於底部專屬留白區）
+      if (state.showDims) {
+        const dimY = H - 36;
+        drawDimension(ctx, objX, boardX, dimY, `物距 p = ${state.p} cm`, '#fbbf24');
+        drawDimension(ctx, boardX, screenX, dimY, `像距 q = ${state.q} cm`, '#38bdf8');
+      }
+    }
+
+    function drawDimension(c, x1, x2, y, label, color) {
+      c.save();
+      c.strokeStyle = color;
+      c.fillStyle = color;
+      c.lineWidth = 3;
+      c.beginPath();
+      c.moveTo(x1, y - 7); c.lineTo(x1, y + 7);
+      c.moveTo(x2, y - 7); c.lineTo(x2, y + 7);
+      c.moveTo(x1, y); c.lineTo(x2, y);
+      c.stroke();
+
+      c.font = '900 18px monospace';
+      c.textAlign = 'center';
+      c.fillText(label, (x1 + x2) / 2, y - 10);
+      c.restore();
+    }
+
+    // 紙屏背面觀察者主觀視野（驗證「上下左右皆相反」）
+    function renderScreenPreview() {
+      const W = screenCanvas.width;
+      const H = screenCanvas.height;
+      sCtx.clearRect(0, 0, W, H);
+      sCtx.fillStyle = '#060a12';
+      sCtx.fillRect(0, 0, W, H);
+
+      const mag = state.q / state.p;
+      const halfH = Math.max(12, Math.min(38, 24 * mag));
+      const blurPx = Math.max(0, (state.holeSize - 2) * 1.2);
+      const alpha = Math.min(1, 0.55 + state.holeSize * 0.055);
+
+      sCtx.save();
+      if (blurPx > 0.2) sCtx.filter = `blur(${blurPx}px)`;
+      if (state.holeCount === 1) {
+        drawCandleOrLetter(sCtx, W * 0.50, H * 0.50, halfH, true, true, alpha);
+      } else {
+        drawCandleOrLetter(sCtx, W * 0.50, H * 0.28, halfH * 0.78, true, true, alpha);
+        drawCandleOrLetter(sCtx, W * 0.50, H * 0.72, halfH * 0.78, true, true, alpha);
+      }
+      sCtx.restore();
+    }
+
+    function updateDashboard() {
+      const mag = state.q / state.p;
+      document.getElementById('val-p').textContent = `${state.p}cm`;
+      document.getElementById('val-q').textContent = `${state.q}cm`;
+      document.getElementById('val-hole').textContent = state.holeSize <= 2 ? '極小孔' : (state.holeSize <= 5 ? '中等孔' : '大圓孔');
+
+      document.getElementById('stat-pq').textContent = `${state.p}cm / ${state.q}cm`;
+      document.getElementById('stat-mag').textContent = `${mag.toFixed(2)} 倍`;
+      document.getElementById('stat-mag-sub').textContent = mag > 1.02 ? '放大實像（q ＞ p）' : (mag < 0.98 ? '縮小實像（q ＜ p）' : '等大實像（q ＝ p）');
+
+      if (state.holeSize <= 2) {
+        document.getElementById('stat-clarity').textContent = '極清晰・偏暗';
+      } else if (state.holeSize <= 5) {
+        document.getElementById('stat-clarity').textContent = '微模糊・較亮';
+      } else {
+        document.getElementById('stat-clarity').textContent = '嚴重模糊・很亮';
+      }
+    }
+
+    document.getElementById('btn-obj-candle').addEventListener('click', () => {
+      state.objType = 'candle';
+      document.getElementById('btn-obj-candle').className = 'py-3 px-2 rounded-2xl bg-amber-600 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95';
+      document.getElementById('btn-obj-letter').className = 'py-3 px-2 rounded-2xl bg-white border-2 border-slate-300 text-slate-800 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95';
+    });
+
+    document.getElementById('btn-obj-letter').addEventListener('click', () => {
+      state.objType = 'letter';
+      document.getElementById('btn-obj-letter').className = 'py-3 px-2 rounded-2xl bg-amber-600 text-white font-black text-lg sm:text-xl shadow-sm transition active:scale-95';
+      document.getElementById('btn-obj-candle').className = 'py-3 px-2 rounded-2xl bg-white border-2 border-slate-300 text-slate-800 font-black text-lg sm:text-xl hover:bg-slate-100 transition active:scale-95';
+    });
+
+    document.getElementById('range-p').addEventListener('input', (e) => { state.p = parseInt(e.target.value); });
+    document.getElementById('range-q').addEventListener('input', (e) => { state.q = parseInt(e.target.value); });
+    document.getElementById('range-hole').addEventListener('input', (e) => { state.holeSize = parseInt(e.target.value); });
+
+    document.getElementById('btn-hole-1').addEventListener('click', () => {
+      state.holeCount = 1;
+      document.getElementById('btn-hole-1').className = 'py-2.5 px-2 rounded-xl bg-indigo-700 text-white font-black text-lg shadow-xs';
+      document.getElementById('btn-hole-2').className = 'py-2.5 px-2 rounded-xl bg-white border-2 border-slate-300 text-slate-800 font-black text-lg';
+    });
+
+    document.getElementById('btn-hole-2').addEventListener('click', () => {
+      state.holeCount = 2;
+      document.getElementById('btn-hole-2').className = 'py-2.5 px-2 rounded-xl bg-indigo-700 text-white font-black text-lg shadow-xs';
+      document.getElementById('btn-hole-1').className = 'py-2.5 px-2 rounded-xl bg-white border-2 border-slate-300 text-slate-800 font-black text-lg';
+      showToast('已切換為雙針孔：紙屏上出現兩個獨立倒立實像！');
+    });
+
+    document.getElementById('chk-rays').addEventListener('change', (e) => { state.showRays = e.target.checked; });
+    document.getElementById('chk-dims').addEventListener('change', (e) => { state.showDims = e.target.checked; });
+
+    // 畫布直接拖曳物體或紙屏
+    let dragMode = null;
+    function getCanvasX(e) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.touches ? e.touches[0].clientX : e.clientX;
+      return { x: cx - rect.left, W: rect.width };
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      const { x, W } = getCanvasX(e);
+      dragMode = x < W * 0.50 ? 'obj' : 'screen';
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!dragMode) return;
+      const { x, W } = getCanvasX(e);
+      const boardX = W * 0.50;
+      const cmToPx = (W * 0.42) / 35;
+      if (dragMode === 'obj') {
+        state.p = Math.max(10, Math.min(35, Math.round((boardX - x) / cmToPx)));
+        document.getElementById('range-p').value = state.p;
+      } else {
+        state.q = Math.max(10, Math.min(35, Math.round((x - boardX) / cmToPx)));
+        document.getElementById('range-q').value = state.q;
+      }
+    });
+    window.addEventListener('mouseup', () => { dragMode = null; });
+
+    canvas.addEventListener('touchstart', (e) => {
+      const { x, W } = getCanvasX(e);
+      dragMode = x < W * 0.50 ? 'obj' : 'screen';
+    }, { passive: false });
+    window.addEventListener('touchmove', (e) => {
+      if (!dragMode) return;
+      if (e.cancelable) e.preventDefault();
+      const { x, W } = getCanvasX(e);
+      const boardX = W * 0.50;
+      const cmToPx = (W * 0.42) / 35;
+      if (dragMode === 'obj') {
+        state.p = Math.max(10, Math.min(35, Math.round((boardX - x) / cmToPx)));
+        document.getElementById('range-p').value = state.p;
+      } else {
+        state.q = Math.max(10, Math.min(35, Math.round((x - boardX) / cmToPx)));
+        document.getElementById('range-q').value = state.q;
+      }
+    }, { passive: false });
+    window.addEventListener('touchend', () => { dragMode = null; });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      state.p = 20; state.q = 20; state.holeSize = 2;
+      document.getElementById('range-p').value = 20;
+      document.getElementById('range-q').value = 20;
+      document.getElementById('range-hole').value = 2;
+      document.getElementById('btn-obj-candle').click();
+      document.getElementById('btn-hole-1').click();
+      showToast('實驗參數已重置');
+    });
+
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+    }
+
+    const quizData = [
+      {
+        question: '在紙板中央刺一個極小的圓孔進行針孔成像實驗，若在針孔前放置一張寫有「F」的發光卡片，從半透明紙屏後方看過去，所成的像為何？',
+        options: [
+          '上下顛倒、左右不變的實像',
+          '上下顛倒、左右也相反的實像（相當於旋轉 180°）',
+          '正立放大的虛像',
+          '圓形的亮斑，看不出字形'
+        ],
+        answer: 1,
+        explanation: '光線沿直線穿過針孔，上方光射向下方、左側光射向右側，因此在紙屏上會形成「上下顛倒且左右相反」的倒立實像！'
+      },
+      {
+        question: '進行針孔成像實驗時，若將「發光蠟燭固定不動」，而把「半透明紙屏向後拉遠（像距變大）」，紙屏上的燭火實像會如何變化？',
+        options: [
+          '像變大，且亮度變暗',
+          '像變小，且亮度變亮',
+          '像的大小不變',
+          '像變成正立的'
+        ],
+        answer: 0,
+        explanation: '根據相似三角形比例（像高 / 物高 ＝ 像距 / 物距），像距變大時，成像隨之「變大」，且相同光能量分散在更大面積上，因此亮度「變暗」！'
+      },
+      {
+        question: '若將原本極小的針孔「稍微鑽大一些」（但仍可勉強成像），請問紙屏上的成像會發生什麼變化？',
+        options: [
+          '變得更清晰，但亮度變暗',
+          '變得更明亮，但輪廓變模糊',
+          '像的大小放大兩倍',
+          '完全沒有任何變化'
+        ],
+        answer: 1,
+        explanation: '孔洞變大時，單位時間通過的光線變多所以「變亮」，但物體同一點發出的光會透過大孔的不同位置在紙屏上重疊成光斑，導致影像「變模糊」！'
+      },
+      {
+        question: '在紙板中央用針刺出一個「三角形」的小孔（孔徑極小），用來觀察遠處的「圓形滿月」，請問在紙屏上看到的月亮光斑是什麼形狀？',
+        options: [
+          '三角形',
+          '圓形（與發光體形狀相同）',
+          '正方形',
+          '長條形'
+        ],
+        answer: 1,
+        explanation: '只要針孔足夠小，成像形狀永遠取決於「發光物體本身的形狀」（圓形滿月），與針孔是三角形、圓形或正方形無關！'
+      }
+    ];
+
+    let currentQuizIndex = 0;
+    const userAnswers = {};
+    const quizModal = document.getElementById('quiz-modal');
+    const quizContent = document.getElementById('quiz-content');
+    const quizProgress = document.getElementById('quiz-progress');
+
+    function renderQuiz(index) {
+      const q = quizData[index];
+      quizProgress.textContent = `第 ${index + 1} / ${quizData.length} 題`;
+      document.getElementById('btn-prev-quiz').disabled = index === 0;
+      document.getElementById('btn-next-quiz').textContent = index === quizData.length - 1 ? '完成測驗' : '下一題';
+
+      const selected = userAnswers[index];
+      const isAnswered = selected !== undefined;
+
+      let html = `
+        <div class="space-y-4">
+          <div class="font-black text-slate-900 leading-snug text-xl sm:text-2xl">
+            <span class="inline-block bg-amber-100 text-amber-900 px-3 py-1 rounded-xl text-base mr-2 font-mono border border-amber-200">Q${index + 1}</span>
+            ${q.question}
+          </div>
+          <div class="space-y-3 mt-4">
+      `;
+
+      q.options.forEach((opt, optIdx) => {
+        let btnStyle = "bg-slate-50 hover:bg-slate-100 border-2 border-slate-300 text-slate-800";
+        let markIcon = "";
+        if (isAnswered) {
+          if (optIdx === q.answer) {
+            btnStyle = "bg-emerald-100 border-2 border-emerald-500 text-emerald-950 font-black";
+            markIcon = "<span class='text-emerald-600 font-black text-xl'>✓ 正確</span>";
+          } else if (optIdx === selected) {
+            btnStyle = "bg-rose-100 border-2 border-rose-500 text-rose-950 font-black";
+            markIcon = "<span class='text-rose-600 font-black text-xl'>✕ 錯誤</span>";
+          } else {
+            btnStyle = "bg-slate-50 border-2 border-slate-200 text-slate-400 opacity-60";
+          }
+        }
+        html += `
+          <button data-opt="${optIdx}" class="quiz-opt-btn w-full text-left p-4 rounded-2xl ${btnStyle} flex items-center justify-between text-base sm:text-lg transition active:scale-[0.99]">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-slate-500 font-black text-lg w-6">${String.fromCharCode(65 + optIdx)}.</span>
+              <span class="font-bold">${opt}</span>
+            </div>
+            ${markIcon}
+          </button>
+        `;
+      });
+      html += `</div>`;
+
+      if (isAnswered) {
+        const isCorrect = selected === q.answer;
+        html += `
+          <div class="mt-4 p-4 rounded-2xl ${isCorrect ? 'bg-emerald-50 border-2 border-emerald-300' : 'bg-rose-50 border-2 border-rose-300'} text-base leading-relaxed">
+            <div class="font-black ${isCorrect ? 'text-emerald-700' : 'text-rose-700'} text-lg mb-1">
+              ${isCorrect ? '🎉 恭喜答對！' : '❌ 答錯了，觀念複習：'}
+            </div>
+            <div class="text-slate-800 font-bold">${q.explanation}</div>
+          </div>
+        `;
+      }
+      html += `</div>`;
+      quizContent.innerHTML = html;
+
+      if (!isAnswered) {
+        document.querySelectorAll('.quiz-opt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            userAnswers[index] = parseInt(btn.dataset.opt);
+            renderQuiz(index);
+          });
+        });
+      }
+    }
+
+    document.getElementById('btn-quiz').addEventListener('click', () => { quizModal.classList.remove('hidden'); renderQuiz(currentQuizIndex); });
+    document.getElementById('btn-close-quiz').addEventListener('click', () => { quizModal.classList.add('hidden'); });
+    document.getElementById('btn-prev-quiz').addEventListener('click', () => { if (currentQuizIndex > 0) { currentQuizIndex--; renderQuiz(currentQuizIndex); } });
+    document.getElementById('btn-next-quiz').addEventListener('click', () => {
+      if (currentQuizIndex < quizData.length - 1) { currentQuizIndex++; renderQuiz(currentQuizIndex); }
+      else { quizModal.classList.add('hidden'); showToast('測驗完成！'); }
+    });
+    quizModal.addEventListener('click', (e) => { if (e.target === quizModal) quizModal.classList.add('hidden'); });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      requestAnimationFrame(animate);
+    });
+    resizeCanvas();
+  </script>
+</body>
+</html>
