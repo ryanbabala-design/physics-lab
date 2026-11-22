@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>0 - 25,000 Hz 聲波演出與時頻瀑布圖模擬軟體</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+    }
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Oscilloscope Grid background */
+    .lab-screen {
+      background-color: #030712;
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.04) 0%, transparent 80%),
+        linear-gradient(rgba(30, 41, 59, 0.25) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(30, 41, 59, 0.25) 1px, transparent 1px);
+      background-size: 100% 100%, 35px 35px, 35px 35px;
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+    /* Glow Animations */
+    .glow-cyan {
+      box-shadow: 0 0 16px -2px rgba(6, 182, 212, 0.45);
+    }
+    .glow-amber {
+      box-shadow: 0 0 16px -2px rgba(245, 158, 11, 0.45);
+    }
+    .glow-rose {
+      box-shadow: 0 0 16px -2px rgba(244, 63, 94, 0.45);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
+
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40 px-3 sm:px-6 py-2.5">
+    <div class="max-w-[1780px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      <!-- Title & Branding -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 via-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 text-white text-xl">
+          <i class="ph-bold ph-activity"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-extrabold tracking-tight bg-gradient-to-r from-rose-400 via-cyan-300 to-emerald-400 bg-clip-text text-transparent">
+              0 - 25,000 Hz 聲波演出與時頻瀑布圖模擬系統
+            </h1>
+            <span class="px-2 py-0.5 rounded-full bg-slate-800 text-cyan-300 border border-slate-700 text-[10px] font-mono-code font-bold">
+              DC ~ 25 kHz
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400">次聲波 (&lt;20Hz) • 人耳可聽域 (20Hz~20kHz) • 超聲波 (20kHz~25kHz) 全頻域聲學模擬器</p>
+        </div>
+      </div>
+
+      <!-- Live Band Classification Badge & Audio Status -->
+      <div class="flex items-center flex-wrap gap-2.5 text-xs">
+        <!-- Active Band Indicator -->
+        <div id="band-badge" class="px-3 py-1 rounded-lg border font-mono-code font-bold flex items-center gap-1.5 transition-all bg-emerald-950/70 border-emerald-500 text-emerald-300">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="band-badge-text">人耳可聽域 (Audible)</span>
+        </div>
+
+        <!-- VU Meter -->
+        <div class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 border border-slate-800 rounded-lg">
+          <i class="ph-bold ph-speaker-high text-xs text-slate-400"></i>
+          <div class="w-16 sm:w-24 h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800 flex">
+            <div id="vu-bar" class="h-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 w-0 transition-all duration-75"></div>
+          </div>
+          <span id="vu-db" class="text-[10px] font-mono-code text-cyan-300 w-10 text-right">-∞ dB</span>
+        </div>
+
+        <!-- Safety Limiter Indicator -->
+        <div class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[10px] text-amber-400 font-mono-code">
+          <i class="ph-bold ph-shield-check text-xs"></i>
+          <span>高頻安全限音器: 開啟</span>
+        </div>
+
+        <!-- Cheatsheet & Guide Button -->
+        <button id="btn-open-guide" class="flex items-center gap-1.5 px-3 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded-lg transition font-medium">
+          <i class="ph-bold ph-book-bookmark"></i>
+          <span>聲學知識卡</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-[1780px] w-full mx-auto p-2 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 overflow-hidden">
+    
+    <!-- LEFT PANEL: 2D Waterfall Spectrogram (0~25,000Hz) & Oscilloscope (8 Cols) -->
+    <div class="lg:col-span-8 flex flex-col gap-3">
+      
+      <!-- Display A: 2D Spectrogram Waterfall Box -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col relative">
+        
+        <!-- Waterfall Header Controls -->
+        <div class="bg-slate-900/95 border-b border-slate-800/90 px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="font-bold flex items-center gap-1.5 text-cyan-400 font-mono-code">
+              <i class="ph-bold ph-chart-scatter"></i> 2D SPECTROGRAM WATERFALL (時頻瀑布圖)
+            </span>
+            <span class="hidden md:inline-block text-[11px] text-slate-500">|</span>
+            <span id="hover-coord" class="font-mono-code text-[11px] text-emerald-400 bg-slate-950/80 px-2 py-0.5 rounded border border-slate-800">
+              懸停檢測：0 ~ 25,000 Hz
+            </span>
+          </div>
+
+          <div class="flex items-center flex-wrap gap-2">
+            <!-- Palette Selector -->
+            <div class="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800 text-[11px]">
+              <label for="select-palette" class="text-slate-400">色彩模式:</label>
+              <select id="select-palette" class="bg-transparent text-cyan-300 font-mono-code focus:outline-none cursor-pointer">
+                <option value="inferno" selected>🔥 熱力圖 (Inferno)</option>
+                <option value="viridis">🌿 翠綠 (Viridis)</option>
+                <option value="cyber">⚡ 賽博霓虹 (Cyber)</option>
+                <option value="greyscale">📄 黑白灰階 (Greyscale)</option>
+              </select>
+            </div>
+
+            <!-- Frequency Scale Toggle -->
+            <button id="btn-toggle-scale" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono-code text-[11px] transition">
+              標度: <span id="scale-label" class="text-cyan-400 font-bold">線性 (Linear)</span>
+            </button>
+
+            <!-- Guide Zones Toggle -->
+            <button id="btn-toggle-zones" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] flex items-center gap-1 transition">
+              <i class="ph-bold ph-columns text-emerald-400"></i>
+              <span id="zone-label">聲學分區標示: 開</span>
+            </button>
+
+            <!-- Freeze Frame -->
+            <button id="btn-freeze-waterfall" class="px-2.5 py-1 rounded-lg bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-800 text-[11px] font-semibold flex items-center gap-1 transition">
+              <i class="ph-bold ph-snowflake" id="freeze-icon"></i>
+              <span id="freeze-text">凍結量測</span>
+            </button>
+
+            <!-- Clear Canvas -->
+            <button id="btn-clear-waterfall" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 text-[11px] transition" title="清空瀑布圖畫面">
+              <i class="ph-bold ph-trash"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Visualizer Area: Waterfall Canvas + Frequency Axis + Band Color Guides -->
+        <div class="relative w-full h-[340px] sm:h-[400px] lab-screen flex overflow-hidden">
+          
+          <!-- Band Color Strip Bar on Far Left -->
+          <div id="band-color-strip" class="w-2.5 h-full shrink-0 flex flex-col border-r border-slate-800/80 z-20">
+            <!-- Ultrasound (20kHz - 25kHz) : 20% height in linear -->
+            <div class="bg-cyan-500/80 w-full transition-all" style="height: 20%;" title="超聲波區間 (20,000 ~ 25,000 Hz)"></div>
+            <!-- Audible Range (20Hz - 20kHz) : 79.9% height -->
+            <div class="bg-emerald-500/80 w-full transition-all" style="height: 79.92%;" title="人耳可聽域 (20 ~ 20,000 Hz)"></div>
+            <!-- Infrasound (<20Hz) : bottom tiny slice -->
+            <div class="bg-rose-500/90 w-full transition-all" style="height: 0.08%; min-height: 4px;" title="次聲波區間 (0 ~ 20 Hz)"></div>
+          </div>
+
+          <!-- Frequency Y-Axis Labels -->
+          <div id="freq-axis" class="w-16 shrink-0 h-full border-r border-slate-800 bg-slate-950/95 flex flex-col justify-between py-1.5 px-1.5 text-[10px] font-mono-code text-slate-400 text-right select-none z-10">
+            <span class="text-cyan-400 font-bold">25.0 kHz</span>
+            <span class="text-cyan-400">20.0 kHz</span>
+            <span>15.0 kHz</span>
+            <span>10.0 kHz</span>
+            <span>5.0 kHz</span>
+            <span>1.0 kHz</span>
+            <span class="text-rose-400 font-bold">20 Hz</span>
+            <span class="text-rose-400">0 Hz</span>
+          </div>
+
+          <!-- Main Waterfall Canvas Container -->
+          <div class="relative flex-1 h-full cursor-crosshair overflow-hidden" id="canvas-container">
+            <canvas id="waterfallCanvas" class="w-full h-full block"></canvas>
+
+            <!-- Crosshairs -->
+            <div id="crosshair-x" class="absolute top-0 bottom-0 w-[1px] bg-cyan-400/70 pointer-events-none hidden"></div>
+            <div id="crosshair-y" class="absolute left-0 right-0 h-[1px] bg-cyan-400/70 pointer-events-none hidden"></div>
+
+            <!-- Floating Tooltip HUD -->
+            <div id="hud-bubble" class="absolute hidden pointer-events-none bg-slate-950/95 border border-cyan-500/80 rounded-lg px-2.5 py-1.5 text-[10px] font-mono-code text-cyan-200 shadow-2xl backdrop-blur-md z-30">
+              <div id="hud-freq" class="font-bold text-amber-300 text-xs">-- Hz</div>
+              <div id="hud-band" class="text-slate-300">分區: --</div>
+              <div id="hud-time" class="text-slate-400">距今: -0.00 秒</div>
+            </div>
+
+            <!-- Zone Dividing Lines Overlay -->
+            <div id="zone-dividers" class="absolute inset-0 pointer-events-none">
+              <!-- Top line: 20kHz Ultrasound Boundary -->
+              <div id="line-20k" class="absolute left-0 right-0 border-t border-dashed border-cyan-400/60 flex items-center justify-between px-2 text-[9px] font-mono-code text-cyan-300" style="top: 20%;">
+                <span class="bg-cyan-950/80 px-1 rounded border border-cyan-700">▲ 超聲波極限 (Ultrasound: &gt; 20,000 Hz)</span>
+                <span>λ ≈ 1.7 cm</span>
+              </div>
+              <!-- Bottom line: 20Hz Infrasound Boundary -->
+              <div id="line-20hz" class="absolute left-0 right-0 border-t border-dashed border-rose-500/70 flex items-center justify-between px-2 text-[9px] font-mono-code text-rose-300" style="bottom: 4px;">
+                <span class="bg-rose-950/80 px-1 rounded border border-rose-800">▼ 次聲波極限 (Infrasound: &lt; 20 Hz)</span>
+                <span>λ ≈ 17 m</span>
+              </div>
+            </div>
+
+            <!-- Direction Indicator Badge -->
+            <div class="absolute bottom-2 right-3 pointer-events-none bg-slate-950/85 px-2.5 py-1 rounded text-[10px] font-mono-code text-slate-400 border border-slate-800 flex items-center gap-1.5 backdrop-blur-sm">
+              <span>時間推移 (舊 ← 新)</span>
+              <i class="ph-bold ph-arrow-left text-cyan-400"></i>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Waterfall Settings Control Strip -->
+        <div class="p-2.5 sm:p-3 bg-slate-900 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div>
+            <div class="flex justify-between text-slate-400 mb-1">
+              <span>瀑布滾動速度</span>
+              <span id="val-speed" class="text-cyan-400 font-mono-code">2 px/幀</span>
+            </div>
+            <input id="slider-speed" type="range" min="1" max="6" step="1" value="2" class="w-full accent-cyan-500 cursor-pointer">
+          </div>
+
+          <div>
+            <div class="flex justify-between text-slate-400 mb-1">
+              <span>對比度 / 靈敏度</span>
+              <span id="val-contrast" class="text-cyan-400 font-mono-code">1.3x</span>
+            </div>
+            <input id="slider-contrast" type="range" min="0.5" max="3.0" step="0.1" value="1.3" class="w-full accent-cyan-500 cursor-pointer">
+          </div>
+
+          <div>
+            <div class="flex justify-between text-slate-400 mb-1">
+              <span>雜訊門檻 (Noise Floor)</span>
+              <span id="val-floor" class="text-cyan-400 font-mono-code">-75 dB</span>
+            </div>
+            <input id="slider-floor" type="range" min="-95" max="-30" step="1" value="-75" class="w-full accent-cyan-500 cursor-pointer">
+          </div>
+
+          <div>
+            <div class="flex justify-between text-slate-400 mb-1">
+              <span>頻譜最高上限</span>
+              <span id="val-max-freq" class="text-cyan-400 font-mono-code font-bold">25,000 Hz</span>
+            </div>
+            <input id="slider-max-freq" type="range" min="5000" max="25000" step="1000" value="25000" class="w-full accent-cyan-500 cursor-pointer">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Display B: Instantaneous 2D Oscilloscope & Realtime FFT Spectrum -->
+      <div class="bg-slate-900/95 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 shadow-lg">
+        <div class="flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-slate-200 flex items-center gap-1.5 font-mono-code">
+              <i class="ph-bold ph-waveform text-cyan-400"></i> DISPLAY B: 示波器時域波形與即時 FFT 切片
+            </span>
+          </div>
+          <!-- View Switcher -->
+          <div class="flex items-center gap-1 text-[11px] font-mono-code">
+            <button id="btn-mode-oscilloscope" class="px-2.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">時域波形 (Wave)</button>
+            <button id="btn-mode-fft" class="px-2.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 hover:text-slate-200">即時頻譜柱 (FFT)</button>
+          </div>
+        </div>
+
+        <div class="relative w-full h-28 bg-slate-950 rounded-xl overflow-hidden border border-slate-800/80">
+          <canvas id="scopeCanvas" class="w-full h-full block"></canvas>
+          <div class="absolute inset-0 pointer-events-none flex items-center justify-between px-3 text-[10px] font-mono-code text-slate-500">
+            <span>次聲波 (0-20Hz)</span>
+            <span>可聽音頻率核心</span>
+            <span>超聲波 (20-25kHz)</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL: 0-25,000Hz Sound Generator & Physical/Biological Simulations (4 Cols) -->
+    <div class="lg:col-span-4 flex flex-col gap-3">
+      
+      <!-- Source Mode Tabs -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-1.5 flex gap-1 shadow-md">
+        <button id="tab-generator" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-gradient-to-r from-cyan-600 via-teal-600 to-indigo-600 text-white shadow-md transition">
+          <i class="ph-bold ph-faders"></i> 聲波合成產生器
+        </button>
+        <button id="tab-mic" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">
+          <i class="ph-bold ph-microphone"></i> 麥克風高頻觀測
+        </button>
+      </div>
+
+      <!-- PANEL 1: SOUND SYNTHESIZER GENERATOR -->
+      <div id="panel-generator" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex flex-col gap-3.5">
+        
+        <!-- Frequency Input Control -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-col gap-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <i class="ph-bold ph-gauge text-cyan-400"></i> 目標頻率 (Frequency)
+            </span>
+            <div class="flex items-center gap-1">
+              <input id="input-freq-number" type="number" min="0" max="25000" step="1" value="440" class="w-24 bg-slate-900 text-right px-2 py-1 rounded-lg border border-cyan-800 text-cyan-300 font-mono-code font-bold text-sm focus:outline-none focus:border-cyan-400">
+              <span class="text-xs font-mono-code text-slate-400">Hz</span>
+            </div>
+          </div>
+
+          <!-- Continuous Frequency Slider (0 ~ 25000Hz) -->
+          <input id="slider-freq" type="range" min="0" max="25000" step="1" value="440" class="w-full accent-cyan-500 cursor-pointer">
+
+          <!-- Frequency Band Visual Range Reference -->
+          <div class="grid grid-cols-3 gap-1 text-[10px] font-mono-code text-center">
+            <button class="quick-band-btn py-1 rounded bg-rose-950/40 text-rose-300 border border-rose-900/60 hover:bg-rose-900/60 transition" data-freq="12">
+              次聲波 (&lt;20Hz)
+            </button>
+            <button class="quick-band-btn py-1 rounded bg-emerald-950/40 text-emerald-300 border border-emerald-900/60 hover:bg-emerald-900/60 transition" data-freq="1000">
+              可聽音 (20-20k)
+            </button>
+            <button class="quick-band-btn py-1 rounded bg-cyan-950/40 text-cyan-300 border border-cyan-900/60 hover:bg-cyan-900/60 transition" data-freq="22000">
+              超聲波 (&gt;20k)
+            </button>
+          </div>
+        </div>
+
+        <!-- Waveform Selection -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs font-bold text-slate-300">波形選擇 (Waveform)</span>
+            <span id="label-cur-wave" class="text-[10px] font-mono-code text-cyan-400">Sine (正弦波)</span>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5 text-xs font-mono-code">
+            <button class="wave-btn active p-1.5 rounded-lg border border-cyan-500 bg-cyan-950/40 text-cyan-300 flex items-center justify-center gap-1 transition" data-wave="sine">
+              <i class="ph-bold ph-wave-sine"></i> 正弦波
+            </button>
+            <button class="wave-btn p-1.5 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1 transition" data-wave="triangle">
+              <i class="ph-bold ph-triangle"></i> 三角波
+            </button>
+            <button class="wave-btn p-1.5 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1 transition" data-wave="sawtooth">
+              <i class="ph-bold ph-wave-sawtooth"></i> 鋸齒波
+            </button>
+            <button class="wave-btn p-1.5 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1 transition" data-wave="square">
+              <i class="ph-bold ph-wave-square"></i> 方波
+            </button>
+            <button class="wave-btn p-1.5 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1 transition" data-wave="whitenoise">
+              <i class="ph-bold ph-broadcast"></i> 白噪音
+            </button>
+            <button class="wave-btn p-1.5 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1 transition" data-wave="sweep">
+              <i class="ph-bold ph-trend-up"></i> 頻率掃描
+            </button>
+          </div>
+        </div>
+
+        <!-- Volume & Safety Limiter -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-col gap-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-300 font-medium flex items-center gap-1.5">
+              <i class="ph-bold ph-speaker-high text-amber-400"></i> 輸出音量 (響度 Amplitude)
+            </span>
+            <span id="label-volume" class="font-mono-code text-amber-300 font-bold">50%</span>
+          </div>
+          <input id="slider-volume" type="range" min="0" max="100" step="1" value="50" class="w-full accent-amber-500 cursor-pointer">
+          <div id="safety-warning" class="hidden text-[10px] text-amber-400 bg-amber-950/40 border border-amber-800/80 p-2 rounded-lg leading-tight flex items-start gap-1.5">
+            <i class="ph-bold ph-warning text-sm shrink-0 text-amber-400 mt-0.5"></i>
+            <span>注意：超聲波/高頻（&gt;15kHz）人耳可能無法察覺，但揚聲器仍會全力發聲，已自動限制最高輸出功率保護聽力與設備！</span>
+          </div>
+        </div>
+
+        <!-- Physical & Biological Sound Simulations (Presets) -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <i class="ph-bold ph-paw-print text-emerald-400"></i> 物理現象與生物聲學模擬組
+            </span>
+            <span class="text-[10px] text-slate-400">點擊即時演出</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-1.5 text-left text-xs">
+            <!-- Infrasound Presets -->
+            <button class="preset-btn p-2 rounded-xl border border-rose-950 bg-rose-950/20 hover:border-rose-500 transition group" data-freq="8" data-wave="sine" data-title="地震地表振動 (8Hz 次聲波)">
+              <div class="font-bold text-rose-400 text-xs">地表地震振動 (8 Hz)</div>
+              <div class="text-[10px] text-slate-400">次聲波・無法被耳聽見</div>
+            </button>
+
+            <button class="preset-btn p-2 rounded-xl border border-rose-950 bg-rose-950/20 hover:border-rose-500 transition group" data-freq="15" data-wave="triangle" data-title="大象低頻溝通 (15Hz 次聲波)">
+              <div class="font-bold text-rose-300 text-xs">大象遠距通訊 (15 Hz)</div>
+              <div class="text-[10px] text-slate-400">次聲波・地面長距離傳播</div>
+            </button>
+
+            <!-- Audible Range Presets -->
+            <button class="preset-btn p-2 rounded-xl border border-slate-800 bg-slate-950 hover:border-emerald-500 transition group" data-freq="41.2" data-wave="sawtooth" data-title="低音大提琴最低弦 (E1: 41.2Hz)">
+              <div class="font-bold text-emerald-400 text-xs">低音大提琴 E1 (41 Hz)</div>
+              <div class="text-[10px] text-slate-400">交響樂極低頻弦樂</div>
+            </button>
+
+            <button class="preset-btn p-2 rounded-xl border border-slate-800 bg-slate-950 hover:border-emerald-500 transition group" data-freq="440" data-wave="sine" data-title="標準音叉 (A4: 440Hz)">
+              <div class="font-bold text-emerald-300 text-xs">標準音叉 (440 Hz)</div>
+              <div class="text-[10px] text-slate-400">音樂基準 A4 純音</div>
+            </button>
+
+            <button class="preset-btn p-2 rounded-xl border border-slate-800 bg-slate-950 hover:border-emerald-500 transition group" data-freq="4000" data-wave="sine" data-title="交響樂短笛高音 (4000Hz)">
+              <div class="font-bold text-teal-300 text-xs">樂團短笛高音 (4 kHz)</div>
+              <div class="text-[10px] text-slate-400">人耳最敏感聽覺共振區</div>
+            </button>
+
+            <button class="preset-btn p-2 rounded-xl border border-slate-800 bg-slate-950 hover:border-amber-500 transition group" data-freq="16000" data-wave="sine" data-title="蚊音聽力年齡測試 (16,000Hz)">
+              <div class="font-bold text-amber-300 text-xs">年齡聽力測試 (16 kHz)</div>
+              <div class="text-[10px] text-slate-400">青少年可聽・成年多衰退</div>
+            </button>
+
+            <!-- Ultrasound Presets -->
+            <button class="preset-btn p-2 rounded-xl border border-cyan-950 bg-cyan-950/20 hover:border-cyan-400 transition group" data-freq="22000" data-wave="sine" data-title="訓練犬專用狗笛 (22,000Hz 超聲波)">
+              <div class="font-bold text-cyan-300 text-xs">靜音狗笛 (22 kHz)</div>
+              <div class="text-[10px] text-slate-400">超聲波・犬類靈敏聽見</div>
+            </button>
+
+            <button class="preset-btn p-2 rounded-xl border border-cyan-950 bg-cyan-950/20 hover:border-cyan-400 transition group" data-freq="23500" data-wave="triangle" data-title="蝙蝠回聲定位 (23,500Hz 超聲波)">
+              <div class="font-bold text-cyan-400 text-xs">蝙蝠回聲定位 (23.5 kHz)</div>
+              <div class="text-[10px] text-slate-400">超聲波・夜間導航獵食</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Master Sound Play / Stop Trigger -->
+        <div class="flex items-center gap-2 pt-1">
+          <button id="btn-toggle-play" class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-teal-900/30 transition active:scale-[0.98]">
+            <i class="ph-bold ph-play" id="play-btn-icon"></i>
+            <span id="play-btn-text">開始發聲演出 (Play)</span>
+          </button>
+          <button id="btn-pulse-sound" class="py-3 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 flex items-center justify-center gap-1.5 transition" title="脈衝發聲 0.8 秒">
+            <i class="ph-bold ph-timer"></i> 脈衝 (0.8s)
+          </button>
+        </div>
+
+      </div>
+
+      <!-- PANEL 2: REAL-TIME MICROPHONE HIGH FREQUENCY CAPTURE -->
+      <div id="panel-mic" class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-4 hidden">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-bold text-slate-200 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> 麥克風全頻現場收音
+          </h2>
+          <span class="text-[10px] px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800">
+            支援高採樣 FFT
+          </span>
+        </div>
+
+        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center gap-2.5">
+          <div id="mic-icon-circle" class="w-14 h-14 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center text-slate-500 text-xl transition-all">
+            <i class="ph-bold ph-microphone"></i>
+          </div>
+          <div>
+            <div id="mic-status-title" class="text-xs font-bold text-slate-200">麥克風待命中</div>
+            <div id="mic-status-desc" class="text-[11px] text-slate-400 mt-0.5">點擊下方按鈕啟動麥克風以捕獲真實環境高頻聲波</div>
+          </div>
+          <button id="btn-toggle-mic" class="mt-1 py-2 px-5 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-500 hover:from-cyan-500 text-white font-bold text-xs shadow-md transition flex items-center gap-2">
+            <i class="ph-bold ph-plug"></i>
+            <span id="btn-mic-label">啟動麥克風</span>
+          </button>
+        </div>
+
+        <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 flex flex-col gap-2.5 text-xs">
+          <div>
+            <div class="flex justify-between items-center text-slate-300 mb-1">
+              <span>麥克風增益靈敏度</span>
+              <span id="label-mic-gain" class="font-mono-code text-cyan-300">1.8x</span>
+            </div>
+            <input id="slider-mic-gain" type="range" min="0.5" max="5.0" step="0.1" value="1.8" class="w-full accent-cyan-500 cursor-pointer">
+          </div>
+        </div>
+
+        <div class="p-3 bg-slate-950/50 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
+          <div class="text-cyan-400 font-bold mb-1 flex items-center gap-1">
+            <i class="ph-bold ph-sparkle"></i> 課堂趣味高頻測試：
+          </div>
+          <p>• <strong>抖動塑膠袋或金屬鑰匙</strong>：會產生高達 15,000 ~ 22,000 Hz 的密集超聲波瀑布！</p>
+          <p>• <strong>硬幣碰撞摩擦</strong>：觀察瀑布圖頂部的極高頻細斑。</p>
+        </div>
+      </div>
+
+      <!-- Biological Hearing Comparison Infographic Card -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2">
+        <h3 class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+          <i class="ph-bold ph-scales text-cyan-400"></i> 生物聽覺極限對比 (Frequency Range)
+        </h3>
+        <div class="space-y-1.5 text-[11px] font-mono-code text-slate-300">
+          <div>
+            <div class="flex justify-between text-slate-400 mb-0.5">
+              <span>👤 人類 (Human)</span>
+              <span class="text-emerald-400">20 Hz ~ 20,000 Hz</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden flex">
+              <div class="bg-emerald-500 h-full" style="margin-left: 0.08%; width: 79.92%;"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-slate-400 mb-0.5">
+              <span>🐶 狗 (Dog)</span>
+              <span class="text-cyan-300">67 Hz ~ 45,000 Hz (可聞超聲波)</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden flex">
+              <div class="bg-cyan-500 h-full" style="margin-left: 0.26%; width: 99%;"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-slate-400 mb-0.5">
+              <span>🦇 蝙蝠 (Bat)</span>
+              <span class="text-purple-300">1,000 Hz ~ 120,000 Hz (極超聲波)</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden flex">
+              <div class="bg-purple-500 h-full" style="margin-left: 4%; width: 96%;"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-slate-400 mb-0.5">
+              <span>🐘 大象 (Elephant)</span>
+              <span class="text-rose-400">14 Hz ~ 12,000 Hz (擅長次聲波)</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden flex">
+              <div class="bg-rose-500 h-full" style="margin-left: 0.05%; width: 48%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Educational Knowledge Modal -->
+  <div id="modal-guide" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <!-- Modal Header -->
+      <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+        <h3 class="text-base font-bold text-cyan-400 flex items-center gap-2">
+          <i class="ph-bold ph-graduation-cap text-lg"></i> 國中理化與現代聲學：全頻域 0 ~ 25,000 Hz 核心考點
+        </h3>
+        <button id="btn-close-guide" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 overflow-y-auto space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+        
+        <!-- 1. 波動基本公式 -->
+        <div class="p-3.5 rounded-xl bg-slate-950 border border-cyan-500/30">
+          <h4 class="font-bold text-cyan-400 text-sm mb-1.5 flex items-center gap-2">
+            <span>一、聲速、頻率與波長的基本物理關係</span>
+            <span class="text-xs font-mono-code bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800">v = f × λ</span>
+          </h4>
+          <p class="text-xs text-slate-300">
+            常溫（15°C）空氣中聲速約為 $v \approx 340 \text{ m/s}$。當波速固定在同一介質傳播時：
+          </p>
+          <ul class="list-disc list-inside space-y-1 text-slate-300 text-xs mt-1">
+            <li><strong>超聲波 (20,000 Hz)</strong>：頻率極高，波長極短（$\lambda = 340 / 20000 = 0.017 \text{ m} = 1.7 \text{ cm}$），<strong>方向性極佳、不易繞射</strong>，適合用於精準探測與測距。</li>
+            <li><strong>次聲波 (10 Hz)</strong>：頻率極低，波長極長（$\lambda = 340 / 10 = 34 \text{ m}$），<strong>繞射能力極強、介質吸收衰減極慢</strong>，可繞過山丘建築傳播數千公里！</li>
+          </ul>
+        </div>
+
+        <!-- 2. 次聲波解析 -->
+        <div class="p-3.5 rounded-xl bg-slate-950 border border-rose-500/30">
+          <h4 class="font-bold text-rose-400 text-sm mb-1.5 flex items-center gap-2">
+            <span>二、次聲波 (Infrasound, &lt; 20 Hz) 的特點與生活現象</span>
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            • <strong>天然成因</strong>：地震、海嘯、火山爆發、龍捲風與隕石墜落均會激發巨大能量的次聲波。<br>
+            • <strong>動物應用</strong>：大象利用腳部骨骼感應地面傳來的 14~20 Hz 次聲波，在數十公里外進行求偶與族群警戒。<br>
+            • <strong>生理效應</strong>：次聲波頻率常接近人體器官的固有振動頻率（4~8 Hz），長期暴露可能引發頭暈、噁心甚至恐慌感。
+          </p>
+        </div>
+
+        <!-- 3. 超聲波解析 -->
+        <div class="p-3.5 rounded-xl bg-slate-950 border border-emerald-500/30">
+          <h4 class="font-bold text-emerald-400 text-sm mb-1.5 flex items-center gap-2">
+            <span>三、超聲波 (Ultrasound, &gt; 20,000 Hz) 的生活應用</span>
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300 mt-1">
+            <div class="p-2 bg-slate-900 rounded-lg border border-slate-800">
+              <strong class="text-emerald-300">① 聲納與倒車雷達 (測距)</strong>
+              <p class="text-slate-400 mt-0.5">利用反射回波計算距離：$s = \frac{v \times t}{2}$。</p>
+            </div>
+            <div class="p-2 bg-slate-900 rounded-lg border border-slate-800">
+              <strong class="text-emerald-300">② 醫療超音波成像 (無輻射)</strong>
+              <p class="text-slate-400 mt-0.5">利用不同組織界面的聲阻抗反射，探查胎兒與內臟。</p>
+            </div>
+            <div class="p-2 bg-slate-900 rounded-lg border border-slate-800">
+              <strong class="text-emerald-300">③ 超音波清洗機 (空化效應)</strong>
+              <p class="text-slate-400 mt-0.5">水中產生微小氣泡爆破，震落眼鏡或珠寶微塵。</p>
+            </div>
+            <div class="p-2 bg-slate-900 rounded-lg border border-slate-800">
+              <strong class="text-emerald-300">④ 生物導航 (蝙蝠與海豚)</strong>
+              <p class="text-slate-400 mt-0.5">發射極高頻超聲脈衝，藉回波在漆黑環境中捕食飛蛾。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. 人耳老化與高頻蚊音 -->
+        <div class="p-3.5 rounded-xl bg-slate-950 border border-amber-500/30">
+          <h4 class="font-bold text-amber-400 text-sm mb-1.5 flex items-center gap-2">
+            <span>四、人類高頻聽覺衰退 (Presbycusis 聽力老化)</span>
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            人耳耳蝸基底膜負責感應高頻的毛細胞最靠近前庭窗，長期承受震動最容易疲勞磨損。青少年通常可聽見 17,000~19,000 Hz，但隨著年齡增長，聽覺上限多退化至 14,000 Hz 以下（此即著名「高頻蚊音 / 青年警報鈴」的原理）。
+          </p>
+        </div>
+
+      </div>
+
+      <div class="px-5 py-3 border-t border-slate-800 bg-slate-950 flex justify-end">
+        <button id="btn-modal-close" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition">
+          我理解了，進入實驗！
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div id="toast" class="fixed top-14 right-4 z-50 transform translate-y-[-150%] transition-transform duration-300 pointer-events-none">
+    <div id="toast-body" class="bg-slate-900 border border-cyan-500 text-cyan-200 px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-medium">
+      <i class="ph-bold ph-info text-base text-cyan-400"></i>
+      <span id="toast-text">通知訊息</span>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       0 ~ 25,000 Hz Acoustic Simulation & Waterfall Engine
+       ========================================================================== */
+
+    const state = {
+      // Audio Engine
+      audioCtx: null,
+      analyser: null,
+      synthGain: null,
+      oscillator: null,
+      noiseNode: null,
+      sweepInterval: null,
+      
+      // Mic State
+      micStream: null,
+      micSource: null,
+      micGain: null,
+      isMicActive: false,
+      micSensitivity: 1.8,
+
+      // Generator State
+      frequency: 440,
+      amplitude: 0.5,
+      waveform: 'sine',
+      isPlaying: false,
+      isSweeping: false,
+
+      // Waterfall Spectrogram Settings
+      maxFreqView: 25000, // 0 - 25,000 Hz
+      scrollSpeed: 2,
+      contrast: 1.3,
+      noiseFloorDb: -75,
+      palette: 'inferno',
+      scaleMode: 'linear', // 'linear' or 'log'
+      showZones: true,
+      isFrozen: false,
+      scopeMode: 'wave', // 'wave' or 'fft'
+    };
+
+    // DOM Elements
+    const waterfallCanvas = document.getElementById('waterfallCanvas');
+    const wCtx = waterfallCanvas.getContext('2d');
+    const scopeCanvas = document.getElementById('scopeCanvas');
+    const sCtx = scopeCanvas.getContext('2d');
+    const freqAxis = document.getElementById('freq-axis');
+    const bandColorStrip = document.getElementById('band-color-strip');
+    const zoneDividers = document.getElementById('zone-dividers');
+    const line20k = document.getElementById('line-20k');
+    const line20hz = document.getElementById('line-20hz');
+
+    const sliderFreq = document.getElementById('slider-freq');
+    const inputFreqNumber = document.getElementById('input-freq-number');
+    const sliderVolume = document.getElementById('slider-volume');
+    const labelVolume = document.getElementById('label-volume');
+    const bandBadge = document.getElementById('band-badge');
+    const bandBadgeText = document.getElementById('band-badge-text');
+    const safetyWarning = document.getElementById('safety-warning');
+
+    const crosshairX = document.getElementById('crosshair-x');
+    const crosshairY = document.getElementById('crosshair-y');
+    const hudBubble = document.getElementById('hud-bubble');
+    const hudFreq = document.getElementById('hud-freq');
+    const hudBand = document.getElementById('hud-band');
+    const hudTime = document.getElementById('hud-time');
+    const hoverCoord = document.getElementById('hover-coord');
+
+    const vuBar = document.getElementById('vu-bar');
+    const vuDb = document.getElementById('vu-db');
+
+    // High performance offline canvas for seamless scrolling
+    const backingCanvas = document.createElement('canvas');
+    const bCtx = backingCanvas.getContext('2d');
+
+    // FFT Buffers (High resolution 4096 for accurate 25kHz analysis)
+    const FFT_SIZE = 4096;
+    const freqBuffer = new Uint8Array(FFT_SIZE / 2);
+    const timeBuffer = new Uint8Array(FFT_SIZE);
+
+    // Toast Alert Helper
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      const toastBody = document.getElementById('toast-body');
+      const toastText = document.getElementById('toast-text');
+      toastText.textContent = msg;
+      toastBody.className = isError 
+        ? "bg-slate-900 border border-rose-500 text-rose-200 px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-medium"
+        : "bg-slate-900 border border-cyan-500 text-cyan-200 px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-medium";
+      toast.classList.remove('translate-y-[-150%]');
+      setTimeout(() => toast.classList.add('translate-y-[-150%]'), 3200);
+    }
+
+    // Audio Engine Initialization with highest possible sample rate
+    function initAudio() {
+      if (!state.audioCtx) {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        // Attempt to request 96000Hz or 48000Hz
+        try {
+          state.audioCtx = new AudioClass({ sampleRate: 48000 });
+        } catch(e) {
+          state.audioCtx = new AudioClass();
+        }
+
+        state.analyser = state.audioCtx.createAnalyser();
+        state.analyser.fftSize = FFT_SIZE;
+        state.analyser.smoothingTimeConstant = 0.2;
+
+        state.synthGain = state.audioCtx.createGain();
+        state.synthGain.gain.setValueAtTime(0, state.audioCtx.currentTime);
+        state.synthGain.connect(state.analyser);
+        state.analyser.connect(state.audioCtx.destination);
+      }
+      if (state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume();
+      }
+    }
+
+    // LUT Generators for Color Palettes
+    function createPalettes() {
+      const lut = {
+        inferno: new Uint8ClampedArray(256 * 4),
+        viridis: new Uint8ClampedArray(256 * 4),
+        cyber: new Uint8ClampedArray(256 * 4),
+        greyscale: new Uint8ClampedArray(256 * 4),
+      };
+
+      for (let i = 0; i < 256; i++) {
+        const t = i / 255;
+        const idx = i * 4;
+
+        // 1. Inferno
+        lut.inferno[idx] = Math.min(255, Math.floor(Math.pow(t, 1.4) * 330));
+        lut.inferno[idx + 1] = Math.min(255, Math.floor(Math.pow(t, 2.4) * 290));
+        lut.inferno[idx + 2] = Math.floor(Math.sin(t * Math.PI) * 170 + (t > 0.85 ? (t - 0.85) * 6 * 255 : 0));
+        lut.inferno[idx + 3] = 255;
+
+        // 2. Viridis (Deep purple -> Teal -> Vibrant Yellow-Green)
+        lut.viridis[idx] = Math.floor((1 - t) * (t < 0.5 ? 68 + t * 40 : 40) + t * (t > 0.7 ? 253 : 33));
+        lut.viridis[idx + 1] = Math.floor(t * (t < 0.6 ? t * 240 : 231));
+        lut.viridis[idx + 2] = Math.floor((1 - t) * 115 + (t > 0.8 ? 37 : 130 * (1 - t)));
+        lut.viridis[idx + 3] = 255;
+
+        // 3. Cyber (Dark Navy -> Electric Cyan -> Magenta -> Yellow)
+        lut.cyber[idx] = Math.floor(t < 0.4 ? 0 : (t - 0.4) * 1.6 * 255);
+        lut.cyber[idx + 1] = Math.floor(t < 0.7 ? t * 1.4 * 255 : 255);
+        lut.cyber[idx + 2] = Math.floor(t < 0.3 ? t * 3.3 * 255 : (1 - (t - 0.3) * 0.7) * 255);
+        lut.cyber[idx + 3] = 255;
+
+        // 4. Greyscale
+        lut.greyscale[idx] = i;
+        lut.greyscale[idx + 1] = i;
+        lut.greyscale[idx + 2] = i;
+        lut.greyscale[idx + 3] = 255;
+      }
+      return lut;
+    }
+    const colorLuts = createPalettes();
+
+    // Calculate Safe Volume: Protect hearing & speakers for ultrasonic frequencies (>15kHz)
+    function getSafeVolume() {
+      let vol = state.amplitude;
+      if (state.frequency > 15000) {
+        // Automatically cap maximum volume at 0.35 to prevent device strain & inaudible ear damage
+        vol = Math.min(vol, 0.35);
+        safetyWarning.classList.remove('hidden');
+      } else {
+        safetyWarning.classList.add('hidden');
+      }
+      return vol;
+    }
+
+    // Update Frequency Band Classification HUD Badge
+    function updateBandClassification(f) {
+      if (f < 20) {
+        bandBadge.className = "px-3 py-1 rounded-lg border font-mono-code font-bold flex items-center gap-1.5 transition-all bg-rose-950/70 border-rose-500 text-rose-300";
+        bandBadge.querySelector('span').className = "w-2 h-2 rounded-full bg-rose-400 animate-pulse";
+        bandBadgeText.textContent = `次聲波 Infrasound (<20Hz) [${f}Hz]`;
+      } else if (f <= 20000) {
+        let sub = "中音域 (Mid)";
+        if (f < 250) sub = "低音域 (Bass)";
+        else if (f > 4000) sub = "高音域 (Treble)";
+
+        bandBadge.className = "px-3 py-1 rounded-lg border font-mono-code font-bold flex items-center gap-1.5 transition-all bg-emerald-950/70 border-emerald-500 text-emerald-300";
+        bandBadge.querySelector('span').className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+        bandBadgeText.textContent = `人耳可聽音 [${sub}: ${f}Hz]`;
+      } else {
+        bandBadge.className = "px-3 py-1 rounded-lg border font-mono-code font-bold flex items-center gap-1.5 transition-all bg-cyan-950/70 border-cyan-400 text-cyan-300";
+        bandBadge.querySelector('span').className = "w-2 h-2 rounded-full bg-cyan-400 animate-pulse";
+        bandBadgeText.textContent = `超聲波 Ultrasound (>20kHz) [${f}Hz]`;
+      }
+    }
+
+    // Play Sound Generator
+    function startSound() {
+      initAudio();
+      stopSound();
+
+      const now = state.audioCtx.currentTime;
+      const safeAmp = getSafeVolume();
+
+      if (state.waveform === 'whitenoise') {
+        // Generate White Noise Buffer
+        const bufferSize = state.audioCtx.sampleRate * 2;
+        const noiseBuffer = state.audioCtx.createBuffer(1, bufferSize, state.audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+
+        state.noiseNode = state.audioCtx.createBufferSource();
+        state.noiseNode.buffer = noiseBuffer;
+        state.noiseNode.loop = true;
+        state.noiseNode.connect(state.synthGain);
+        state.noiseNode.start(now);
+
+      } else if (state.waveform === 'sweep') {
+        // Continuous Frequency Sweep (20Hz -> 24000Hz)
+        state.oscillator = state.audioCtx.createOscillator();
+        state.oscillator.type = 'sine';
+        state.oscillator.frequency.setValueAtTime(20, now);
+        state.oscillator.frequency.exponentialRampToValueAtTime(24000, now + 5.0);
+        state.oscillator.connect(state.synthGain);
+        state.oscillator.start(now);
+        state.isSweeping = true;
+
+        // Auto sweep slider update
+        let sweepStart = Date.now();
+        state.sweepInterval = setInterval(() => {
+          if (!state.isPlaying) return;
+          const elapsed = (Date.now() - sweepStart) / 1000;
+          if (elapsed <= 5.0) {
+            const currentF = Math.round(20 * Math.pow(24000 / 20, elapsed / 5.0));
+            sliderFreq.value = currentF;
+            inputFreqNumber.value = currentF;
+            state.frequency = currentF;
+            updateBandClassification(currentF);
+          } else {
+            sweepStart = Date.now();
+            if (state.oscillator && state.audioCtx) {
+              const t = state.audioCtx.currentTime;
+              state.oscillator.frequency.setValueAtTime(20, t);
+              state.oscillator.frequency.exponentialRampToValueAtTime(24000, t + 5.0);
+            }
+          }
+        }, 50);
+
+      } else {
+        // Standard Pure Oscillator (Sine, Triangle, Sawtooth, Square)
+        state.oscillator = state.audioCtx.createOscillator();
+        state.oscillator.type = state.waveform;
+        state.oscillator.frequency.setValueAtTime(state.frequency, now);
+        state.oscillator.connect(state.synthGain);
+        state.oscillator.start(now);
+      }
+
+      // Smooth attack
+      state.synthGain.gain.cancelScheduledValues(now);
+      state.synthGain.gain.setValueAtTime(0, now);
+      state.synthGain.gain.linearRampToValueAtTime(safeAmp, now + 0.04);
+
+      state.isPlaying = true;
+      updatePlayButtonUI();
+    }
+
+    function stopSound() {
+      if (state.sweepInterval) {
+        clearInterval(state.sweepInterval);
+        state.sweepInterval = null;
+      }
+      state.isSweeping = false;
+
+      if (state.audioCtx && (state.oscillator || state.noiseNode)) {
+        const now = state.audioCtx.currentTime;
+        state.synthGain.gain.cancelScheduledValues(now);
+        state.synthGain.gain.setValueAtTime(state.synthGain.gain.value, now);
+        state.synthGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+
+        const oldOsc = state.oscillator;
+        const oldNoise = state.noiseNode;
+        setTimeout(() => {
+          try {
+            if (oldOsc) { oldOsc.stop(); oldOsc.disconnect(); }
+            if (oldNoise) { oldNoise.stop(); oldNoise.disconnect(); }
+          } catch(e) {}
+        }, 60);
+
+        state.oscillator = null;
+        state.noiseNode = null;
+      }
+      state.isPlaying = false;
+      updatePlayButtonUI();
+    }
+
+    // Pulse Tone (0.8s)
+    function pulseTone(duration = 0.8) {
+      startSound();
+      setTimeout(() => {
+        if (state.isPlaying) stopSound();
+      }, duration * 1000);
+    }
+
+    function updatePlayButtonUI() {
+      const btnText = document.getElementById('play-btn-text');
+      const btnIcon = document.getElementById('play-btn-icon');
+      const btn = document.getElementById('btn-toggle-play');
+
+      if (state.isPlaying) {
+        btnText.textContent = "停止聲音 (Stop)";
+        btnIcon.className = "ph-bold ph-stop";
+        btn.className = "flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-900/30 transition";
+      } else {
+        btnText.textContent = "開始發聲演出 (Play)";
+        btnIcon.className = "ph-bold ph-play";
+        btn.className = "flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-teal-900/30 transition";
+      }
+    }
+
+    // Microphone Handler
+    async function toggleMicrophone() {
+      initAudio();
+
+      if (state.isMicActive) {
+        if (state.micStream) {
+          state.micStream.getTracks().forEach(t => t.stop());
+          state.micStream = null;
+        }
+        if (state.micSource) {
+          state.micSource.disconnect();
+          state.micSource = null;
+        }
+        state.isMicActive = false;
+        updateMicUI(false);
+        showToast("麥克風已關閉");
+      } else {
+        try {
+          stopSound();
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            }
+          });
+
+          state.micStream = stream;
+          state.micSource = state.audioCtx.createMediaStreamSource(stream);
+          state.micGain = state.audioCtx.createGain();
+          state.micGain.gain.value = state.micSensitivity;
+
+          state.micSource.connect(state.micGain);
+          state.micGain.connect(state.analyser);
+          // Mic is NOT routed to destination speakers to prevent Larsen feedback loop!
+
+          state.isMicActive = true;
+          updateMicUI(true);
+          showToast("麥克風已啟動，正捕獲 0~25kHz 全頻訊號！");
+        } catch(err) {
+          console.error(err);
+          showToast("無法開啟麥克風，請檢查權限或設備！", true);
+          updateMicUI(false);
+        }
+      }
+    }
+
+    function updateMicUI(active) {
+      const circle = document.getElementById('mic-icon-circle');
+      const title = document.getElementById('mic-status-title');
+      const desc = document.getElementById('mic-status-desc');
+      const label = document.getElementById('btn-mic-label');
+
+      if (active) {
+        circle.className = "w-14 h-14 rounded-full bg-rose-500/20 border-2 border-rose-500 text-rose-400 flex items-center justify-center text-xl shadow-lg shadow-rose-500/30 animate-pulse";
+        title.textContent = "麥克風即時收音中";
+        desc.textContent = "正在連續捕獲並分析環境 0 ~ 25 kHz 聲頻...";
+        label.textContent = "停止收音";
+      } else {
+        circle.className = "w-14 h-14 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center text-slate-500 text-xl transition-all";
+        title.textContent = "麥克風待命中";
+        desc.textContent = "點擊下方按鈕啟動麥克風以捕獲真實環境高頻聲波";
+        label.textContent = "啟動麥克風";
+      }
+    }
+
+    function resizeCanvases() {
+      const dpr = window.devicePixelRatio || 1;
+      const wRect = waterfallCanvas.parentElement.getBoundingClientRect();
+      const sRect = scopeCanvas.parentElement.getBoundingClientRect();
+
+      waterfallCanvas.width = Math.floor(wRect.width * dpr);
+      waterfallCanvas.height = Math.floor(wRect.height * dpr);
+      wCtx.scale(dpr, dpr);
+
+      scopeCanvas.width = Math.floor(sRect.width * dpr);
+      scopeCanvas.height = Math.floor(sRect.height * dpr);
+      sCtx.scale(dpr, dpr);
+
+      // Backing buffer canvas
+      backingCanvas.width = Math.floor(wRect.width);
+      backingCanvas.height = Math.floor(wRect.height);
+
+      bCtx.fillStyle = "#030712";
+      bCtx.fillRect(0, 0, backingCanvas.width, backingCanvas.height);
+
+      updateAxisAndZonePositions();
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // Calculate dynamic positions for zone dividers & frequency axis labels
+    function updateAxisAndZonePositions() {
+      const spans = freqAxis.querySelectorAll('span');
+      const maxF = state.maxFreqView;
+      const height = waterfallCanvas.parentElement.clientHeight;
+
+      if (state.scaleMode === 'linear') {
+        spans[0].textContent = `${(maxF / 1000).toFixed(1)}k`;
+        spans[1].textContent = `20.0k`;
+        spans[2].textContent = `${(maxF * 0.6 / 1000).toFixed(1)}k`;
+        spans[3].textContent = `${(maxF * 0.4 / 1000).toFixed(1)}k`;
+        spans[4].textContent = `${(maxF * 0.2 / 1000).toFixed(1)}k`;
+        spans[5].textContent = `1.0k`;
+        spans[6].textContent = `20 Hz`;
+        spans[7].textContent = `0 Hz`;
+
+        // 20kHz line position
+        const y20kPercent = Math.max(0, Math.min(100, (1 - (20000 / maxF)) * 100));
+        line20k.style.top = `${y20kPercent}%`;
+        line20k.style.display = (20000 <= maxF) ? 'flex' : 'none';
+
+        // 20Hz line position
+        const y20hzPercent = Math.max(0, Math.min(100, (20 / maxF) * 100));
+        line20hz.style.bottom = `${y20hzPercent}%`;
+
+        // Left strip proportions
+        const ultraHeight = (20000 <= maxF) ? ((maxF - 20000) / maxF) * 100 : 0;
+        const audibleHeight = ((Math.min(maxF, 20000) - 20) / maxF) * 100;
+        bandColorStrip.children[0].style.height = `${ultraHeight}%`;
+        bandColorStrip.children[1].style.height = `${audibleHeight}%`;
+        bandColorStrip.children[2].style.height = `${(20 / maxF) * 100}%`;
+
+      } else {
+        // Logarithmic Scale: 10Hz ~ maxF
+        spans[0].textContent = `${(maxF / 1000).toFixed(1)}k`;
+        spans[1].textContent = `20.0k`;
+        spans[2].textContent = `10.0k`;
+        spans[3].textContent = `3.0k`;
+        spans[4].textContent = `1.0k`;
+        spans[5].textContent = `200Hz`;
+        spans[6].textContent = `20 Hz`;
+        spans[7].textContent = `10 Hz`;
+
+        const minF = 10;
+        const norm20k = Math.log(20000 / minF) / Math.log(maxF / minF);
+        line20k.style.top = `${(1 - norm20k) * 100}%`;
+        line20k.style.display = 'flex';
+
+        const norm20hz = Math.log(20 / minF) / Math.log(maxF / minF);
+        line20hz.style.bottom = `${norm20hz * 100}%`;
+
+        bandColorStrip.children[0].style.height = `${(1 - norm20k) * 100}%`;
+        bandColorStrip.children[1].style.height = `${(norm20k - norm20hz) * 100}%`;
+        bandColorStrip.children[2].style.height = `${norm20hz * 100}%`;
+      }
+    }
+
+    // Primary Render Loop (60 FPS)
+    function renderLoop() {
+      requestAnimationFrame(renderLoop);
+
+      const width = backingCanvas.width;
+      const height = backingCanvas.height;
+      if (width === 0 || height === 0) return;
+
+      // 1. Audio Data Collection
+      if (state.analyser && !state.isFrozen) {
+        state.analyser.getByteFrequencyData(freqBuffer);
+        state.analyser.getByteTimeDomainData(timeBuffer);
+      }
+
+      // 2. VU Meter calculation
+      let sumSquares = 0;
+      for (let i = 0; i < timeBuffer.length; i++) {
+        const val = (timeBuffer[i] - 128) / 128;
+        sumSquares += val * val;
+      }
+      const rms = Math.sqrt(sumSquares / timeBuffer.length);
+      const db = rms > 0.00005 ? Math.max(-90, Math.round(20 * Math.log10(rms))) : -90;
+      const vuPercent = Math.min(100, Math.max(0, (db + 70) * 1.8));
+      vuBar.style.width = `${vuPercent}%`;
+      vuDb.textContent = `${db} dB`;
+
+      // 3. Waterfall Frame Shift & New Column Drawing
+      if (!state.isFrozen) {
+        // Shift left
+        bCtx.drawImage(
+          backingCanvas,
+          state.scrollSpeed, 0, width - state.scrollSpeed, height,
+          0, 0, width - state.scrollSpeed, height
+        );
+
+        // Draw newest right column
+        const colWidth = state.scrollSpeed;
+        const colX = width - colWidth;
+        const colImage = bCtx.createImageData(colWidth, height);
+        const colPixels = colImage.data;
+
+        const currentLut = colorLuts[state.palette];
+        const sampleRate = state.audioCtx ? state.audioCtx.sampleRate : 48000;
+        const binCount = freqBuffer.length;
+        const nyquist = sampleRate / 2;
+
+        for (let y = 0; y < height; y++) {
+          const normY = (height - 1 - y) / (height - 1); // 0 at bottom, 1 at top
+          let freqHz = 0;
+
+          if (state.scaleMode === 'linear') {
+            freqHz = normY * state.maxFreqView;
+          } else {
+            const minF = 10;
+            freqHz = minF * Math.pow(state.maxFreqView / minF, normY);
+          }
+
+          // Bin Mapping
+          const binIndex = Math.min(binCount - 1, Math.max(0, Math.round((freqHz / nyquist) * binCount)));
+          let rawAmp = freqBuffer[binIndex];
+
+          // Noise gate floor
+          const floorNorm = ((state.noiseFloorDb + 100) / 100) * 255;
+          if (rawAmp < floorNorm) {
+            rawAmp = 0;
+          } else {
+            rawAmp = (rawAmp - floorNorm) * (255 / (255 - floorNorm));
+          }
+
+          let finalAmp = Math.min(255, Math.max(0, Math.floor(rawAmp * state.contrast)));
+
+          // Lookup RGBA
+          const lutOffset = finalAmp * 4;
+          const r = currentLut[lutOffset];
+          const g = currentLut[lutOffset + 1];
+          const b = currentLut[lutOffset + 2];
+
+          for (let cx = 0; cx < colWidth; cx++) {
+            const pIdx = (y * colWidth + cx) * 4;
+            colPixels[pIdx] = r;
+            colPixels[pIdx + 1] = g;
+            colPixels[pIdx + 2] = b;
+            colPixels[pIdx + 3] = 255;
+          }
+        }
+
+        bCtx.putImageData(colImage, colX, 0);
+      }
+
+      // 4. Paint to Main Waterfall Viewport
+      wCtx.clearRect(0, 0, width, height);
+      wCtx.drawImage(backingCanvas, 0, 0, width, height);
+
+      // 5. Render Display B (Oscilloscope or FFT)
+      renderDisplayB();
+    }
+
+    // Display B Renderer
+    function renderDisplayB() {
+      const sw = scopeCanvas.clientWidth;
+      const sh = scopeCanvas.clientHeight;
+      sCtx.clearRect(0, 0, sw, sh);
+
+      if (state.scopeMode === 'wave') {
+        // Oscilloscope Waveform
+        sCtx.lineWidth = 2;
+        sCtx.strokeStyle = "#38bdf8";
+        sCtx.shadowBlur = 8;
+        sCtx.shadowColor = "rgba(56, 189, 248, 0.7)";
+        sCtx.beginPath();
+
+        const sliceWidth = sw / timeBuffer.length;
+        let x = 0;
+        for (let i = 0; i < timeBuffer.length; i++) {
+          const v = (timeBuffer[i] - 128) / 128;
+          const y = (sh / 2) - (v * (sh / 2.3));
+          if (i === 0) sCtx.moveTo(x, y);
+          else sCtx.lineTo(x, y);
+          x += sliceWidth;
+        }
+        sCtx.stroke();
+        sCtx.shadowBlur = 0;
+
+      } else {
+        // Real-time FFT Frequency Bars
+        const barCount = 140;
+        const barWidth = sw / barCount;
+        const binCount = freqBuffer.length;
+        const sampleRate = state.audioCtx ? state.audioCtx.sampleRate : 48000;
+
+        for (let i = 0; i < barCount; i++) {
+          const f = (i / barCount) * state.maxFreqView;
+          const bin = Math.min(binCount - 1, Math.round((f / (sampleRate / 2)) * binCount));
+          const val = freqBuffer[bin] / 255;
+          const barHeight = val * (sh - 12);
+          const x = i * barWidth;
+          const y = sh - barHeight;
+
+          // Color coded by band
+          if (f < 20) sCtx.fillStyle = '#f43f5e'; // Rose (Infrasound)
+          else if (f > 20000) sCtx.fillStyle = '#06b6d4'; // Cyan (Ultrasound)
+          else sCtx.fillStyle = '#10b981'; // Emerald (Audible)
+
+          sCtx.fillRect(x, y, Math.max(1, barWidth - 1), barHeight);
+        }
+      }
+    }
+
+    // Crosshair & Hover Tooltip
+    const canvasContainer = document.getElementById('canvas-container');
+    canvasContainer.addEventListener('mousemove', (e) => {
+      const rect = canvasContainer.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      crosshairX.style.left = `${x}px`;
+      crosshairY.style.top = `${y}px`;
+      crosshairX.classList.remove('hidden');
+      crosshairY.classList.remove('hidden');
+
+      const normY = (rect.height - y) / rect.height;
+      let f = 0;
+      if (state.scaleMode === 'linear') {
+        f = Math.round(normY * state.maxFreqView);
+      } else {
+        const minF = 10;
+        f = Math.round(minF * Math.pow(state.maxFreqView / minF, normY));
+      }
+
+      // Band classification label
+      let bandText = "人耳可聽域 (Audible)";
+      let bandColor = "text-emerald-400";
+      if (f < 20) {
+        bandText = "次聲波 (Infrasound)";
+        bandColor = "text-rose-400";
+      } else if (f > 20000) {
+        bandText = "超聲波 (Ultrasound)";
+        bandColor = "text-cyan-400";
+      }
+
+      const timeOffset = (((rect.width - x) / state.scrollSpeed) * (1 / 60)).toFixed(2);
+      hoverCoord.textContent = `懸停測量：${f} Hz | ${bandText} | 歷史 -${timeOffset}s`;
+
+      hudBubble.classList.remove('hidden');
+      hudBubble.style.left = `${Math.min(rect.width - 150, x + 12)}px`;
+      hudBubble.style.top = `${Math.min(rect.height - 65, Math.max(10, y - 30))}px`;
+      hudFreq.textContent = `${f} Hz`;
+      hudBand.innerHTML = `分區: <span class="${bandColor} font-bold">${bandText}</span>`;
+      hudTime.textContent = `距今: -${timeOffset} 秒前`;
+    });
+
+    canvasContainer.addEventListener('mouseleave', () => {
+      crosshairX.classList.add('hidden');
+      crosshairY.classList.add('hidden');
+      hudBubble.classList.add('hidden');
+      hoverCoord.textContent = "懸停檢測：0 ~ 25,000 Hz";
+    });
+
+    // Frequency Slider & Number Input Sync
+    function setFrequency(f) {
+      f = Math.max(0, Math.min(25000, Math.round(f)));
+      state.frequency = f;
+      sliderFreq.value = f;
+      inputFreqNumber.value = f;
+      updateBandClassification(f);
+
+      if (state.isPlaying && state.oscillator && state.audioCtx) {
+        state.oscillator.frequency.setValueAtTime(f, state.audioCtx.currentTime);
+        // Refresh safe volume if needed
+        state.synthGain.gain.setValueAtTime(getSafeVolume(), state.audioCtx.currentTime);
+      }
+    }
+
+    sliderFreq.addEventListener('input', (e) => setFrequency(parseFloat(e.target.value)));
+    inputFreqNumber.addEventListener('change', (e) => setFrequency(parseFloat(e.target.value)));
+
+    // Quick Band Jump Buttons
+    document.querySelectorAll('.quick-band-btn').forEach(btn => {
+      btn.addEventListener('click', () => setFrequency(parseFloat(btn.getAttribute('data-freq'))));
+    });
+
+    // Waveform Buttons
+    const waveButtons = document.querySelectorAll('.wave-btn');
+    const labelCurWave = document.getElementById('label-cur-wave');
+    waveButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        waveButtons.forEach(b => {
+          b.classList.remove('active', 'border-cyan-500', 'bg-cyan-950/40', 'text-cyan-300');
+          b.classList.add('border-slate-800', 'bg-slate-950', 'text-slate-400');
+        });
+        btn.classList.add('active', 'border-cyan-500', 'bg-cyan-950/40', 'text-cyan-300');
+        btn.classList.remove('border-slate-800', 'bg-slate-950', 'text-slate-400');
+
+        state.waveform = btn.getAttribute('data-wave');
+        labelCurWave.textContent = btn.textContent.trim();
+
+        if (state.isPlaying) {
+          startSound(); // Re-trigger sound with new wave
+        }
+      });
+    });
+
+    // Volume Slider
+    sliderVolume.addEventListener('input', (e) => {
+      const vol = parseInt(e.target.value);
+      state.amplitude = vol / 100;
+      labelVolume.textContent = `${vol}%`;
+      if (state.isPlaying && state.synthGain && state.audioCtx) {
+        state.synthGain.gain.setValueAtTime(getSafeVolume(), state.audioCtx.currentTime);
+      }
+    });
+
+    // Play & Pulse Buttons
+    document.getElementById('btn-toggle-play').addEventListener('click', () => {
+      if (state.isPlaying) stopSound();
+      else startSound();
+    });
+    document.getElementById('btn-pulse-sound').addEventListener('click', () => pulseTone(0.8));
+
+    // Preset Buttons
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const freq = parseFloat(btn.getAttribute('data-freq'));
+        const wave = btn.getAttribute('data-wave');
+        const title = btn.getAttribute('data-title');
+
+        setFrequency(freq);
+
+        // Select Wave
+        waveButtons.forEach(wb => {
+          if (wb.getAttribute('data-wave') === wave) wb.click();
+        });
+
+        startSound();
+        showToast(`已切換模擬：${title}`);
+      });
+    });
+
+    // Freeze Waterfall Button
+    const btnFreeze = document.getElementById('btn-freeze-waterfall');
+    const freezeIcon = document.getElementById('freeze-icon');
+    const freezeText = document.getElementById('freeze-text');
+    btnFreeze.addEventListener('click', () => {
+      state.isFrozen = !state.isFrozen;
+      if (state.isFrozen) {
+        freezeText.textContent = "繼續滾動";
+        freezeIcon.className = "ph-bold ph-play";
+        btnFreeze.className = "px-2.5 py-1 rounded-lg bg-emerald-600 text-white border border-emerald-400 text-[11px] font-semibold flex items-center gap-1 transition";
+        showToast("瀑布圖已凍結！可移動滑鼠精準測量各頻率數值");
+      } else {
+        freezeText.textContent = "凍結量測";
+        freezeIcon.className = "ph-bold ph-snowflake";
+        btnFreeze.className = "px-2.5 py-1 rounded-lg bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-800 text-[11px] font-semibold flex items-center gap-1 transition";
+      }
+    });
+
+    // Clear Canvas Button
+    document.getElementById('btn-clear-waterfall').addEventListener('click', () => {
+      bCtx.fillStyle = "#030712";
+      bCtx.fillRect(0, 0, backingCanvas.width, backingCanvas.height);
+      wCtx.clearRect(0, 0, waterfallCanvas.width, waterfallCanvas.height);
+      showToast("瀑布圖歷史紀錄已清空");
+    });
+
+    // Palette Selector
+    document.getElementById('select-palette').addEventListener('change', (e) => {
+      state.palette = e.target.value;
+      showToast(`色彩模式切換為：${e.target.options[e.target.selectedIndex].text}`);
+    });
+
+    // Scale Toggle (Linear / Log)
+    const btnToggleScale = document.getElementById('btn-toggle-scale');
+    const scaleLabel = document.getElementById('scale-label');
+    btnToggleScale.addEventListener('click', () => {
+      state.scaleMode = state.scaleMode === 'linear' ? 'log' : 'linear';
+      scaleLabel.textContent = state.scaleMode === 'linear' ? "線性 (Linear)" : "對數 (Log)";
+      updateAxisAndZonePositions();
+      showToast(`頻率軸標度切換為：${state.scaleMode === 'linear' ? '線性座標 (0~25kHz 等差)' : '對數座標 (人耳聽覺分佈)'}`);
+    });
+
+    // Zone Guide Lines Toggle
+    const btnToggleZones = document.getElementById('btn-toggle-zones');
+    const zoneLabel = document.getElementById('zone-label');
+    btnToggleZones.addEventListener('click', () => {
+      state.showZones = !state.showZones;
+      zoneLabel.textContent = `聲學分區標示: ${state.showZones ? '開' : '關'}`;
+      zoneDividers.style.display = state.showZones ? 'block' : 'none';
+      bandColorStrip.style.display = state.showZones ? 'flex' : 'none';
+    });
+
+    // Waterfall Settings Sliders
+    const sliderSpeed = document.getElementById('slider-speed');
+    const valSpeed = document.getElementById('val-speed');
+    sliderSpeed.addEventListener('input', (e) => {
+      state.scrollSpeed = parseInt(e.target.value);
+      valSpeed.textContent = `${state.scrollSpeed} px/幀`;
+    });
+
+    const sliderContrast = document.getElementById('slider-contrast');
+    const valContrast = document.getElementById('val-contrast');
+    sliderContrast.addEventListener('input', (e) => {
+      state.contrast = parseFloat(e.target.value);
+      valContrast.textContent = `${state.contrast.toFixed(1)}x`;
+    });
+
+    const sliderFloor = document.getElementById('slider-floor');
+    const valFloor = document.getElementById('val-floor');
+    sliderFloor.addEventListener('input', (e) => {
+      state.noiseFloorDb = parseInt(e.target.value);
+      valFloor.textContent = `${state.noiseFloorDb} dB`;
+    });
+
+    const sliderMaxFreq = document.getElementById('slider-max-freq');
+    const valMaxFreq = document.getElementById('val-max-freq');
+    sliderMaxFreq.addEventListener('input', (e) => {
+      state.maxFreqView = parseInt(e.target.value);
+      valMaxFreq.textContent = `${state.maxFreqView.toLocaleString()} Hz`;
+      updateAxisAndZonePositions();
+    });
+
+    // Display B Mode Switcher (Waveform vs FFT)
+    const btnModeWave = document.getElementById('btn-mode-oscilloscope');
+    const btnModeFft = document.getElementById('btn-mode-fft');
+    btnModeWave.addEventListener('click', () => {
+      state.scopeMode = 'wave';
+      btnModeWave.className = "px-2.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800";
+      btnModeFft.className = "px-2.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 hover:text-slate-200";
+    });
+    btnModeFft.addEventListener('click', () => {
+      state.scopeMode = 'fft';
+      btnModeFft.className = "px-2.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800";
+      btnModeWave.className = "px-2.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 hover:text-slate-200";
+    });
+
+    // Tab Navigation: Generator vs Microphone
+    const tabGen = document.getElementById('tab-generator');
+    const tabMic = document.getElementById('tab-mic');
+    const panelGen = document.getElementById('panel-generator');
+    const panelMic = document.getElementById('panel-mic');
+
+    tabGen.addEventListener('click', () => {
+      tabGen.className = "flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-gradient-to-r from-cyan-600 via-teal-600 to-indigo-600 text-white shadow-md transition";
+      tabMic.className = "flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition";
+      panelGen.classList.remove('hidden');
+      panelMic.classList.add('hidden');
+    });
+
+    tabMic.addEventListener('click', () => {
+      tabMic.className = "flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md transition";
+      tabGen.className = "flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition";
+      panelMic.classList.remove('hidden');
+      panelGen.classList.add('hidden');
+    });
+
+    document.getElementById('btn-toggle-mic').addEventListener('click', toggleMicrophone);
+
+    // Mic Gain Slider
+    const sliderMicGain = document.getElementById('slider-mic-gain');
+    const labelMicGain = document.getElementById('label-mic-gain');
+    sliderMicGain.addEventListener('input', (e) => {
+      state.micSensitivity = parseFloat(e.target.value);
+      labelMicGain.textContent = `${state.micSensitivity.toFixed(1)}x`;
+      if (state.micGain) state.micGain.gain.value = state.micSensitivity;
+    });
+
+    // Modal Guide Listeners
+    const modalGuide = document.getElementById('modal-guide');
+    document.getElementById('btn-open-guide').addEventListener('click', () => modalGuide.classList.remove('hidden'));
+    document.getElementById('btn-close-guide').addEventListener('click', () => modalGuide.classList.add('hidden'));
+    document.getElementById('btn-modal-close').addEventListener('click', () => modalGuide.classList.add('hidden'));
+    modalGuide.addEventListener('click', (e) => {
+      if (e.target === modalGuide) modalGuide.classList.add('hidden');
+    });
+
+    // Window Load
+    window.onload = function() {
+      resizeCanvases();
+      updateBandClassification(440);
+      renderLoop();
+    };
+
+  </script>
+
+<!-- 網站導覽：回首頁按鈕 -->
+<a href="index.html" id="lab-home-btn" title="回到實驗室首頁"
+   style="position:fixed;left:12px;bottom:12px;z-index:45;display:flex;align-items:center;gap:6px;
+          padding:8px 14px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font:600 15px/1 system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;
+          text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.85">
+  <span style="font-size:17px">⌂</span>首頁
+</a>
+
+<!-- iPad 觸控支援：把手指的點按/拖曳轉成原本程式使用的滑鼠移動事件 -->
+<script>
+(function () {
+  var el = document.getElementById("canvas-container");
+  if (!el) return;
+  el.style.touchAction = 'none';
+  function forward(type, e) {
+    el.dispatchEvent(new MouseEvent(type, {
+      clientX: e.clientX, clientY: e.clientY, bubbles: true, cancelable: true, view: window
+    }));
+  }
+  el.addEventListener('pointerdown', function (e) { if (e.pointerType !== 'mouse') forward('mousemove', e); });
+  el.addEventListener('pointermove', function (e) { if (e.pointerType !== 'mouse') forward('mousemove', e); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>音叉縱波產生與傳播教學模型</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: #0b0f19;
+      color: #e2e8f0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    input[type=range] {
+      accent-color: #38bdf8;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #1e293b;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 3px;
+    }
+    .canvas-container {
+      position: relative;
+      background: radial-gradient(circle at 10% 20%, #172033 0%, #0b0f19 80%);
+    }
+    .glow-cyan {
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+  <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-4 py-3 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+            音叉的縱波產生教學模型
+            <span class="text-xs px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 font-medium border border-sky-500/30">物理聲學模擬</span>
+          </h1>
+          <p class="text-xs text-slate-400">直立音叉臂左右振動推擠空氣介質，形成向右傳播的疏密縱波（聲波）</p>
+        </div>
+      </div>
+
+      <!-- Quick Action Controls -->
+      <div class="flex items-center flex-wrap gap-2">
+        <button id="btnStrike" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-medium text-xs shadow-md transition-all active:scale-95">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          敲擊音叉
+        </button>
+
+        <button id="btnPlayPause" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs transition active:scale-95">
+          <svg id="playIcon" class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M5.75 4.108c-.694-.413-1.75.105-1.75.922v9.94c0 .817 1.056 1.335 1.75.922l8.835-4.97a1.07 1.07 0 000-1.844L5.75 4.108z"/>
+          </svg>
+          <span id="playText">暫停</span>
+        </button>
+
+        <button id="btnAudioToggle" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs transition active:scale-95">
+          <svg id="audioIcon" class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+          </svg>
+          <span id="audioText">發聲：關閉</span>
+        </button>
+
+        <button id="btnInfoModal" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" title="物理觀念詳解">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto w-full p-3 md:p-5 flex-1 flex flex-col gap-4">
+    
+    <!-- Simulation Viewports Container -->
+    <div class="canvas-container rounded-2xl border border-slate-800 p-2 md:p-4 shadow-2xl flex flex-col gap-3">
+      
+      <!-- Top Canvas Controls & Legends -->
+      <div class="flex flex-wrap items-center justify-between gap-2 px-2 text-xs">
+        <div class="flex items-center gap-3">
+          <span class="flex items-center gap-1.5 text-slate-300">
+            <span class="w-3 h-3 rounded-full bg-rose-500 inline-block ring-2 ring-rose-400/50"></span>
+            標記質點（觀察原處振動）
+          </span>
+          <span class="flex items-center gap-1.5 text-slate-300">
+            <span class="w-3 h-3 rounded-full bg-sky-400 inline-block"></span>
+            空氣分子
+          </span>
+          <span class="hidden sm:flex items-center gap-1 text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+            密部：壓力偏高 / 分子密集
+          </span>
+          <span class="hidden sm:flex items-center gap-1 text-purple-400 bg-purple-950/40 px-2 py-0.5 rounded border border-purple-800/40">
+            疏部：壓力偏低 / 分子稀疏
+          </span>
+        </div>
+        <div class="flex items-center gap-2 text-slate-400">
+          <span id="fpsBadge" class="bg-slate-800/80 px-2 py-0.5 rounded font-mono text-[11px]">60 FPS</span>
+          <span id="lambdaBadge" class="bg-slate-800/80 px-2 py-0.5 rounded font-mono text-[11px] text-sky-300">λ: -- cm</span>
+        </div>
+      </div>
+
+      <!-- Main Particle Canvas -->
+      <div class="relative w-full h-[280px] sm:h-[320px] md:h-[360px] bg-slate-950/80 rounded-xl overflow-hidden border border-slate-800/80">
+        <canvas id="simCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+        
+        <!-- Interactive Overlay Hint -->
+        <div id="canvasOverlayHint" class="absolute bottom-2 left-3 text-[11px] text-slate-400 pointer-events-none bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded border border-slate-700/50 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-sky-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+          </svg>
+          點擊畫面任意處可手動打擊音叉；滑鼠移至粒子可檢視瞬時位移與受力
+        </div>
+      </div>
+
+      <!-- Synchronized Wave Graphs (Displacement & Pressure) -->
+      <div class="w-full bg-slate-900/90 rounded-xl border border-slate-800 p-2.5">
+        <div class="flex items-center justify-between text-xs font-medium text-slate-300 mb-1 px-1">
+          <div class="flex items-center gap-3">
+            <span class="text-sky-400 font-semibold flex items-center gap-1">
+              <span class="w-2.5 h-0.5 bg-sky-400 inline-block"></span>
+              空氣質點位移曲線 $s(x)$ (向右為正)
+            </span>
+            <span class="text-amber-400 font-semibold flex items-center gap-1">
+              <span class="w-2.5 h-0.5 bg-amber-400 inline-block"></span>
+              壓強/密度擾動曲線 $\Delta P(x)$
+            </span>
+          </div>
+          <span class="text-[11px] text-slate-400 hidden sm:inline">波形與上方空氣分子完全對齊</span>
+        </div>
+        <div class="relative w-full h-[120px] sm:h-[135px]">
+          <canvas id="graphCanvas" class="w-full h-full block"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Control Dashboard Panel -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      
+      <!-- Primary Physical Parameters -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+        <h3 class="text-sm font-semibold text-white flex items-center gap-2 mb-3">
+          <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+          音叉振動源參數
+        </h3>
+
+        <div class="space-y-3.5 text-xs">
+          <!-- Frequency -->
+          <div>
+            <div class="flex justify-between items-center text-slate-300 mb-1">
+              <span>振動頻率 (f)</span>
+              <span id="freqVal" class="font-mono text-sky-400 font-semibold">1.50 Hz</span>
+            </div>
+            <input type="range" id="freqSlider" min="0.5" max="3.5" step="0.05" value="1.5" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+            <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+              <span>慢速觀察 (0.5 Hz)</span>
+              <span>教學推薦 (1.5 Hz)</span>
+              <span>高頻密波 (3.5 Hz)</span>
+            </div>
+          </div>
+
+          <!-- Amplitude -->
+          <div>
+            <div class="flex justify-between items-center text-slate-300 mb-1">
+              <span>波源振幅 (A)</span>
+              <span id="ampVal" class="font-mono text-sky-400 font-semibold">22 px</span>
+            </div>
+            <input type="range" id="ampSlider" min="6" max="36" step="1" value="22" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+            <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+              <span>微幅</span>
+              <span>適中 (推薦)</span>
+              <span>顯著</span>
+            </div>
+          </div>
+
+          <!-- Wave Speed -->
+          <div>
+            <div class="flex justify-between items-center text-slate-300 mb-1">
+              <span>介質波速 (v)</span>
+              <span id="speedVal" class="font-mono text-sky-400 font-semibold">160 px/s</span>
+            </div>
+            <input type="range" id="speedSlider" min="80" max="260" step="5" value="160" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+            <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+              <span>重介質 (低波速)</span>
+              <span>標準空氣</span>
+              <span>輕介質 (高波速)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Display & Observation Options -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+        <h3 class="text-sm font-semibold text-white flex items-center gap-2 mb-3">
+          <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+          視覺輔助與觀察模式
+        </h3>
+
+        <div class="space-y-2.5 text-xs">
+          <!-- Vibration Mode Toggle -->
+          <div class="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
+            <div>
+              <span class="font-medium text-slate-200">振動激發模式</span>
+              <p class="text-[11px] text-slate-400">選擇連續振盪或敲擊後自然衰減</p>
+            </div>
+            <select id="vibeModeSelect" class="bg-slate-900 border border-slate-700 text-sky-300 text-xs rounded px-2 py-1 outline-none">
+              <option value="continuous">持續強迫振動</option>
+              <option value="decay">敲擊衰減模式</option>
+            </select>
+          </div>
+
+          <!-- Show Wavelength & Labels -->
+          <label class="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700/50 cursor-pointer hover:bg-slate-800 transition">
+            <span class="text-slate-200">標示波長 (λ) 與疏密部註記</span>
+            <input type="checkbox" id="chkShowAnnotations" checked class="w-4 h-4 rounded text-sky-500">
+          </label>
+
+          <!-- Show Equilibrium Position Lines -->
+          <label class="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700/50 cursor-pointer hover:bg-slate-800 transition">
+            <span class="text-slate-200">顯示追蹤質點的平衡位置線</span>
+            <input type="checkbox" id="chkShowEquilibrium" checked class="w-4 h-4 rounded text-sky-500">
+          </label>
+
+          <!-- Slow Motion Multiplier -->
+          <div class="flex items-center justify-between p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
+            <span class="text-slate-200">時間流速</span>
+            <div class="flex gap-1">
+              <button data-speed="0.25" class="time-btn px-2 py-0.5 rounded bg-slate-700 text-slate-300 hover:bg-sky-600 hover:text-white transition text-[11px]">0.25x</button>
+              <button data-speed="0.5" class="time-btn px-2 py-0.5 rounded bg-slate-700 text-slate-300 hover:bg-sky-600 hover:text-white transition text-[11px]">0.5x</button>
+              <button data-speed="1.0" class="time-btn active-speed px-2 py-0.5 rounded bg-sky-500 text-white font-semibold text-[11px]">1.0x</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Concept Card -->
+      <div class="bg-gradient-to-br from-slate-900 to-sky-950/40 border border-sky-900/40 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+        <div>
+          <h3 class="text-sm font-semibold text-sky-300 flex items-center gap-2 mb-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            縱波核心觀念即時指引
+          </h3>
+          <ul class="text-xs space-y-2 text-slate-300">
+            <li class="flex items-start gap-1.5">
+              <span class="text-sky-400 font-bold">1.</span>
+              <span><strong>音叉方向與振動：</strong>音叉為直立放置，兩叉臂作<strong>對稱水平彎曲振動</strong>。右臂向右推擠產生<strong>密部</strong>，向左彈回騰出空間產生<strong>疏部</strong>。</span>
+            </li>
+            <li class="flex items-start gap-1.5">
+              <span class="text-amber-400 font-bold">2.</span>
+              <span><strong>密部（壓力最大處）：</strong>左側質點向右位移、右側質點向左位移，剛好擠壓在一起；位移曲線在此處為斜率為負的零點。</span>
+            </li>
+            <li class="flex items-start gap-1.5">
+              <span class="text-purple-400 font-bold">3.</span>
+              <span><strong>波長關係式：</strong>滿足波動基本定律 $v = f \times \lambda$。調整上方頻率或波速時，可觀察波長相應變化。</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="mt-3 pt-2.5 border-t border-slate-800 flex justify-between items-center text-[11px] text-slate-400">
+          <span>高中物理・聲波單元</span>
+          <button id="btnResetDefaults" class="text-sky-400 hover:text-sky-300 underline">重設預設值</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Educational Theory Modal -->
+  <div id="infoModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 max-w-2xl w-full rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-800">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-sky-400"></span>
+          音叉產生聲波的物理機制詳解
+        </h2>
+        <button id="btnCloseModal" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="mt-4 space-y-4 text-xs md:text-sm text-slate-300 leading-relaxed">
+        <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+          <h4 class="font-bold text-sky-300 mb-1">一、音叉臂的來回振動如何產生聲波？</h4>
+          <p>
+            當音叉臂受力向右向外張開時，會推擠右側緊鄰的空氣分子，使其密度增加、壓強升高，形成<strong>「密部（Compression）」</strong>；
+            當音叉臂彈回向左收縮時，原本的位置騰出空間，周圍空氣向左填補，使該區域分子密度降低、壓強下降，形成<strong>「疏部（Rarefaction）」</strong>。
+            音叉持續等時簡諧振動，便會在空中產生連續交替的疏密波向前傳遞。
+          </p>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+          <h4 class="font-bold text-amber-300 mb-1">二、為什麼「縱波也可以畫成正弦波（橫波形）」？</h4>
+          <p>
+            在教學圖表中，縱波常被繪製成波峰與波谷的形式，這常常造成初學者的混淆：
+          </p>
+          <ul class="list-disc pl-5 mt-1 space-y-1">
+            <li><strong>位移圖 $s(x)$：</strong>縱軸代表質點偏離平衡位置的「位移大小與方向」（向右為正值波峰、向左為負值波谷）。</li>
+            <li><strong>壓強/密度圖 $\Delta P(x)$：</strong>縱軸代表空氣受壓縮後的「額外壓強 $\Delta P$」。波峰代表壓強最大的<strong>密部中心</strong>，波谷代表壓強最低的<strong>疏部中心</strong>。</li>
+            <li>兩者之間存在 $90^\circ$ ($\pi/2$) 的相位差！密部中心恰好是質點位移為 0 的位置。</li>
+          </ul>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+          <h4 class="font-bold text-emerald-300 mb-1">三、質點到底有沒有往前飛走？</h4>
+          <p>
+            <strong>沒有！</strong>請特別留意畫面上閃爍紅光的<strong>「標記質點」</strong>。每個空氣分子僅在各自的「平衡位置（虛線處）」左右作簡諧振動。波傳遞的是<strong>能量、動量與狀態</strong>，介質本身並沒有淨位移。
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end">
+        <button id="btnCloseModalBtn" class="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-medium text-xs">
+          我知道了，回模型操作
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="py-2.5 px-4 text-center text-slate-400 text-xs border-t border-slate-900 bg-slate-950/60">
+    互動式物理教學軟體・音叉機械縱波生成與傳播模擬
+  </footer>
+
+  <script>
+    /* ============================================================
+     * 1. 物理模型狀態與變數設定
+     * ============================================================ */
+    const state = {
+      // 物理參數
+      frequency: 1.5,      // 頻率 (Hz)
+      amplitude: 22,       // 空氣質點與波源振幅 (px)
+      waveSpeed: 160,      // 縱波傳播速度 (px/s)
+      timeScale: 1.0,      // 時間流速縮放
+      vibeMode: 'continuous', // 'continuous' 或 'decay'
+      decayEnergy: 1.0,    // 敲擊後的衰減係數 (0~1)
+      isStriking: false,   // 是否正在進行敲擊動畫
+      strikeAnimProgress: 0, // 木槌敲擊進度 0~1
+
+      // 執行控制
+      isPlaying: true,
+      audioEnabled: false,
+      currentTime: 0,
+      lastTimestamp: 0,
+
+      // 視覺選項
+      showAnnotations: true,
+      showEquilibrium: true,
+
+      // 直立音叉幾何結構（柄部朝下、兩叉臂朝上）
+      fork: {
+        x: 100,             // 音叉中心水平座標
+        topY: 40,           // 叉臂頂端 Y
+        curveBottomY: 220,  // U 型底部轉角 Y
+        stemBottomY: 280,   // 柄部底端 Y
+        prongSpacing: 32,   // 兩臂間距
+        prongWidth: 10,     // 叉臂厚度
+        stemWidth: 13,      // 柄部厚度
+        visualScale: 0.22   // 音叉金屬形變視覺縮放比（避免橡膠化過度開闔）
+      }
+    };
+
+    // DOM 元素引用
+    const simCanvas = document.getElementById('simCanvas');
+    const simCtx = simCanvas.getContext('2d');
+    const graphCanvas = document.getElementById('graphCanvas');
+    const graphCtx = graphCanvas.getContext('2d');
+
+    // 控制元件
+    const freqSlider = document.getElementById('freqSlider');
+    const ampSlider = document.getElementById('ampSlider');
+    const speedSlider = document.getElementById('speedSlider');
+    const freqVal = document.getElementById('freqVal');
+    const ampVal = document.getElementById('ampVal');
+    const speedVal = document.getElementById('speedVal');
+    const lambdaBadge = document.getElementById('lambdaBadge');
+    const fpsBadge = document.getElementById('fpsBadge');
+    const btnPlayPause = document.getElementById('btnPlayPause');
+    const playIcon = document.getElementById('playIcon');
+    const playText = document.getElementById('playText');
+    const btnStrike = document.getElementById('btnStrike');
+    const btnAudioToggle = document.getElementById('btnAudioToggle');
+    const audioIcon = document.getElementById('audioIcon');
+    const audioText = document.getElementById('audioText');
+    const vibeModeSelect = document.getElementById('vibeModeSelect');
+    const chkShowAnnotations = document.getElementById('chkShowAnnotations');
+    const chkShowEquilibrium = document.getElementById('chkShowEquilibrium');
+    const btnResetDefaults = document.getElementById('btnResetDefaults');
+    const timeBtns = document.querySelectorAll('.time-btn');
+
+    // 說明彈窗
+    const infoModal = document.getElementById('infoModal');
+    const btnInfoModal = document.getElementById('btnInfoModal');
+    const btnCloseModal = document.getElementById('btnCloseModal');
+    const btnCloseModalBtn = document.getElementById('btnCloseModalBtn');
+
+    /* ============================================================
+     * 2. 空氣分子質點網格系統構建
+     * ============================================================ */
+    let particles = [];
+    const NUM_COLS = 62;   // 沿 x 軸（傳播方向）的質點層數
+    const NUM_ROWS = 14;   // 沿 y 軸的質點分佈
+    const TRACER_COLS = [8, 22, 38, 54]; // 被標記為紅色追蹤質點的行索引
+
+    function initParticles(width, height) {
+      particles = [];
+      // 空氣粒子緊鄰直立音叉右臂外側開始排列
+      const startX = state.fork.x + state.fork.prongSpacing / 2 + state.fork.prongWidth + 12;
+      const endX = width - 20;
+      const stepX = (endX - startX) / (NUM_COLS - 1);
+      
+      const paddingY = 40;
+      const usableHeight = height - paddingY * 2;
+      const stepY = usableHeight / (NUM_ROWS - 1);
+
+      for (let c = 0; c < NUM_COLS; c++) {
+        const eqX = startX + c * stepX;
+        const isTracerCol = TRACER_COLS.includes(c);
+
+        for (let r = 0; r < NUM_ROWS; r++) {
+          const eqY = paddingY + r * stepY;
+          // 添加輕微隨機熱擾動，更接近真實微觀氣體分子分佈
+          const jitterX = (Math.random() - 0.5) * 4;
+          const jitterY = (Math.random() - 0.5) * 8;
+
+          particles.push({
+            col: c,
+            row: r,
+            eqX: eqX,
+            eqY: eqY,
+            x: eqX + jitterX,
+            y: eqY + jitterY,
+            jitterX: jitterX,
+            jitterY: jitterY,
+            isTracer: isTracerCol && (r === Math.floor(NUM_ROWS / 2) || r === Math.floor(NUM_ROWS / 2) - 1),
+            disp: 0 // 瞬時位移
+          });
+        }
+      }
+    }
+
+    /* ============================================================
+     * 3. 視窗適應與高解析度 Canvas 支援
+     * ============================================================ */
+    function resizeCanvases() {
+      const dpr = window.devicePixelRatio || 1;
+      
+      // Sim Canvas
+      const simRect = simCanvas.getBoundingClientRect();
+      simCanvas.width = simRect.width * dpr;
+      simCanvas.height = simRect.height * dpr;
+      simCtx.resetTransform ? simCtx.resetTransform() : simCtx.setTransform(1, 0, 0, 1, 0, 0);
+      simCtx.scale(dpr, dpr);
+
+      // Graph Canvas
+      const graphRect = graphCanvas.getBoundingClientRect();
+      graphCanvas.width = graphRect.width * dpr;
+      graphCanvas.height = graphRect.height * dpr;
+      graphCtx.resetTransform ? graphCtx.resetTransform() : graphCtx.setTransform(1, 0, 0, 1, 0, 0);
+      graphCtx.scale(dpr, dpr);
+
+      // 更新直立音叉幾何（自適應畫布高度與寬度）
+      state.fork.x = Math.max(75, Math.min(115, simRect.width * 0.12));
+      state.fork.topY = Math.max(30, simRect.height * 0.12);
+      state.fork.curveBottomY = simRect.height * 0.70;
+      state.fork.stemBottomY = simRect.height * 0.90;
+      state.fork.prongSpacing = 32;
+      state.fork.prongWidth = 10;
+      state.fork.stemWidth = 13;
+
+      initParticles(simRect.width, simRect.height);
+      updateBadges();
+    }
+
+    window.addEventListener('resize', resizeCanvases);
+
+    /* ============================================================
+     * 4. Web Audio API 音訊合成器 (生成對應音叉頻率純音)
+     * ============================================================ */
+    let audioCtx = null;
+    let oscNode = null;
+    let gainNode = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        oscNode = audioCtx.createOscillator();
+        gainNode = audioCtx.createGain();
+
+        // 視覺化模擬頻率 1.5Hz 對應到聽覺頻率 (例如 440Hz 基準音)
+        const audibleFreq = mapSimFreqToAudible(state.frequency);
+        oscNode.type = 'sine';
+        oscNode.frequency.setValueAtTime(audibleFreq, audioCtx.currentTime);
+
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        oscNode.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscNode.start();
+      } catch (e) {
+        console.warn('Audio Context initialization failed', e);
+      }
+    }
+
+    function mapSimFreqToAudible(simF) {
+      // 0.5Hz -> 220Hz (A3), 1.5Hz -> 440Hz (A4), 3.5Hz -> 880Hz (A5)
+      return 220 * Math.pow(2, (simF - 0.5) / 1.5);
+    }
+
+    function updateAudio() {
+      if (!audioCtx || !state.audioEnabled) return;
+      const targetGain = state.isPlaying ? (state.vibeMode === 'decay' ? state.decayEnergy * 0.15 : 0.12) : 0;
+      gainNode.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
+      
+      const audibleFreq = mapSimFreqToAudible(state.frequency);
+      oscNode.frequency.setTargetAtTime(audibleFreq, audioCtx.currentTime, 0.05);
+    }
+
+    /* ============================================================
+     * 5. 物理波動計算核心
+     * ============================================================ */
+    function getWaveParams() {
+      const lambda = state.waveSpeed / state.frequency; // 波長 λ = v / f
+      const k = (2 * Math.PI) / lambda;                 // 空間角波數 k
+      const omega = 2 * Math.PI * state.frequency;      // 時間角頻率 ω
+      return { lambda, k, omega };
+    }
+
+    function calculateDisplacement(x, t) {
+      const { k, omega } = getWaveParams();
+      // 波源以右叉臂的外表面為起點
+      const originX = state.fork.x + state.fork.prongSpacing / 2 + state.fork.prongWidth;
+      const distFromFork = x - originX;
+
+      if (distFromFork < 0) return 0;
+
+      // 波前抵達時間檢查 (若波尚未傳遞至該處，位移為0)
+      const travelTime = distFromFork / state.waveSpeed;
+      if (t < travelTime) return 0;
+
+      // 阻尼衰減係數
+      let currentAmp = state.amplitude;
+      if (state.vibeMode === 'decay') {
+        currentAmp *= state.decayEnergy;
+      }
+
+      // 空間輕微自然阻尼 (球面散開或黏滯)
+      const spatialDamping = Math.exp(-distFromFork * 0.0006);
+
+      // 一維簡諧行波公式：s(x,t) = A * sin(k*x - omega*t)
+      const phase = omega * (t - travelTime);
+      return currentAmp * spatialDamping * Math.sin(phase);
+    }
+
+    // 計算某處的壓力/密度變化量 ΔP ∝ -∂s/∂x
+    function calculatePressure(x, t) {
+      const dx = 1.0;
+      const s1 = calculateDisplacement(x - dx, t);
+      const s2 = calculateDisplacement(x + dx, t);
+      // 負斜率代表質點向中間聚攏 -> 密部 (壓力升高)
+      const strain = (s2 - s1) / (2 * dx);
+      return -strain * 20; // 放大比例尺供繪圖顯示
+    }
+
+    /* ============================================================
+     * 6. 繪圖渲染模組 (音叉、木槌、粒子、波形圖)
+     * ============================================================ */
+    function drawTuningFork(ctx, width, height, currentTipDisp) {
+      const f = state.fork;
+      const leftProngX = f.x - f.prongSpacing / 2 - f.prongWidth / 2;
+      const rightProngX = f.x + f.prongSpacing / 2 + f.prongWidth / 2;
+      const prongLength = f.curveBottomY - f.topY;
+
+      // 金屬叉臂物理變形量（經過剛性縮放，保持金屬質感，振幅約 4~8px）
+      const scaledProngDisp = currentTipDisp * f.visualScale;
+      // 最大可能形變量（用於繪製教科書常見的「振動範圍虛線/包絡」）
+      let maxTipDisp = state.amplitude * f.visualScale;
+      if (state.vibeMode === 'decay') maxTipDisp *= state.decayEnergy;
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetX = 3;
+      ctx.shadowOffsetY = 3;
+
+      // 1. 底座共鳴木座 (Resonance Base Block)
+      const blockW = 54;
+      const blockH = 18;
+      const blockX = f.x - blockW / 2;
+      const blockY = f.stemBottomY;
+      
+      const woodGrad = ctx.createLinearGradient(blockX, blockY, blockX + blockW, blockY + blockH);
+      woodGrad.addColorStop(0, '#78350f');
+      woodGrad.addColorStop(0.5, '#b45309');
+      woodGrad.addColorStop(1, '#451a03');
+      ctx.fillStyle = woodGrad;
+      ctx.beginPath();
+      ctx.roundRect(blockX, blockY, blockW, blockH, 3);
+      ctx.fill();
+
+      // 2. 音叉手柄 (Vertical Stem)
+      const stemGrad = ctx.createLinearGradient(f.x - f.stemWidth / 2, 0, f.x + f.stemWidth / 2, 0);
+      stemGrad.addColorStop(0, '#94a3b8');
+      stemGrad.addColorStop(0.5, '#f8fafc');
+      stemGrad.addColorStop(1, '#475569');
+      ctx.fillStyle = stemGrad;
+      ctx.fillRect(f.x - f.stemWidth / 2, f.curveBottomY + 12, f.stemWidth, f.stemBottomY - f.curveBottomY - 12);
+
+      // 3. 振動極限範圍虛線（物理教材常見標記：顯示音叉來回往復運動之包絡線）
+      if (maxTipDisp > 1.0) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 4]);
+
+        [-maxTipDisp, maxTipDisp].forEach(envDisp => {
+          // 左臂外側輪廓虛線
+          ctx.beginPath();
+          for (let i = 0; i <= 16; i++) {
+            const ratio = i / 16;
+            const y = f.topY + ratio * prongLength;
+            const flex = Math.pow(1 - ratio, 2.2);
+            const x = (f.x - f.prongSpacing / 2 - f.prongWidth) - envDisp * flex;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+
+          // 右臂外側輪廓虛線
+          ctx.beginPath();
+          for (let i = 0; i <= 16; i++) {
+            const ratio = i / 16;
+            const y = f.topY + ratio * prongLength;
+            const flex = Math.pow(1 - ratio, 2.2);
+            const x = (f.x + f.prongSpacing / 2 + f.prongWidth) + envDisp * flex;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        });
+        ctx.restore();
+      }
+
+      // 4. 直立 U 型音叉金屬本體（懸臂樑彈性變形公式）
+      const metalGrad = ctx.createLinearGradient(leftProngX - f.prongWidth, 0, rightProngX + f.prongWidth, 0);
+      metalGrad.addColorStop(0, '#94a3b8');
+      metalGrad.addColorStop(0.2, '#f1f5f9');
+      metalGrad.addColorStop(0.5, '#64748b');
+      metalGrad.addColorStop(0.8, '#f1f5f9');
+      metalGrad.addColorStop(1, '#94a3b8');
+
+      ctx.fillStyle = metalGrad;
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+
+      const steps = 24;
+      const leftOuter = [];
+      const leftInner = [];
+      const rightInner = [];
+      const rightOuter = [];
+
+      for (let i = 0; i <= steps; i++) {
+        const ratio = i / steps; // 0 (頂端) 到 1 (U型根部)
+        const y = f.topY + ratio * prongLength;
+        // 彈性懸臂樑彎曲公式：形變集中在頂部，根部堅固固定 (指數提升至 2.2)
+        const flex = Math.pow(1 - ratio, 2.2);
+        const disp = scaledProngDisp * flex;
+
+        // 左臂：外側與內側 (向左伸展為 -disp)
+        const lBaseX = f.x - f.prongSpacing / 2;
+        leftOuter.push({ x: lBaseX - f.prongWidth - disp, y });
+        leftInner.push({ x: lBaseX - disp, y });
+
+        // 右臂：內側與外側 (向右推擠為 +disp)
+        const rBaseX = f.x + f.prongSpacing / 2;
+        rightInner.push({ x: rBaseX + disp, y });
+        rightOuter.push({ x: rBaseX + f.prongWidth + disp, y });
+      }
+
+      ctx.beginPath();
+      // 從左臂頂部外側開始
+      ctx.moveTo(leftOuter[0].x, leftOuter[0].y);
+      // 左臂頂部平切口
+      ctx.lineTo(leftInner[0].x, leftInner[0].y);
+      // 沿左臂內側向下
+      for (let i = 1; i <= steps; i++) {
+        ctx.lineTo(leftInner[i].x, leftInner[i].y);
+      }
+      // U 型內側圓弧連接到底部並接至右臂內側
+      ctx.quadraticCurveTo(f.x, f.curveBottomY + 12, rightInner[steps].x, rightInner[steps].y);
+      // 沿右臂內側向上
+      for (let i = steps - 1; i >= 0; i--) {
+        ctx.lineTo(rightInner[i].x, rightInner[i].y);
+      }
+      // 右臂頂部平切口
+      ctx.lineTo(rightOuter[0].x, rightOuter[0].y);
+      // 沿右臂外側向下
+      for (let i = 1; i <= steps; i++) {
+        ctx.lineTo(rightOuter[i].x, rightOuter[i].y);
+      }
+      // U 型外側圓弧連接並匯入柄部頂部
+      ctx.quadraticCurveTo(f.x, f.curveBottomY + 28, leftOuter[steps].x, leftOuter[steps].y);
+      // 沿左臂外側向上回到起點
+      for (let i = steps - 1; i >= 0; i--) {
+        ctx.lineTo(leftOuter[i].x, leftOuter[i].y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // 5. 右臂推擠空氣之微能量光暈 (右臂向右推擠產生密部瞬間)
+      if (scaledProngDisp > 0.8) {
+        const tipX = rightOuter[0].x;
+        const tipY = (f.topY + f.curveBottomY) / 2;
+        const rad = Math.abs(scaledProngDisp) * 4.5;
+        const glowGrad = ctx.createRadialGradient(tipX, tipY, 2, tipX + 8, tipY, rad + 18);
+        glowGrad.addColorStop(0, 'rgba(56, 189, 248, 0.4)');
+        glowGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        ctx.fillStyle = glowGrad;
+        ctx.fillRect(tipX - 5, f.topY - 10, rad + 25, prongLength + 20);
+      }
+
+      ctx.restore();
+
+      // 6. 木槌敲擊動畫 (從左側敲擊左臂)
+      if (state.isStriking) {
+        drawMallet(ctx, leftProngX - f.prongWidth, f.topY + prongLength * 0.35, state.strikeAnimProgress);
+      }
+    }
+
+    function drawMallet(ctx, targetX, targetY, progress) {
+      // progress 0 -> 0.35 (揮下敲擊), 0.35 -> 1.0 (迅速彈回)
+      let swingAngle;
+      if (progress < 0.35) {
+        swingAngle = -0.55 + (progress / 0.35) * 0.65;
+      } else {
+        swingAngle = 0.1 - ((progress - 0.35) / 0.65) * 0.65;
+      }
+
+      ctx.save();
+      // 錨點設在左上方，木槌向右下揮擊左叉臂
+      ctx.translate(targetX - 40, targetY - 25);
+      ctx.rotate(swingAngle);
+
+      // 木質槌柄
+      ctx.fillStyle = '#b45309';
+      ctx.fillRect(-6, -65, 8, 70);
+
+      // 橡膠槌頭
+      const rubberGrad = ctx.createLinearGradient(-18, -12, 18, 12);
+      rubberGrad.addColorStop(0, '#334155');
+      rubberGrad.addColorStop(0.5, '#64748b');
+      rubberGrad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = rubberGrad;
+      ctx.beginPath();
+      ctx.roundRect(0, -13, 30, 24, 5);
+      ctx.fill();
+
+      // 接觸瞬間的打擊火花
+      if (progress > 0.3 && progress < 0.45) {
+        ctx.fillStyle = '#fbbf24';
+        for (let i = 0; i < 6; i++) {
+          const sparkAngle = (i / 6) * Math.PI * 2;
+          const dist = 10 + Math.random() * 8;
+          ctx.beginPath();
+          ctx.arc(30 + Math.cos(sparkAngle) * dist, Math.sin(sparkAngle) * dist, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function drawParticles(ctx, width, height) {
+      const { lambda } = getWaveParams();
+      const originX = state.fork.x + state.fork.prongSpacing / 2 + state.fork.prongWidth;
+
+      // 1. 平衡位置基準線 (若開啟)
+      if (state.showEquilibrium) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(71, 85, 105, 0.25)';
+        ctx.setLineDash([4, 6]);
+        ctx.lineWidth = 1;
+
+        TRACER_COLS.forEach(c => {
+          const p = particles.find(pt => pt.col === c && pt.isTracer);
+          if (p) {
+            ctx.beginPath();
+            ctx.moveTo(p.eqX, 20);
+            ctx.lineTo(p.eqX, height - 20);
+            ctx.stroke();
+
+            // 標示平衡位置文字
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`x₀`, p.eqX, height - 8);
+          }
+        });
+        ctx.restore();
+      }
+
+      // 2. 更新與繪製所有空氣質點
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        const disp = calculateDisplacement(p.eqX, state.currentTime);
+        p.disp = disp;
+        p.x = p.eqX + disp + p.jitterX;
+
+        ctx.beginPath();
+        if (p.isTracer) {
+          // 追蹤質點（重點強調）
+          ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#f43f5e';
+          ctx.shadowColor = '#f43f5e';
+          ctx.shadowBlur = 10;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // 質點瞬時位移箭頭
+          if (Math.abs(disp) > 1.5) {
+            ctx.strokeStyle = '#fda4af';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(p.eqX, p.y - 12);
+            ctx.lineTo(p.x, p.y - 12);
+            ctx.stroke();
+
+            // 箭頭端點
+            const arrowDir = Math.sign(disp);
+            ctx.fillStyle = '#fda4af';
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y - 12);
+            ctx.lineTo(p.x - arrowDir * 5, p.y - 16);
+            ctx.lineTo(p.x - arrowDir * 5, p.y - 8);
+            ctx.closePath();
+            ctx.fill();
+          }
+
+        } else {
+          // 一般空氣質點
+          ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2);
+          // 根據局部位移大小略微調整明暗
+          const speedColorRatio = Math.min(1, Math.abs(disp) / (state.amplitude || 1));
+          ctx.fillStyle = `rgba(186, 230, 253, ${0.45 + speedColorRatio * 0.45})`;
+          ctx.fill();
+        }
+      }
+
+      // 3. 疏密部與波長標註（教學註記）
+      if (state.showAnnotations) {
+        drawWaveAnnotations(ctx, width, height, lambda, originX);
+      }
+    }
+
+    function drawWaveAnnotations(ctx, width, height, lambda, originX) {
+      ctx.save();
+      const t = state.currentTime;
+      const { k, omega } = getWaveParams();
+
+      // 沿著水平方向掃描，找出密部 (壓力極大值) 與 疏部 (壓力極小值)
+      let compressions = [];
+      let rarefactions = [];
+
+      for (let x = originX + 30; x < width - 40; x += 4) {
+        const pPrev = calculatePressure(x - 4, t);
+        const pCurr = calculatePressure(x, t);
+        const pNext = calculatePressure(x + 4, t);
+
+        // 局部極大值 (密部)
+        if (pCurr > 1.2 && pCurr > pPrev && pCurr > pNext) {
+          compressions.push(x);
+        }
+        // 局部極小值 (疏部)
+        if (pCurr < -1.2 && pCurr < pPrev && pCurr < pNext) {
+          rarefactions.push(x);
+        }
+      }
+
+      // 標註「密部」
+      compressions.forEach(x => {
+        ctx.fillStyle = 'rgba(52, 211, 153, 0.9)';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('密部 (C)', x, 25);
+        ctx.fillStyle = 'rgba(52, 211, 153, 0.2)';
+        ctx.fillRect(x - 14, 30, 28, 4);
+      });
+
+      // 標註「疏部」
+      rarefactions.forEach(x => {
+        ctx.fillStyle = 'rgba(192, 132, 252, 0.9)';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('疏部 (R)', x, 25);
+        ctx.fillStyle = 'rgba(192, 132, 252, 0.2)';
+        ctx.fillRect(x - 14, 30, 28, 4);
+      });
+
+      // 標註一個完整波長 λ (取前兩個相鄰密部)
+      if (compressions.length >= 2) {
+        const x1 = compressions[0];
+        const x2 = compressions[1];
+        const spanY = height - 26;
+
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        // 雙向箭頭橫線
+        ctx.moveTo(x1, spanY);
+        ctx.lineTo(x2, spanY);
+        // 兩端豎直界線
+        ctx.moveTo(x1, spanY - 6);
+        ctx.lineTo(x1, spanY + 6);
+        ctx.moveTo(x2, spanY - 6);
+        ctx.lineTo(x2, spanY + 6);
+        ctx.stroke();
+
+        // 標註文字
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`波長 λ = ${(x2 - x1).toFixed(0)} px`, (x1 + x2) / 2, spanY - 8);
+      }
+
+      ctx.restore();
+    }
+
+    function drawWaveGraph(ctx, width, height) {
+      ctx.clearRect(0, 0, width, height);
+
+      const originX = state.fork.x + state.fork.prongSpacing / 2 + state.fork.prongWidth;
+      const centerY = height / 2;
+      const endX = width - 20;
+
+      // 1. 座標網格與平衡中心線
+      ctx.save();
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      // 水平中心線
+      ctx.moveTo(originX, centerY);
+      ctx.lineTo(endX, centerY);
+      // 上下參考虛線
+      ctx.moveTo(originX, centerY - 35);
+      ctx.lineTo(endX, centerY - 35);
+      ctx.moveTo(originX, centerY + 35);
+      ctx.lineTo(endX, centerY + 35);
+      ctx.stroke();
+
+      // 零位基準線標註
+      ctx.fillStyle = '#64748b';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('+A, +ΔP', originX - 6, centerY - 31);
+      ctx.fillText('0', originX - 6, centerY + 3);
+      ctx.fillText('-A, -ΔP', originX - 6, centerY + 38);
+
+      // 2. 空氣質點位移曲線 s(x) (天藍色)
+      ctx.beginPath();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.2;
+      let firstPoint = true;
+
+      for (let x = originX; x < endX; x += 2) {
+        const s = calculateDisplacement(x, state.currentTime);
+        const plotY = centerY - s * 0.9; // 縮放適配
+        if (firstPoint) {
+          ctx.moveTo(x, plotY);
+          firstPoint = false;
+        } else {
+          ctx.lineTo(x, plotY);
+        }
+      }
+      ctx.stroke();
+
+      // 3. 壓強擾動曲線 ΔP(x) (琥珀金黃色)
+      ctx.beginPath();
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 3]);
+      firstPoint = true;
+
+      for (let x = originX; x < endX; x += 2) {
+        const p = calculatePressure(x, state.currentTime);
+        const plotY = centerY - p * 3.5;
+        if (firstPoint) {
+          ctx.moveTo(x, plotY);
+          firstPoint = false;
+        } else {
+          ctx.lineTo(x, plotY);
+        }
+      }
+      ctx.stroke();
+      ctx.setLineDash([]); // 恢復實線
+
+      // 4. 對齊標記追蹤質點在圖表上的位置點
+      TRACER_COLS.forEach(c => {
+        const p = particles.find(pt => pt.col === c && pt.isTracer);
+        if (p) {
+          const s = calculateDisplacement(p.eqX, state.currentTime);
+          const py = centerY - s * 0.9;
+
+          ctx.fillStyle = '#f43f5e';
+          ctx.beginPath();
+          ctx.arc(p.eqX, py, 4, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = 'rgba(244, 63, 94, 0.4)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(p.eqX, 0);
+          ctx.lineTo(p.eqX, height);
+          ctx.stroke();
+        }
+      });
+
+      ctx.restore();
+    }
+
+    /* ============================================================
+     * 7. 動畫主循環 (Main Simulation Loop)
+     * ============================================================ */
+    let frameCount = 0;
+    let lastFpsUpdate = 0;
+
+    function animate(timestamp) {
+      if (!state.lastTimestamp) state.lastTimestamp = timestamp;
+      const deltaTime = Math.min((timestamp - state.lastTimestamp) / 1000, 0.1);
+      state.lastTimestamp = timestamp;
+
+      // 計算 FPS
+      frameCount++;
+      if (timestamp - lastFpsUpdate > 500) {
+        const fps = Math.round((frameCount * 1000) / (timestamp - lastFpsUpdate));
+        fpsBadge.innerText = `${fps} FPS`;
+        frameCount = 0;
+        lastFpsUpdate = timestamp;
+      }
+
+      // 更新物理時間
+      if (state.isPlaying) {
+        state.currentTime += deltaTime * state.timeScale;
+
+        // 若處於敲擊衰減模式，計算阻尼減幅
+        if (state.vibeMode === 'decay' && state.decayEnergy > 0.005) {
+          state.decayEnergy *= Math.exp(-deltaTime * 0.45); // 指數衰減
+          updateAudio();
+        }
+
+        // 敲擊木槌動畫推進
+        if (state.isStriking) {
+          state.strikeAnimProgress += deltaTime * 2.8;
+          if (state.strikeAnimProgress >= 1.0) {
+            state.isStriking = false;
+            state.strikeAnimProgress = 0;
+          }
+        }
+      }
+
+      // 計算當前音叉尖端振動位移 (作為聲源輸入)
+      const omega = 2 * Math.PI * state.frequency;
+      let forkAmp = state.amplitude;
+      if (state.vibeMode === 'decay') forkAmp *= state.decayEnergy;
+      const tipDisplacement = forkAmp * Math.sin(omega * state.currentTime);
+
+      // 清除並繪製主畫布
+      const simWidth = simCanvas.getBoundingClientRect().width;
+      const simHeight = simCanvas.getBoundingClientRect().height;
+      simCtx.clearRect(0, 0, simWidth, simHeight);
+
+      // 繪製音叉與木槌
+      drawTuningFork(simCtx, simWidth, simHeight, tipDisplacement);
+
+      // 繪製空氣質點與波動
+      drawParticles(simCtx, simWidth, simHeight);
+
+      // 繪製同步波形圖
+      const graphWidth = graphCanvas.getBoundingClientRect().width;
+      const graphHeight = graphCanvas.getBoundingClientRect().height;
+      drawWaveGraph(graphCtx, graphWidth, graphHeight);
+
+      requestAnimationFrame(animate);
+    }
+
+    /* ============================================================
+     * 8. 介面互動與事件監聽
+     * ============================================================ */
+    function updateBadges() {
+      const { lambda } = getWaveParams();
+      lambdaBadge.innerText = `λ: ${lambda.toFixed(1)} px`;
+    }
+
+    // 敲擊音叉觸發
+    function triggerStrike() {
+      state.isStriking = true;
+      state.strikeAnimProgress = 0;
+      state.decayEnergy = 1.0;
+      if (!state.isPlaying) {
+        togglePlayPause();
+      }
+      if (state.audioEnabled) {
+        initAudio();
+        updateAudio();
+      }
+    }
+
+    btnStrike.addEventListener('click', triggerStrike);
+    simCanvas.addEventListener('click', (e) => {
+      // 點擊音叉或畫面均可擊槌
+      triggerStrike();
+    });
+
+    // 播放 / 暫停
+    function togglePlayPause() {
+      state.isPlaying = !state.isPlaying;
+      if (state.isPlaying) {
+        playIcon.innerHTML = '<path d="M5.75 4.108c-.694-.413-1.75.105-1.75.922v9.94c0 .817 1.056 1.335 1.75.922l8.835-4.97a1.07 1.07 0 000-1.844L5.75 4.108z"/>';
+        playText.innerText = '暫停';
+      } else {
+        playIcon.innerHTML = '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>';
+        playText.innerText = '播放';
+      }
+      updateAudio();
+    }
+    btnPlayPause.addEventListener('click', togglePlayPause);
+
+    // 音訊開關
+    btnAudioToggle.addEventListener('click', () => {
+      state.audioEnabled = !state.audioEnabled;
+      if (state.audioEnabled) {
+        initAudio();
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        audioIcon.classList.remove('text-slate-400');
+        audioIcon.classList.add('text-emerald-400');
+        audioIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />';
+        audioText.innerText = '發聲：開啟';
+      } else {
+        audioIcon.classList.remove('text-emerald-400');
+        audioIcon.classList.add('text-slate-400');
+        audioIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />';
+        audioText.innerText = '發聲：關閉';
+      }
+      updateAudio();
+    });
+
+    // 頻率滑桿
+    freqSlider.addEventListener('input', (e) => {
+      state.frequency = parseFloat(e.target.value);
+      freqVal.innerText = `${state.frequency.toFixed(2)} Hz`;
+      updateBadges();
+      updateAudio();
+    });
+
+    // 振幅滑桿
+    ampSlider.addEventListener('input', (e) => {
+      state.amplitude = parseFloat(e.target.value);
+      ampVal.innerText = `${state.amplitude} px`;
+    });
+
+    // 波速滑桿
+    speedSlider.addEventListener('input', (e) => {
+      state.waveSpeed = parseFloat(e.target.value);
+      speedVal.innerText = `${state.waveSpeed} px/s`;
+      updateBadges();
+    });
+
+    // 振動模式
+    vibeModeSelect.addEventListener('change', (e) => {
+      state.vibeMode = e.target.value;
+      if (state.vibeMode === 'decay') {
+        state.decayEnergy = 1.0;
+      }
+      updateAudio();
+    });
+
+    // 顯示選項
+    chkShowAnnotations.addEventListener('change', (e) => {
+      state.showAnnotations = e.target.checked;
+    });
+
+    chkShowEquilibrium.addEventListener('change', (e) => {
+      state.showEquilibrium = e.target.checked;
+    });
+
+    // 時間流速切換
+    timeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        timeBtns.forEach(b => {
+          b.classList.remove('bg-sky-500', 'text-white', 'font-semibold');
+          b.classList.add('bg-slate-700', 'text-slate-300');
+        });
+        btn.classList.add('bg-sky-500', 'text-white', 'font-semibold');
+        btn.classList.remove('bg-slate-700', 'text-slate-300');
+        state.timeScale = parseFloat(btn.dataset.speed);
+      });
+    });
+
+    // 重設預設值
+    btnResetDefaults.addEventListener('click', () => {
+      state.frequency = 1.5;
+      state.amplitude = 22;
+      state.waveSpeed = 160;
+      state.timeScale = 1.0;
+      state.vibeMode = 'continuous';
+      state.decayEnergy = 1.0;
+      state.showAnnotations = true;
+      state.showEquilibrium = true;
+
+      freqSlider.value = 1.5;
+      ampSlider.value = 22;
+      speedSlider.value = 160;
+      vibeModeSelect.value = 'continuous';
+      chkShowAnnotations.checked = true;
+      chkShowEquilibrium.checked = true;
+
+      freqVal.innerText = '1.50 Hz';
+      ampVal.innerText = '22 px';
+      speedVal.innerText = '160 px/s';
+
+      timeBtns.forEach(b => {
+        if (b.dataset.speed === '1.0') {
+          b.classList.add('bg-sky-500', 'text-white', 'font-semibold');
+          b.classList.remove('bg-slate-700', 'text-slate-300');
+        } else {
+          b.classList.remove('bg-sky-500', 'text-white', 'font-semibold');
+          b.classList.add('bg-slate-700', 'text-slate-300');
+        }
+      });
+
+      updateBadges();
+      updateAudio();
+    });
+
+    // 彈窗說明邏輯
+    function openModal() { infoModal.classList.remove('hidden'); }
+    function closeModal() { infoModal.classList.add('hidden'); }
+    btnInfoModal.addEventListener('click', openModal);
+    btnCloseModal.addEventListener('click', closeModal);
+    btnCloseModalBtn.addEventListener('click', closeModal);
+    infoModal.addEventListener('click', (e) => {
+      if (e.target === infoModal) closeModal();
+    });
+
+    window.onload = function() {
+      resizeCanvases();
+      requestAnimationFrame(animate);
+    };
+  </script>
+
+<!-- 網站導覽：回首頁按鈕 -->
+<a href="index.html" id="lab-home-btn" title="回到實驗室首頁"
+   style="position:fixed;left:12px;bottom:12px;z-index:45;display:flex;align-items:center;gap:6px;
+          padding:8px 14px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font:600 15px/1 system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;
+          text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.85">
+  <span style="font-size:17px">⌂</span>首頁
+</a>
+</body>
+</html>

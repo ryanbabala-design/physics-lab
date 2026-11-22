@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="自然科實驗室">
+<meta name="theme-color" content="#0f172a">
+<title>自然科互動實驗室</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>">
+<style>
+  :root {
+    --bg: #f6f7fb; --card: #ffffff; --ink: #0f172a; --muted: #5b6478; --line: #e3e6ee;
+    --sound: #0e7490; --sound-bg: #e6f6f9;
+    --wave: #6d28d9; --wave-bg: #f1ebfd;
+    --motion: #c2410c; --motion-bg: #fdf0e8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%); color: #fff;
+    padding: 40px 20px 34px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  header h1 { margin: 0 0 8px; font-size: clamp(26px, 4vw, 38px); letter-spacing: .02em; }
+  header p { margin: 0; color: #cbd5e1; font-size: 16px; line-height: 1.6; }
+
+  nav.filters { display: flex; gap: 10px; flex-wrap: wrap; margin: 24px 0 6px; }
+  nav.filters button {
+    font: inherit; font-size: 16px; font-weight: 600; padding: 10px 18px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: #fff; color: var(--muted); cursor: pointer;
+    min-height: 44px;
+  }
+  nav.filters button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  main { padding: 0 20px 48px; }
+  section { margin-top: 26px; }
+  section h2 { font-size: 20px; margin: 0 0 14px; display: flex; align-items: center; gap: 10px; }
+  section h2 .count { font-size: 14px; font-weight: 600; color: var(--muted); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  a.card {
+    display: flex; flex-direction: column; gap: 10px; padding: 18px 18px 16px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    text-decoration: none; color: inherit; min-height: 168px;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  a.card:hover, a.card:focus-visible { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(15,23,42,.10); border-color: #c9cfdc; outline: none; }
+  a.card:active { transform: scale(.98); }
+  .icon {
+    width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-size: 28px;
+  }
+  .card h3 { margin: 0; font-size: 18px; line-height: 1.35; }
+  .card p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--muted); flex: 1; }
+  .tag { align-self: flex-start; font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+
+  .cat-sound .icon, .cat-sound .tag { background: var(--sound-bg); color: var(--sound); }
+  .cat-wave .icon, .cat-wave .tag { background: var(--wave-bg); color: var(--wave); }
+  .cat-motion .icon, .cat-motion .tag { background: var(--motion-bg); color: var(--motion); }
+
+  .tip {
+    margin-top: 34px; padding: 16px 18px; border-radius: 14px; background: #fff; border: 1px dashed #cfd5e2;
+    color: var(--muted); font-size: 15px; line-height: 1.7;
+  }
+  .tip b { color: var(--ink); }
+  footer { text-align: center; color: #8a93a6; font-size: 13px; padding: 0 20px 30px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>🔬 自然科互動實驗室</h1>
+    <p>聲音、波動與力學的互動模擬器。手機、平板、電腦都能直接開啟，點一下卡片就開始實驗。</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <nav class="filters" aria-label="分類篩選">
+    <button type="button" data-filter="all" aria-pressed="true">全部</button>
+    <button type="button" data-filter="sound" aria-pressed="false">🔊 聲音</button>
+    <button type="button" data-filter="wave" aria-pressed="false">〰️ 波動</button>
+    <button type="button" data-filter="motion" aria-pressed="false">🚀 力與運動</button>
+  </nav>
+
+  <div id="sections"></div>
+
+  <div class="tip">
+    <b>💡 使用小提醒</b><br>
+    ・有聲音的實驗室，請先<b>點一下畫面上的播放／開始按鈕</b>才會發聲；iPad 若沒有聲音，請確認側邊靜音開關已關閉、音量已調大。<br>
+    ・高頻聲音請把音量調小，保護聽力。<br>
+    ・在 iPad 的 Safari 按「分享 → 加入主畫面」，就能像 App 一樣從桌面開啟。
+  </div>
+</main>
+
+<footer>自然科教學模擬器</footer>
+
+<script>
+const CATS = {
+  sound:  { name: "聲音", color: "var(--sound)" },
+  wave:   { name: "波動", color: "var(--wave)" },
+  motion: { name: "力與運動", color: "var(--motion)" }
+};
+const SIMS = [
+  { file: "sound-frequency-20k.html", cat: "sound", icon: "🎵", title: "0–20,000 Hz 樂音頻率實驗室", desc: "人類聽覺極限與樂理聲學：從低音到超高頻，聽聽看自己聽得到多高的聲音。" },
+  { file: "sound-spectrum-25k.html", cat: "sound", icon: "📊", title: "0–25,000 Hz 聲波與時頻瀑布圖", desc: "次聲波、可聽聲、超聲波全頻域模擬，用瀑布圖看見聲音的頻率。" },
+  { file: "spectrogram-2d.html", cat: "sound", icon: "🌈", title: "二維聲波時頻瀑布圖實驗室", desc: "看見聲音的響度、音調與音色指紋，比較不同樂器的頻譜。" },
+  { file: "tuning-fork.html", cat: "sound", icon: "🔔", title: "音叉縱波產生教學模型", desc: "音叉臂振動推擠空氣，形成向外傳播的疏密縱波。" },
+  { file: "string-instrument.html", cat: "sound", icon: "🎻", title: "絃樂器聲學互動教學模型", desc: "調整絃長、張力與粗細，觀察絃的振動與音調高低的關係。" },
+  { file: "water-glass-tube.html", cat: "sound", icon: "🧪", title: "裝水玻璃管聲學探究", desc: "敲擊與吹氣為什麼音高變化相反？比較質量負載與空氣柱駐波。" },
+  { file: "bat-echolocation.html", cat: "sound", icon: "🦇", title: "蝙蝠超聲波定位與捕食", desc: "回聲測距、測速與都卜勒效應，搭配追擊運動計算器。" },
+  { file: "transverse-longitudinal.html", cat: "wave", icon: "〰️", title: "橫波與縱波互動教學模型", desc: "視覺化振幅、波長、頻率、週期、波速，以及介質質點的運動。" },
+  { file: "ice-push.html", cat: "motion", icon: "⛸️", title: "冰上兩人互推模擬", desc: "在光滑冰面上互推，體會牛頓第三運動定律與質量、加速度的關係。" },
+  { file: "satellite-orbit.html", cat: "motion", icon: "🛰️", title: "圓周運動與人造衛星軌道", desc: "重力就是向心力：探索圓軌道速度與逃逸速度。" }
+];
+
+const host = document.getElementById("sections");
+for (const [key, cat] of Object.entries(CATS)) {
+  const items = SIMS.filter(s => s.cat === key);
+  if (!items.length) continue;
+  const sec = document.createElement("section");
+  sec.dataset.cat = key;
+  sec.innerHTML = `<h2><span class="dot" style="background:${cat.color}"></span>${cat.name}<span class="count">${items.length} 個</span></h2><div class="grid"></div>`;
+  const grid = sec.querySelector(".grid");
+  for (const s of items) {
+    const a = document.createElement("a");
+    a.className = "card cat-" + key;
+    a.href = s.file;
+    a.innerHTML = `<div class="icon" aria-hidden="true">${s.icon}</div><h3>${s.title}</h3><p>${s.desc}</p><span class="tag">${cat.name}</span>`;
+    grid.appendChild(a);
+  }
+  host.appendChild(sec);
+}
+
+document.querySelectorAll("nav.filters button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const f = btn.dataset.filter;
+    document.querySelectorAll("nav.filters button").forEach(b => b.setAttribute("aria-pressed", b === btn));
+    document.querySelectorAll("#sections section").forEach(sec => { sec.hidden = f !== "all" && sec.dataset.cat !== f; });
+  });
+});
+</script>
+</body>
+</html>

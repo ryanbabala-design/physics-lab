@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>蝙蝠超聲波定位與捕食運動學模擬器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* 自訂滑桿與滾動條樣式 */
+    input[type=range] {
+      accent-color: #38bdf8;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    /* 脈衝漣漪微光效果 */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.05); opacity: 0.4; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .pulsing-border {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white">
+
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"></path>
+            <path d="M12 6a6 6 0 0 1 6 6c0 2-1 3.5-3 5"></path>
+            <path d="M12 10a2 2 0 0 1 2 2"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg md:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            蝙蝠超聲波定位與捕食運算模擬器
+            <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/40 text-cyan-400 font-normal">高中物理探究</span>
+          </h1>
+          <p class="text-xs text-slate-400">雙脈衝測距測速・聲波都卜勒・等速追擊運動學可視化</p>
+        </div>
+      </div>
+
+      <!-- Quick Action Controls -->
+      <div class="flex items-center gap-2">
+        <button id="btn-sound-toggle" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 flex items-center gap-1.5 transition">
+          <svg id="icon-sound" class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+          </svg>
+          <span id="label-sound">音效: 開</span>
+        </button>
+        <button id="btn-reset-default" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+          重置標準參數
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- LEFT COLUMN: Simulation Canvas & Graphs (7 cols) -->
+    <section class="lg:col-span-7 flex flex-col gap-5">
+      
+      <!-- Real-time Physical Canvas View -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col">
+        <div class="px-4 py-2.5 bg-slate-850 border-b border-slate-800/80 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="font-semibold text-slate-200">物理空間實時模擬 (Top-down Kinematic View)</span>
+          </div>
+          <div class="text-slate-400 font-mono-code text-[11px] flex gap-3">
+            <span>時間 <strong id="val-cur-time" class="text-cyan-400">0.00</strong> s</span>
+            <span>蝙蝠 <strong id="val-cur-bat-x" class="text-amber-400">0.0</strong> m</span>
+            <span>飛蛾 <strong id="val-cur-moth-x" class="text-emerald-400">33.0</strong> m</span>
+          </div>
+        </div>
+
+        <div class="relative w-full bg-slate-950 aspect-[16/9] overflow-hidden flex items-center justify-center">
+          <canvas id="simCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+          <!-- Current Stage Status Overlay Overlay -->
+          <div class="absolute top-3 left-3 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-lg px-3 py-1.5 shadow-md flex items-center gap-2 text-xs">
+            <span id="status-badge" class="px-2 py-0.5 rounded font-mono-code font-bold bg-cyan-900/60 text-cyan-300 border border-cyan-500/30">待機</span>
+            <span id="status-description" class="text-slate-300 font-medium">準備發射第一道探測脈衝</span>
+          </div>
+
+          <!-- Playback Controls Floating Bar -->
+          <div class="absolute bottom-3 inset-x-0 mx-auto w-fit bg-slate-900/95 backdrop-blur border border-slate-700 rounded-full px-4 py-1.5 shadow-2xl flex items-center gap-3 text-xs">
+            <button id="btn-play-pause" class="w-8 h-8 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white flex items-center justify-center shadow-lg transition active:scale-95">
+              <svg id="icon-play" class="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <svg id="icon-pause" class="w-4 h-4 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+            <button id="btn-step" title="單步向前 (0.02s)" class="p-1.5 rounded-full hover:bg-slate-800 text-slate-300 hover:text-white transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+            </button>
+            <button id="btn-restart" title="重新開始" class="p-1.5 rounded-full hover:bg-slate-800 text-slate-300 hover:text-white transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+            <div class="h-4 w-px bg-slate-700"></div>
+            <div class="flex items-center gap-1">
+              <span class="text-[11px] text-slate-400">速度:</span>
+              <button data-speed="0.2" class="speed-btn px-2 py-0.5 rounded text-[11px] text-slate-300 hover:bg-slate-800 transition">0.2x</button>
+              <button data-speed="0.5" class="speed-btn px-2 py-0.5 rounded text-[11px] text-slate-300 hover:bg-slate-800 transition">0.5x</button>
+              <button data-speed="1.0" class="speed-btn px-2 py-0.5 rounded text-[11px] bg-cyan-600/40 text-cyan-300 border border-cyan-500/30 transition">1.0x</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Spacetime Diagram (x-t Graph) -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl p-4 flex flex-col">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+            </svg>
+            <h2 class="text-sm font-bold text-slate-200">時空世界線圖 ($x - t$ 運動學時空圖標注)</h2>
+          </div>
+          <div class="text-[11px] text-slate-400 flex items-center gap-3">
+            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-1 bg-amber-400 inline-block rounded"></span>蝙蝠</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-1 bg-emerald-400 inline-block rounded"></span>昆蟲</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-1 bg-cyan-400 inline-block rounded"></span>超聲波去程</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-1 bg-fuchsia-400 inline-block rounded"></span>回聲折返</span>
+          </div>
+        </div>
+
+        <div class="w-full h-56 bg-slate-950 rounded-xl border border-slate-800/80 relative overflow-hidden">
+          <canvas id="graphCanvas" class="w-full h-full block"></canvas>
+        </div>
+        <p class="text-[11px] text-slate-500 mt-2">
+          說明：垂直軸為時間 $t$ (秒)，水平軸為空間位置 $x$ (公尺)。斜率倒數代表速度大小。
+        </p>
+      </div>
+
+    </section>
+
+    <!-- RIGHT COLUMN: Control Parameters & Step-by-Step Interactive Worksheet (5 cols) -->
+    <section class="lg:col-span-5 flex flex-col gap-5">
+      
+      <!-- Interactive Parameter Sliders Card -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+        <h2 class="text-sm font-bold text-slate-200 pb-3 border-b border-slate-800 flex items-center justify-between">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+            物理環境與運動參數調整
+          </span>
+          <span class="text-xs font-normal text-cyan-400 bg-cyan-950/70 border border-cyan-800/50 px-2 py-0.5 rounded">即時重繪聯動</span>
+        </h2>
+
+        <div class="space-y-4 mt-4 text-xs">
+          <!-- Parameter 1: Moth Initial Distance -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="param-x0" class="text-slate-300 font-medium flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>飛蛾初始距離 $x_0$：
+              </label>
+              <div class="font-mono-code font-bold text-emerald-400"><span id="lbl-x0">33.0</span> m</div>
+            </div>
+            <input type="range" id="param-x0" min="15" max="60" step="1" value="33" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+            <div class="flex justify-between text-[10px] text-slate-500 mt-0.5">
+              <span>15 m (近距離)</span>
+              <span>60 m (遠距離)</span>
+            </div>
+          </div>
+
+          <!-- Parameter 2: Moth Velocity -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="param-vm" class="text-slate-300 font-medium flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>飛蛾速度 $v_m$：
+              </label>
+              <div class="font-mono-code font-bold text-emerald-400"><span id="lbl-vm">+10.0</span> m/s <span id="lbl-vm-dir" class="text-[11px] text-slate-400">(遠離)</span></div>
+            </div>
+            <input type="range" id="param-vm" min="-15" max="25" step="1" value="10" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+            <div class="flex justify-between text-[10px] text-slate-500 mt-0.5">
+              <span>-15 m/s (迎面飛來)</span>
+              <span>0 (靜止)</span>
+              <span>+25 m/s (逃離)</span>
+            </div>
+          </div>
+
+          <!-- Parameter 3: Bat Pursuit Velocity -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="param-vb" class="text-slate-300 font-medium flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-400"></span>蝙蝠飛行速度 $v_b$：
+              </label>
+              <div class="font-mono-code font-bold text-amber-400"><span id="lbl-vb">20.0</span> m/s</div>
+            </div>
+            <input type="range" id="param-vb" min="12" max="35" step="1" value="20" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+            <div class="flex justify-between text-[10px] text-slate-500 mt-0.5">
+              <span>12 m/s</span>
+              <span>35 m/s (高速俯衝)</span>
+            </div>
+          </div>
+
+          <!-- Parameter 4: Pulse 2 Emission Interval -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="param-tau-emit" class="text-slate-300 font-medium flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-cyan-400"></span>第二道脈衝發射間隔 $\Delta\tau_{\text{emit}}$：
+              </label>
+              <div class="font-mono-code font-bold text-cyan-400"><span id="lbl-tau-emit">0.33</span> s</div>
+            </div>
+            <input type="range" id="param-tau-emit" min="0.15" max="0.60" step="0.01" value="0.33" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+            <div class="flex justify-between text-[10px] text-slate-500 mt-0.5">
+              <span>0.15 s</span>
+              <span>0.60 s</span>
+            </div>
+          </div>
+
+          <!-- Advanced Collapsible Parameters -->
+          <details class="bg-slate-950/60 rounded-xl p-2.5 border border-slate-800/80">
+            <summary class="cursor-pointer text-slate-400 hover:text-slate-300 font-medium text-[11px] select-none flex items-center justify-between">
+              <span>高級環境常數設定 (聲速、大腦反應延遲)</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="mt-3 space-y-3 pt-2 border-t border-slate-800/60 text-xs">
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <span class="text-slate-400">空氣聲速 $v_s$：</span>
+                  <span class="font-mono-code text-cyan-400"><strong id="lbl-vs">340</strong> m/s</span>
+                </div>
+                <input type="range" id="param-vs" min="300" max="360" step="10" value="340" class="w-full h-1 bg-slate-800 rounded cursor-pointer">
+              </div>
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <span class="text-slate-400">起飛反應時間 $\Delta t_{\text{react}}$：</span>
+                  <span class="font-mono-code text-indigo-400"><strong id="lbl-treact">0.15</strong> s</span>
+                </div>
+                <input type="range" id="param-treact" min="0.05" max="0.30" step="0.05" value="0.15" class="w-full h-1 bg-slate-800 rounded cursor-pointer">
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <!-- Interactive Worksheet & Math Verification Card -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden flex flex-col flex-1">
+        
+        <!-- Tabs Header -->
+        <div class="flex border-b border-slate-800 bg-slate-850 text-xs font-medium">
+          <button id="tab-btn-math" class="flex-1 py-3 px-3 text-center border-b-2 border-cyan-500 text-cyan-400 bg-slate-900/60 flex items-center justify-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+            即時計算與物理推導
+          </button>
+          <button id="tab-btn-quiz" class="flex-1 py-3 px-3 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            學生實戰測驗挑戰
+          </button>
+        </div>
+
+        <!-- TAB 1: Math Derivations Content -->
+        <div id="tab-content-math" class="p-4 space-y-3.5 text-xs text-slate-300 overflow-y-auto max-h-[380px]">
+          
+          <!-- Pulse 1 Summary Box -->
+          <div class="p-3 bg-slate-950/70 border border-slate-800 rounded-xl">
+            <div class="font-bold text-cyan-400 mb-1 flex items-center justify-between">
+              <span>【第一道脈衝】單脈衝測距</span>
+              <span class="text-[10px] text-slate-500 font-mono-code">t_e1 = 0.00s</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mt-2 font-mono-code text-[11px]">
+              <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
+                <span class="text-slate-400 block text-[10px]">回聲接收時刻 $t_{a1}$</span>
+                <span id="calc-ta1" class="text-white font-bold text-sm">0.200</span> s
+              </div>
+              <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
+                <span class="text-slate-400 block text-[10px]">第一次反射距離 $x_1$</span>
+                <span id="calc-x1" class="text-emerald-400 font-bold text-sm">34.00</span> m
+              </div>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-2">
+              計算：$t_{r1} = \frac{t_{a1}}{2} = $ <span id="calc-tr1" class="text-slate-200">0.100</span> s；$x_1 = v_s \cdot t_{r1} = 340 \times t_{r1}$。
+            </div>
+          </div>
+
+          <!-- Pulse 2 & Velocity Deduction Box -->
+          <div class="p-3 bg-slate-950/70 border border-slate-800 rounded-xl">
+            <div class="font-bold text-cyan-400 mb-1 flex items-center justify-between">
+              <span>【第二道脈衝】雙脈衝時差與測速公式</span>
+              <span class="text-[10px] text-slate-500 font-mono-code">t_e2 = <span id="calc-te2-sub">0.33</span>s</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mt-2 font-mono-code text-[11px]">
+              <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
+                <span class="text-slate-400 block text-[10px]">回聲接收時刻 $t_{a2}$</span>
+                <span id="calc-ta2" class="text-white font-bold text-sm">0.550</span> s
+              </div>
+              <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
+                <span class="text-slate-400 block text-[10px]">接收間隔 $\Delta\tau_{\text{recv}}$</span>
+                <span id="calc-tau-recv" class="text-amber-400 font-bold text-sm">0.350</span> s
+              </div>
+            </div>
+            <div class="mt-2.5 p-2 bg-cyan-950/30 border border-cyan-800/40 rounded text-[11px] leading-relaxed">
+              <span class="text-cyan-300 font-bold block mb-1">★ 蝙蝠大腦計算飛蛾速度公式：</span>
+              $$v_m = v_s \cdot \left(\frac{\Delta\tau_{\text{recv}} - \Delta\tau_{\text{emit}}}{\Delta\tau_{\text{recv}} + \Delta\tau_{\text{emit}}}\right)$$
+              代入求得飛蛾速度：<strong id="calc-vm-result" class="text-emerald-300 font-mono-code text-xs">+10.00 m/s</strong>
+            </div>
+          </div>
+
+          <!-- Chase & Catch Summary Box -->
+          <div class="p-3 bg-slate-950/70 border border-slate-800 rounded-xl">
+            <div class="font-bold text-amber-400 mb-1">【追擊與捕獲交會】</div>
+            <div class="space-y-1.5 text-[11px] mt-2 leading-relaxed">
+              <div class="flex justify-between">
+                <span class="text-slate-400">蝙蝠起飛時刻 $t_{\text{takeoff}}$：</span>
+                <span id="calc-ttakeoff" class="font-mono-code text-slate-200">0.700 s</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">起飛瞬間飛蛾位置 $x_m(t_{\text{takeoff}})$：</span>
+                <span id="calc-x-takeoff" class="font-mono-code text-slate-200">40.00 m</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">追捕耗時 $\Delta t_{\text{catch}}$：</span>
+                <span id="calc-dt-catch" class="font-mono-code text-emerald-400 font-bold">4.00 s</span>
+              </div>
+              <div class="flex justify-between border-t border-slate-800/80 pt-1">
+                <span class="text-slate-300 font-semibold">最終捕獲時刻 $t_{\text{total}}$：</span>
+                <span id="calc-total-time" class="font-mono-code text-amber-300 font-bold">4.700 s</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-300 font-semibold">最終捕獲地點 $x_{\text{catch}}$：</span>
+                <span id="calc-total-x" class="font-mono-code text-amber-300 font-bold">80.00 m</span>
+              </div>
+              <div id="calc-catch-warning" class="hidden text-rose-400 font-medium text-[11px] mt-1 bg-rose-950/40 p-2 rounded border border-rose-800/40">
+                ⚠ 蝙蝠追捕速度（$v_b$）小於或等於飛蛾逃逸速度（$v_m$），蝙蝠永遠追不上飛蛾！
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: Student Interactive Quiz Mode -->
+        <div id="tab-content-quiz" class="p-4 space-y-4 text-xs text-slate-300 hidden overflow-y-auto max-h-[380px]">
+          <div class="p-3 bg-indigo-950/30 border border-indigo-800/40 rounded-xl">
+            <span class="text-indigo-300 font-bold block mb-1">任務：扮演蝙蝠大腦進行聲波解算！</span>
+            <p class="text-[11px] text-slate-400">
+              觀察儀表板所提供的已知發射與接收數據，手算求出飛蛾速度與最終交會距離：
+            </p>
+            <div class="mt-2 grid grid-cols-2 gap-2 text-[11px] font-mono-code">
+              <div class="bg-slate-900 p-1.5 rounded">發射 1: 0.00 s</div>
+              <div class="bg-slate-900 p-1.5 rounded">接收 1: <span id="quiz-val-ta1">0.20</span> s</div>
+              <div class="bg-slate-900 p-1.5 rounded">發射 2: <span id="quiz-val-te2">0.33</span> s</div>
+              <div class="bg-slate-900 p-1.5 rounded">接收 2: <span id="quiz-val-ta2">0.55</span> s</div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-slate-300 mb-1 font-medium">問題 1：飛蛾的運動速度 $v_m$ 為多少？ (m/s)</label>
+              <div class="flex gap-2">
+                <input type="number" id="input-ans-vm" placeholder="例如：10.0" step="0.1" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono-code text-xs w-full focus:outline-none focus:border-cyan-500">
+                <button id="btn-check-vm" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-medium transition">驗證</button>
+              </div>
+              <p id="msg-feedback-vm" class="text-[11px] mt-1 hidden"></p>
+            </div>
+
+            <div>
+              <label class="block text-slate-300 mb-1 font-medium">問題 2：蝙蝠起飛後在哪個位置 $x_{\text{catch}}$ 捕獲飛蛾？ (m)</label>
+              <div class="flex gap-2">
+                <input type="number" id="input-ans-xcatch" placeholder="例如：80.0" step="0.5" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono-code text-xs w-full focus:outline-none focus:border-cyan-500">
+                <button id="btn-check-xcatch" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-medium transition">驗證</button>
+              </div>
+              <p id="msg-feedback-xcatch" class="text-[11px] mt-1 hidden"></p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+  </main>
+
+  <script>
+    // Simulation state object
+    const state = {
+      // Physical parameters (adjustable)
+      x0: 33.0,          // Moth initial pos at t=0 (m)
+      vm: 10.0,          // Moth velocity (m/s)
+      vb: 20.0,          // Bat pursuit velocity (m/s)
+      tauEmit: 0.33,     // Interval between pulse 1 & 2 (s)
+      vs: 340.0,         // Speed of sound (m/s)
+      dtReact: 0.15,     // Bat reaction delay after receiving echo 2 (s)
+
+      // Playback state
+      currentTime: 0.0,
+      isPlaying: false,
+      speedMultiplier: 1.0,
+      soundEnabled: true,
+
+      // Pre-calculated physical checkpoints
+      t_e1: 0.0,
+      t_r1: 0.0,
+      t_a1: 0.0,
+      x_r1: 0.0,
+
+      t_e2: 0.33,
+      t_r2: 0.0,
+      t_a2: 0.0,
+      x_r2: 0.0,
+
+      t_takeoff: 0.0,
+      x_takeoff_moth: 0.0,
+      dt_catch: 0.0,
+      t_catch: 0.0,
+      x_catch: 0.0,
+      canCatch: true,
+      maxSimTime: 6.0
+    };
+
+    // Simple Web Audio Sound Generator (No external assets)
+    let audioCtx = null;
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playBeep(freq = 880, duration = 0.08, type = 'sine') {
+      if (!state.soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch (e) {
+        // Audio policy might suppress on unclicked init
+      }
+    }
+
+    // Trigger sound effects based on discrete events
+    const playedSounds = {
+      emit1: false,
+      refl1: false,
+      echo1: false,
+      emit2: false,
+      refl2: false,
+      echo2: false,
+      takeoff: false,
+      catch: false
+    };
+
+    function resetSoundTriggers() {
+      for (const k in playedSounds) playedSounds[k] = false;
+    }
+
+    function recomputePhysics() {
+      state.t_e1 = 0.0;
+      // Pulse 1: vs * t = x0 + vm * t  =>  t_r1 = x0 / (vs - vm)
+      if (state.vs > state.vm) {
+        state.t_r1 = state.x0 / (state.vs - state.vm);
+      } else {
+        state.t_r1 = 999;
+      }
+      state.x_r1 = state.vs * state.t_r1;
+      state.t_a1 = 2 * state.t_r1;
+
+      // Pulse 2: emitted at tauEmit
+      state.t_e2 = state.tauEmit;
+      // vs * (t - t_e2) = x0 + vm * t  =>  t_r2 * (vs - vm) = x0 + vs * t_e2
+      if (state.vs > state.vm) {
+        state.t_r2 = (state.x0 + state.vs * state.t_e2) / (state.vs - state.vm);
+      } else {
+        state.t_r2 = 999;
+      }
+      state.x_r2 = state.x0 + state.vm * state.t_r2;
+      state.t_a2 = state.t_r2 + (state.x_r2 / state.vs);
+
+      // Reaction & takeoff
+      state.t_takeoff = state.t_a2 + state.dtReact;
+      state.x_takeoff_moth = state.x0 + state.vm * state.t_takeoff;
+
+      // Pursuit
+      if (state.vb > state.vm) {
+        state.canCatch = true;
+        // vb * dt_catch = x_takeoff_moth + vm * dt_catch
+        state.dt_catch = state.x_takeoff_moth / (state.vb - state.vm);
+        state.t_catch = state.t_takeoff + state.dt_catch;
+        state.x_catch = state.vb * state.dt_catch;
+      } else {
+        state.canCatch = false;
+        state.dt_catch = Infinity;
+        state.t_catch = Infinity;
+        state.x_catch = Infinity;
+      }
+
+      state.maxSimTime = state.canCatch ? Math.min(Math.max(state.t_catch + 0.8, 3.5), 10.0) : 6.0;
+
+      updateMathView();
+    }
+
+    function updateMathView() {
+      // Pulse 1
+      document.getElementById('calc-ta1').textContent = state.t_a1.toFixed(3);
+      document.getElementById('calc-x1').textContent = state.x_r1.toFixed(2);
+      document.getElementById('calc-tr1').textContent = state.t_r1.toFixed(3);
+
+      // Pulse 2
+      document.getElementById('calc-te2-sub').textContent = state.t_e2.toFixed(2);
+      document.getElementById('calc-ta2').textContent = state.t_a2.toFixed(3);
+      const deltaRecv = state.t_a2 - state.t_a1;
+      document.getElementById('calc-tau-recv').textContent = deltaRecv.toFixed(3);
+
+      const deducedVm = state.vs * ((deltaRecv - state.tauEmit) / (deltaRecv + state.tauEmit));
+      const vmSign = deducedVm >= 0 ? '+' : '';
+      document.getElementById('calc-vm-result').textContent = `${vmSign}${deducedVm.toFixed(2)} m/s`;
+
+      // Pursuit
+      document.getElementById('calc-ttakeoff').textContent = state.t_takeoff.toFixed(3) + ' s';
+      document.getElementById('calc-x-takeoff').textContent = state.x_takeoff_moth.toFixed(2) + ' m';
+
+      const warningEl = document.getElementById('calc-catch-warning');
+      if (state.canCatch) {
+        warningEl.classList.add('hidden');
+        document.getElementById('calc-dt-catch').textContent = state.dt_catch.toFixed(2) + ' s';
+        document.getElementById('calc-total-time').textContent = state.t_catch.toFixed(3) + ' s';
+        document.getElementById('calc-total-x').textContent = state.x_catch.toFixed(2) + ' m';
+      } else {
+        warningEl.classList.remove('hidden');
+        document.getElementById('calc-dt-catch').textContent = '無法捕獲 (∞)';
+        document.getElementById('calc-total-time').textContent = '無法捕獲';
+        document.getElementById('calc-total-x').textContent = '無法捕獲';
+      }
+
+      // Quiz references
+      document.getElementById('quiz-val-ta1').textContent = state.t_a1.toFixed(2);
+      document.getElementById('quiz-val-te2').textContent = state.t_e2.toFixed(2);
+      document.getElementById('quiz-val-ta2').textContent = state.t_a2.toFixed(2);
+    }
+
+    function getBatPos(t) {
+      if (t < state.t_takeoff) return 0;
+      if (state.canCatch && t >= state.t_catch) return state.x_catch;
+      return state.vb * (t - state.t_takeoff);
+    }
+
+    function getMothPos(t) {
+      if (state.canCatch && t >= state.t_catch) return state.x_catch;
+      return state.x0 + state.vm * t;
+    }
+
+    // Get sound wave head position at time t
+    function getWavePositions(t) {
+      const waves = [];
+      // Wave 1
+      if (t >= state.t_e1) {
+        if (t <= state.t_r1) {
+          // Going out
+          waves.push({ id: 1, type: 'out', x: state.vs * (t - state.t_e1), originX: 0 });
+        } else if (t <= state.t_a1) {
+          // Reflected back
+          waves.push({ id: 1, type: 'echo', x: state.x_r1 - state.vs * (t - state.t_r1), originX: state.x_r1 });
+        }
+      }
+      // Wave 2
+      if (t >= state.t_e2) {
+        if (t <= state.t_r2) {
+          // Going out
+          waves.push({ id: 2, type: 'out', x: state.vs * (t - state.t_e2), originX: 0 });
+        } else if (t <= state.t_a2) {
+          // Reflected back
+          waves.push({ id: 2, type: 'echo', x: state.x_r2 - state.vs * (t - state.t_r2), originX: state.x_r2 });
+        }
+      }
+      return waves;
+    }
+
+    const simCanvas = document.getElementById('simCanvas');
+    const simCtx = simCanvas.getContext('2d');
+
+    function resizeSimCanvas() {
+      const rect = simCanvas.parentElement.getBoundingClientRect();
+      simCanvas.width = rect.width * window.devicePixelRatio;
+      simCanvas.height = rect.height * window.devicePixelRatio;
+      simCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    function drawPhysicalSim(t) {
+      const w = simCanvas.width / window.devicePixelRatio;
+      const h = simCanvas.height / window.devicePixelRatio;
+
+      simCtx.clearRect(0, 0, w, h);
+
+      // Determine viewport scale: fit from -5m to (max(x_catch, 60m) + 15m)
+      const maxX = state.canCatch && state.x_catch !== Infinity ? Math.max(state.x_catch, 70) + 10 : 90;
+      const minX = -8;
+      const meterToPx = (w - 70) / (maxX - minX);
+
+      function toScreenX(xm) {
+        return 40 + (xm - minX) * meterToPx;
+      }
+
+      const centerY = h * 0.52;
+
+      // 1. Draw Distance Grid and Tick Marks
+      simCtx.strokeStyle = '#1e293b';
+      simCtx.lineWidth = 1;
+      simCtx.fillStyle = '#64748b';
+      simCtx.font = '10px JetBrains Mono';
+      simCtx.textAlign = 'center';
+
+      // Background tracking runway line
+      simCtx.beginPath();
+      simCtx.moveTo(toScreenX(minX), centerY);
+      simCtx.lineTo(toScreenX(maxX), centerY);
+      simCtx.strokeStyle = '#334155';
+      simCtx.stroke();
+
+      for (let xm = 0; xm <= maxX; xm += 10) {
+        const sx = toScreenX(xm);
+        simCtx.beginPath();
+        simCtx.moveTo(sx, centerY - 12);
+        simCtx.lineTo(sx, centerY + 12);
+        simCtx.strokeStyle = xm === 0 ? '#6366f1' : '#334155';
+        simCtx.lineWidth = xm === 0 ? 2 : 1;
+        simCtx.stroke();
+
+        simCtx.fillText(`${xm}m`, sx, centerY + 25);
+      }
+
+      // 2. Sound Wavefronts (Ripples)
+      const waves = getWavePositions(t);
+      waves.forEach(wObj => {
+        const sx = toScreenX(wObj.x);
+        simCtx.save();
+        simCtx.lineWidth = 2.5;
+
+        if (wObj.type === 'out') {
+          // Outgoing pulse (cyan arc)
+          simCtx.strokeStyle = wObj.id === 1 ? '#38bdf8' : '#67e8f9';
+          simCtx.beginPath();
+          simCtx.arc(sx, centerY, 32, -Math.PI / 3, Math.PI / 3);
+          simCtx.stroke();
+
+          // Second echo aura
+          simCtx.lineWidth = 1;
+          simCtx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+          simCtx.beginPath();
+          simCtx.arc(sx - 8, centerY, 24, -Math.PI / 3, Math.PI / 3);
+          simCtx.stroke();
+        } else {
+          // Reflected echo (fuchsia / pink arc going leftwards)
+          simCtx.strokeStyle = wObj.id === 1 ? '#e879f9' : '#f472b6';
+          simCtx.beginPath();
+          simCtx.arc(sx, centerY, 28, (2 * Math.PI) / 3, (4 * Math.PI) / 3);
+          simCtx.stroke();
+        }
+        simCtx.restore();
+      });
+
+      // 3. Bat & Moth positions
+      const batX = getBatPos(t);
+      const mothX = getMothPos(t);
+      const batSX = toScreenX(batX);
+      const mothSX = toScreenX(mothX);
+
+      // Sound triggers on milestones
+      if (t >= state.t_e1 && !playedSounds.emit1) { playBeep(700, 0.09, 'sine'); playedSounds.emit1 = true; }
+      if (t >= state.t_r1 && !playedSounds.refl1) { playBeep(920, 0.05, 'triangle'); playedSounds.refl1 = true; }
+      if (t >= state.t_a1 && !playedSounds.echo1) { playBeep(1100, 0.08, 'sine'); playedSounds.echo1 = true; }
+
+      if (t >= state.t_e2 && !playedSounds.emit2) { playBeep(750, 0.09, 'sine'); playedSounds.emit2 = true; }
+      if (t >= state.t_r2 && !playedSounds.refl2) { playBeep(980, 0.05, 'triangle'); playedSounds.refl2 = true; }
+      if (t >= state.t_a2 && !playedSounds.echo2) { playBeep(1200, 0.08, 'sine'); playedSounds.echo2 = true; }
+
+      if (t >= state.t_takeoff && !playedSounds.takeoff) { playBeep(450, 0.15, 'sawtooth'); playedSounds.takeoff = true; }
+      if (state.canCatch && t >= state.t_catch && !playedSounds.catch) { playBeep(880, 0.3, 'square'); playedSounds.catch = true; }
+
+      // Draw Moth (Emerald insect icon)
+      simCtx.save();
+      simCtx.translate(mothSX, centerY);
+      // Wing flapping animation
+      const wingFlutter = Math.sin(t * 40) * 8;
+      simCtx.fillStyle = '#34d399';
+      // Moth wings
+      simCtx.beginPath();
+      simCtx.ellipse(-4, -6 - wingFlutter * 0.3, 7, 10 + wingFlutter * 0.5, -0.4, 0, Math.PI * 2);
+      simCtx.fill();
+      simCtx.beginPath();
+      simCtx.ellipse(-4, 6 + wingFlutter * 0.3, 7, 10 + wingFlutter * 0.5, 0.4, 0, Math.PI * 2);
+      simCtx.fill();
+      // Moth body
+      simCtx.fillStyle = '#10b981';
+      simCtx.beginPath();
+      simCtx.ellipse(0, 0, 8, 3.5, 0, 0, Math.PI * 2);
+      simCtx.fill();
+      simCtx.restore();
+
+      // Moth label
+      simCtx.font = '11px Inter, sans-serif';
+      simCtx.fillStyle = '#6ee7b7';
+      simCtx.textAlign = 'center';
+      simCtx.fillText(`飛蛾 (${mothX.toFixed(1)}m)`, mothSX, centerY - 24);
+
+      // Draw Bat (Amber Bat icon)
+      simCtx.save();
+      simCtx.translate(batSX, centerY);
+      const isFlying = t >= state.t_takeoff;
+      const batWingFlap = isFlying ? Math.sin(t * 22) * 12 : 0;
+
+      // Bat wings
+      simCtx.fillStyle = '#fbbf24';
+      simCtx.beginPath();
+      simCtx.moveTo(0, 0);
+      simCtx.quadraticCurveTo(-15, -18 - batWingFlap, -30, -5 - batWingFlap * 0.4);
+      simCtx.quadraticCurveTo(-15, 0, 0, 0);
+      simCtx.fill();
+
+      simCtx.beginPath();
+      simCtx.moveTo(0, 0);
+      simCtx.quadraticCurveTo(-15, 18 + batWingFlap, -30, 5 + batWingFlap * 0.4);
+      simCtx.quadraticCurveTo(-15, 0, 0, 0);
+      simCtx.fill();
+
+      // Bat head & ears
+      simCtx.fillStyle = '#f59e0b';
+      simCtx.beginPath();
+      simCtx.arc(4, 0, 7, 0, Math.PI * 2);
+      simCtx.fill();
+      // Ears
+      simCtx.beginPath();
+      simCtx.moveTo(6, -6);
+      simCtx.lineTo(12, -10);
+      simCtx.lineTo(9, -2);
+      simCtx.fill();
+      simCtx.beginPath();
+      simCtx.moveTo(6, 6);
+      simCtx.lineTo(12, 10);
+      simCtx.lineTo(9, 2);
+      simCtx.fill();
+      simCtx.restore();
+
+      // Bat label
+      simCtx.font = '11px Inter, sans-serif';
+      simCtx.fillStyle = '#fcd34d';
+      simCtx.textAlign = 'center';
+      simCtx.fillText(`蝙蝠 (${batX.toFixed(1)}m)`, batSX, centerY + 38);
+
+      // 4. Catch Interception Fireworks / Indicator
+      if (state.canCatch && t >= state.t_catch) {
+        simCtx.save();
+        simCtx.strokeStyle = '#f59e0b';
+        simCtx.lineWidth = 3;
+        simCtx.setLineDash([4, 4]);
+        simCtx.beginPath();
+        simCtx.arc(toScreenX(state.x_catch), centerY, 24, 0, Math.PI * 2);
+        simCtx.stroke();
+        simCtx.restore();
+
+        simCtx.font = 'bold 12px Inter';
+        simCtx.fillStyle = '#fde047';
+        simCtx.textAlign = 'center';
+        simCtx.fillText('★ 成功捕獲！', toScreenX(state.x_catch), centerY - 32);
+      }
+
+      // Update digital readout top labels
+      document.getElementById('val-cur-time').textContent = t.toFixed(2);
+      document.getElementById('val-cur-bat-x').textContent = batX.toFixed(1);
+      document.getElementById('val-cur-moth-x').textContent = mothX.toFixed(1);
+
+      updateStatusBadge(t);
+    }
+
+    function updateStatusBadge(t) {
+      const badge = document.getElementById('status-badge');
+      const desc = document.getElementById('status-description');
+
+      if (t < state.t_r1) {
+        badge.className = 'px-2 py-0.5 rounded font-mono-code font-bold bg-cyan-900/60 text-cyan-300 border border-cyan-500/30';
+        badge.textContent = '脈衝 1 去程';
+        desc.textContent = `超聲波朝飛蛾飛行中... (vs = ${state.vs} m/s)`;
+      } else if (t < state.t_a1) {
+        badge.className = 'px-2 py-0.5 rounded font-mono-code font-bold bg-fuchsia-900/60 text-fuchsia-300 border border-fuchsia-500/30';
+        badge.textContent = '回聲 1 折返';
+        desc.textContent = `第一次反射點 x1 = ${state.x_r1.toFixed(1)} m，回聲傳回蝙蝠耳朵中`;
+      } else if (t < state.t_e2) {
+        badge.className = 'px-2 py-0.5 rounded font-mono-code font-bold bg-slate-800 text-slate-300 border border-slate-700';
+        badge.textContent = '發射間隔等待';
+        desc.textContent = `蝙蝠已收到回聲 1 (ta1=${state.t_a1.toFixed(2)}s)，等待發射下一道脈衝`;
+      } else if (t < state.t_r2) {
+        badge.className = 'px-2 py-0.5 rounded font-mono-code font-bold bg-cyan-900/60 text-cyan-300 border border-cyan-500/30';
+        badge.textContent = '脈衝 2 去程';
+        desc.textContent = `第二道超聲波脈衝於 te2=${state.t_e2.toFixed(2)}s 發射`;
+      } else if (t < state.t_a2) {
+        badge.className = 'px-2 py-0.5 rounded font-mono-code font-bold bg-fuchsia-900/60 text-fuchsia-300 border border-fuchsia-500/30';
+        badge.textContent = '回聲 2 折返';
+        desc.textContent = `第二次反射點 x2 = ${state.x_r2.toFixed(1)} m，正在折返`;
+      } else if (t < state.t_takeoff) {
+        badge.className = 'px-2 py-0.5 rounded font-mono-code font-bold bg-indigo-900/60 text-indigo-300 border border-indigo-500/30';
+        badge.textContent = '神經反應處理中';
+        desc.textContent = `計算完成！推導出飛蛾速度 vm=${state.vm} m/s，起飛決策準備中...`;
+      } else if (state.canCatch && t >= state.t_catch) {
+        badge.className = 'px-2 py-0.5 rounded font-mono-code font-bold bg-emerald-900/60 text-emerald-300 border border-emerald-500/30';
+        badge.textContent = '捕獲成功！';
+        desc.textContent = `歷時 ${state.t_catch.toFixed(2)} 秒，於距離 ${state.x_catch.toFixed(1)} m 處成功攔截！`;
+      } else {
+        badge.className = 'px-2 py-0.5 rounded font-mono-code font-bold bg-amber-900/60 text-amber-300 border border-amber-500/30';
+        badge.textContent = '等速追擊中';
+        desc.textContent = `蝙蝠以 vb=${state.vb} m/s 追趕飛蛾 (相對速度 ${(state.vb - state.vm).toFixed(1)} m/s)`;
+      }
+    }
+
+    const graphCanvas = document.getElementById('graphCanvas');
+    const graphCtx = graphCanvas.getContext('2d');
+
+    function resizeGraphCanvas() {
+      const rect = graphCanvas.parentElement.getBoundingClientRect();
+      graphCanvas.width = rect.width * window.devicePixelRatio;
+      graphCanvas.height = rect.height * window.devicePixelRatio;
+      graphCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    function drawSpacetimeGraph() {
+      const w = graphCanvas.width / window.devicePixelRatio;
+      const h = graphCanvas.height / window.devicePixelRatio;
+      graphCtx.clearRect(0, 0, w, h);
+
+      const padL = 40, padR = 25, padT = 20, padB = 30;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+
+      const maxX = state.canCatch && state.x_catch !== Infinity ? Math.max(state.x_catch, 70) + 15 : 90;
+      const maxT = state.maxSimTime;
+
+      function mapX(xVal) {
+        return padL + (xVal / maxX) * plotW;
+      }
+      function mapT(tVal) {
+        // Vertical axis: t (0 at bottom, maxT at top)
+        return padT + plotH - (tVal / maxT) * plotH;
+      }
+
+      // 1. Grid & Axes
+      graphCtx.strokeStyle = '#1e293b';
+      graphCtx.lineWidth = 1;
+
+      // X grid (position)
+      graphCtx.font = '9px JetBrains Mono';
+      graphCtx.fillStyle = '#64748b';
+      graphCtx.textAlign = 'center';
+      for (let xm = 0; xm <= maxX; xm += 20) {
+        const sx = mapX(xm);
+        graphCtx.beginPath();
+        graphCtx.moveTo(sx, padT);
+        graphCtx.lineTo(sx, padT + plotH);
+        graphCtx.stroke();
+        graphCtx.fillText(`${xm}m`, sx, padT + plotH + 15);
+      }
+
+      // T grid (time)
+      graphCtx.textAlign = 'right';
+      for (let tm = 0; tm <= maxT; tm += 1.0) {
+        const sy = mapT(tm);
+        graphCtx.beginPath();
+        graphCtx.moveTo(padL, sy);
+        graphCtx.lineTo(padL + plotW, sy);
+        graphCtx.stroke();
+        graphCtx.fillText(`${tm.toFixed(0)}s`, padL - 6, sy + 3);
+      }
+
+      // Main Axes
+      graphCtx.strokeStyle = '#475569';
+      graphCtx.lineWidth = 1.5;
+      graphCtx.beginPath();
+      graphCtx.moveTo(padL, padT);
+      graphCtx.lineTo(padL, padT + plotH);
+      graphCtx.lineTo(padL + plotW, padT + plotH);
+      graphCtx.stroke();
+
+      // Axis labels
+      graphCtx.fillStyle = '#94a3b8';
+      graphCtx.fillText('t (s)', padL - 8, padT + 2);
+      graphCtx.fillText('x (m)', padL + plotW, padT + plotH + 20);
+
+      // 2. Sound Pulse 1 Trajectory
+      graphCtx.lineWidth = 1.5;
+      // Outgoing: (0, 0) -> (x_r1, t_r1)
+      graphCtx.strokeStyle = '#38bdf8';
+      graphCtx.beginPath();
+      graphCtx.moveTo(mapX(0), mapT(0));
+      graphCtx.lineTo(mapX(state.x_r1), mapT(state.t_r1));
+      graphCtx.stroke();
+      // Reflected: (x_r1, t_r1) -> (0, t_a1)
+      graphCtx.strokeStyle = '#e879f9';
+      graphCtx.setLineDash([3, 3]);
+      graphCtx.beginPath();
+      graphCtx.moveTo(mapX(state.x_r1), mapT(state.t_r1));
+      graphCtx.lineTo(mapX(0), mapT(state.t_a1));
+      graphCtx.stroke();
+      graphCtx.setLineDash([]);
+
+      // 3. Sound Pulse 2 Trajectory
+      graphCtx.strokeStyle = '#38bdf8';
+      graphCtx.beginPath();
+      graphCtx.moveTo(mapX(0), mapT(state.t_e2));
+      graphCtx.lineTo(mapX(state.x_r2), mapT(state.t_r2));
+      graphCtx.stroke();
+
+      graphCtx.strokeStyle = '#e879f9';
+      graphCtx.setLineDash([3, 3]);
+      graphCtx.beginPath();
+      graphCtx.moveTo(mapX(state.x_r2), mapT(state.t_r2));
+      graphCtx.lineTo(mapX(0), mapT(state.t_a2));
+      graphCtx.stroke();
+      graphCtx.setLineDash([]);
+
+      // 4. Moth Worldline (Emerald line)
+      graphCtx.strokeStyle = '#34d399';
+      graphCtx.lineWidth = 2.5;
+      graphCtx.beginPath();
+      const endMothT = state.canCatch ? state.t_catch : maxT;
+      graphCtx.moveTo(mapX(state.x0), mapT(0));
+      graphCtx.lineTo(mapX(state.x0 + state.vm * endMothT), mapT(endMothT));
+      graphCtx.stroke();
+
+      // 5. Bat Worldline (Amber line)
+      graphCtx.strokeStyle = '#fbbf24';
+      graphCtx.lineWidth = 2.5;
+      graphCtx.beginPath();
+      // At rest at x=0 until takeoff
+      graphCtx.moveTo(mapX(0), mapT(0));
+      graphCtx.lineTo(mapX(0), mapT(state.t_takeoff));
+      // Moving at vb
+      const endBatT = state.canCatch ? state.t_catch : maxT;
+      const endBatX = state.vb * (endBatT - state.t_takeoff);
+      graphCtx.lineTo(mapX(endBatX), mapT(endBatT));
+      graphCtx.stroke();
+
+      // Intercept dot
+      if (state.canCatch) {
+        graphCtx.fillStyle = '#f59e0b';
+        graphCtx.beginPath();
+        graphCtx.arc(mapX(state.x_catch), mapT(state.t_catch), 5, 0, Math.PI * 2);
+        graphCtx.fill();
+        graphCtx.font = 'bold 9px JetBrains Mono';
+        graphCtx.fillText(`(${state.x_catch.toFixed(1)}m, ${state.t_catch.toFixed(2)}s)`, mapX(state.x_catch) + 5, mapT(state.t_catch) - 6);
+      }
+
+      // 6. Current Time Indicator Bar
+      const curT_Y = mapT(state.currentTime);
+      if (curT_Y >= padT && curT_Y <= padT + plotH) {
+        graphCtx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+        graphCtx.lineWidth = 1;
+        graphCtx.setLineDash([2, 2]);
+        graphCtx.beginPath();
+        graphCtx.moveTo(padL, curT_Y);
+        graphCtx.lineTo(padL + plotW, curT_Y);
+        graphCtx.stroke();
+        graphCtx.setLineDash([]);
+      }
+    }
+
+    let lastTimestamp = 0;
+
+    function animLoop(timestamp) {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const deltaSec = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
+      if (state.isPlaying) {
+        const timeLimit = state.canCatch ? state.t_catch + 0.6 : state.maxSimTime;
+        state.currentTime += deltaSec * state.speedMultiplier;
+
+        if (state.currentTime >= timeLimit) {
+          state.currentTime = timeLimit;
+          state.isPlaying = false;
+          updatePlayPauseButton();
+        }
+      }
+
+      drawPhysicalSim(state.currentTime);
+      drawSpacetimeGraph();
+
+      requestAnimationFrame(animLoop);
+    }
+
+    function updatePlayPauseButton() {
+      const playIcon = document.getElementById('icon-play');
+      const pauseIcon = document.getElementById('icon-pause');
+      if (state.isPlaying) {
+        playIcon.classList.add('hidden');
+        pauseIcon.classList.remove('hidden');
+      } else {
+        playIcon.classList.remove('hidden');
+        pauseIcon.classList.add('hidden');
+      }
+    }
+
+    function attachEventListeners() {
+      // Sliders
+      const paramX0 = document.getElementById('param-x0');
+      const paramVm = document.getElementById('param-vm');
+      const paramVb = document.getElementById('param-vb');
+      const paramTauEmit = document.getElementById('param-tau-emit');
+      const paramVs = document.getElementById('param-vs');
+      const paramTReact = document.getElementById('param-treact');
+
+      function onParamChange() {
+        state.x0 = parseFloat(paramX0.value);
+        state.vm = parseFloat(paramVm.value);
+        state.vb = parseFloat(paramVb.value);
+        state.tauEmit = parseFloat(paramTauEmit.value);
+        state.vs = parseFloat(paramVs.value);
+        state.dtReact = parseFloat(paramTReact.value);
+
+        // Update labels
+        document.getElementById('lbl-x0').textContent = state.x0.toFixed(1);
+        document.getElementById('lbl-vm').textContent = (state.vm >= 0 ? '+' : '') + state.vm.toFixed(1);
+        document.getElementById('lbl-vm-dir').textContent = state.vm > 0 ? '(遠離)' : state.vm < 0 ? '(靠近)' : '(靜止)';
+        document.getElementById('lbl-vb').textContent = state.vb.toFixed(1);
+        document.getElementById('lbl-tau-emit').textContent = state.tauEmit.toFixed(2);
+        document.getElementById('lbl-vs').textContent = state.vs.toFixed(0);
+        document.getElementById('lbl-treact').textContent = state.dtReact.toFixed(2);
+
+        recomputePhysics();
+        resetSoundTriggers();
+        // Reset current time if past duration
+        if (state.currentTime > state.maxSimTime) {
+          state.currentTime = 0;
+        }
+      }
+
+      paramX0.addEventListener('input', onParamChange);
+      paramVm.addEventListener('input', onParamChange);
+      paramVb.addEventListener('input', onParamChange);
+      paramTauEmit.addEventListener('input', onParamChange);
+      paramVs.addEventListener('input', onParamChange);
+      paramTReact.addEventListener('input', onParamChange);
+
+      // Playback Buttons
+      document.getElementById('btn-play-pause').addEventListener('click', () => {
+        if (!state.isPlaying && state.currentTime >= (state.canCatch ? state.t_catch + 0.5 : state.maxSimTime)) {
+          state.currentTime = 0.0;
+          resetSoundTriggers();
+        }
+        state.isPlaying = !state.isPlaying;
+        updatePlayPauseButton();
+      });
+
+      document.getElementById('btn-restart').addEventListener('click', () => {
+        state.currentTime = 0.0;
+        resetSoundTriggers();
+      });
+
+      document.getElementById('btn-step').addEventListener('click', () => {
+        state.isPlaying = false;
+        updatePlayPauseButton();
+        state.currentTime = Math.min(state.currentTime + 0.04, state.maxSimTime);
+      });
+
+      // Speed Buttons
+      document.querySelectorAll('.speed-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.speed-btn').forEach(b => {
+            b.className = 'speed-btn px-2 py-0.5 rounded text-[11px] text-slate-300 hover:bg-slate-800 transition';
+          });
+          e.target.className = 'speed-btn px-2 py-0.5 rounded text-[11px] bg-cyan-600/40 text-cyan-300 border border-cyan-500/30 transition';
+          state.speedMultiplier = parseFloat(e.target.getAttribute('data-speed'));
+        });
+      });
+
+      // Sound toggle
+      document.getElementById('btn-sound-toggle').addEventListener('click', () => {
+        state.soundEnabled = !state.soundEnabled;
+        const lbl = document.getElementById('label-sound');
+        const icon = document.getElementById('icon-sound');
+        if (state.soundEnabled) {
+          lbl.textContent = '音效: 開';
+          icon.classList.remove('text-slate-500');
+          icon.classList.add('text-cyan-400');
+        } else {
+          lbl.textContent = '音效: 關';
+          icon.classList.remove('text-cyan-400');
+          icon.classList.add('text-slate-500');
+        }
+      });
+
+      // Reset standard default button
+      document.getElementById('btn-reset-default').addEventListener('click', () => {
+        paramX0.value = 33;
+        paramVm.value = 10;
+        paramVb.value = 20;
+        paramTauEmit.value = 0.33;
+        paramVs.value = 340;
+        paramTReact.value = 0.15;
+        state.currentTime = 0;
+        state.isPlaying = false;
+        updatePlayPauseButton();
+        onParamChange();
+      });
+
+      // Tabs switching
+      const tabBtnMath = document.getElementById('tab-btn-math');
+      const tabBtnQuiz = document.getElementById('tab-btn-quiz');
+      const tabContentMath = document.getElementById('tab-content-math');
+      const tabContentQuiz = document.getElementById('tab-content-quiz');
+
+      tabBtnMath.addEventListener('click', () => {
+        tabBtnMath.className = 'flex-1 py-3 px-3 text-center border-b-2 border-cyan-500 text-cyan-400 bg-slate-900/60 flex items-center justify-center gap-1.5 transition';
+        tabBtnQuiz.className = 'flex-1 py-3 px-3 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition';
+        tabContentMath.classList.remove('hidden');
+        tabContentQuiz.classList.add('hidden');
+      });
+
+      tabBtnQuiz.addEventListener('click', () => {
+        tabBtnQuiz.className = 'flex-1 py-3 px-3 text-center border-b-2 border-cyan-500 text-cyan-400 bg-slate-900/60 flex items-center justify-center gap-1.5 transition';
+        tabBtnMath.className = 'flex-1 py-3 px-3 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition';
+        tabContentQuiz.classList.remove('hidden');
+        tabContentMath.classList.add('hidden');
+      });
+
+      // Quiz verification logic
+      document.getElementById('btn-check-vm').addEventListener('click', () => {
+        const val = parseFloat(document.getElementById('input-ans-vm').value);
+        const fb = document.getElementById('msg-feedback-vm');
+        fb.classList.remove('hidden');
+        if (isNaN(val)) {
+          fb.className = 'text-[11px] mt-1 text-amber-400';
+          fb.textContent = '請輸入數字答案。';
+          return;
+        }
+        if (Math.abs(val - state.vm) <= 0.2) {
+          fb.className = 'text-[11px] mt-1 text-emerald-400 font-bold';
+          fb.textContent = `✓ 完全正確！飛蛾速度確為 ${state.vm.toFixed(1)} m/s。`;
+        } else {
+          fb.className = 'text-[11px] mt-1 text-rose-400';
+          fb.textContent = `✗ 算錯囉，提示：使用公式 vm = vs * (Δτ_recv - Δτ_emit) / (Δτ_recv + Δτ_emit)。`;
+        }
+      });
+
+      document.getElementById('btn-check-xcatch').addEventListener('click', () => {
+        const val = parseFloat(document.getElementById('input-ans-xcatch').value);
+        const fb = document.getElementById('msg-feedback-xcatch');
+        fb.classList.remove('hidden');
+        if (isNaN(val)) {
+          fb.className = 'text-[11px] mt-1 text-amber-400';
+          fb.textContent = '請輸入數字答案。';
+          return;
+        }
+        if (!state.canCatch) {
+          fb.className = 'text-[11px] mt-1 text-amber-300';
+          fb.textContent = '注意：當前設定下蝙蝠速度小於或等於飛蛾速度，永遠無法追上！';
+          return;
+        }
+        if (Math.abs(val - state.x_catch) <= 1.0) {
+          fb.className = 'text-[11px] mt-1 text-emerald-400 font-bold';
+          fb.textContent = `✓ 答對了！捕獲位置確在 x = ${state.x_catch.toFixed(1)} m 處。`;
+        } else {
+          fb.className = 'text-[11px] mt-1 text-rose-400';
+          fb.textContent = `✗ 不太對，提示：先算出起飛時間飛蛾位置，再除以相對速度 (vb - vm)。`;
+        }
+      });
+
+      // Window resize handling
+      window.addEventListener('resize', () => {
+        resizeSimCanvas();
+        resizeGraphCanvas();
+        drawPhysicalSim(state.currentTime);
+        drawSpacetimeGraph();
+      });
+    }
+
+    window.onload = function () {
+      resizeSimCanvas();
+      resizeGraphCanvas();
+      recomputePhysics();
+      attachEventListeners();
+      requestAnimationFrame(animLoop);
+    };
+  </script>
+
+<!-- 網站導覽：回首頁按鈕 -->
+<a href="index.html" id="lab-home-btn" title="回到實驗室首頁"
+   style="position:fixed;left:12px;bottom:12px;z-index:45;display:flex;align-items:center;gap:6px;
+          padding:8px 14px;border-radius:999px;background:rgba(15,23,42,.82);color:#fff;font:600 15px/1 system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;
+          text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.85">
+  <span style="font-size:17px">⌂</span>首頁
+</a>
+</body>
+</html>
