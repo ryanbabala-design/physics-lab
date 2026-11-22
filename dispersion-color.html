@@ -664,7 +664,8 @@
           ctx.arc(objX + Math.cos(ang) * 34, objY - 45 + Math.sin(ang) * 34, 24, 0, Math.PI * 2);
           ctx.fill();
         }
-        ctx.fillStyle = isNoLight ? 'rgb(18, 22, 32)' : '#fbbf24';
+        // 花蕊是黃色：反射紅光（R）與綠光（G），顏色跟著照射光改變
+        ctx.fillStyle = isNoLight ? 'rgb(18, 22, 32)' : getReflectedColor(1, 1, 0).css;
         ctx.beginPath();
         ctx.arc(objX, objY - 45, 16, 0, Math.PI * 2);
         ctx.fill();

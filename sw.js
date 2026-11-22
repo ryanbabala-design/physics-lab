@@ -1,6 +1,6 @@
 // 智忠大人的教學模擬器：離線快取
 // 版本號會隨網站內容自動改變；更新後 iPad 下次有網路時會自動換成新版。
-const CACHE = 'lab-ddbe04ed35';
+const CACHE = 'lab-3087a3666b';
 const PAGES = ["./", "index.html", "sims.js", "lab.js", "lab-audio.js", "lab-theme.js", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png", "wave-propagation.html", "sound-medium-speed.html", "echo-sonar.html", "sound-three-elements.html", "sound-frequency-20k.html", "sound-spectrum-25k.html", "spectrogram-2d.html", "tuning-fork.html", "string-instrument.html", "water-glass-tube.html", "bat-echolocation.html", "pinhole.html", "reflection-law.html", "plane-mirror-drawing.html", "plane-mirror-image.html", "curved-mirrors.html", "wheel-refraction-model.html", "refraction-total-reflection.html", "lens-surface-refraction.html", "lens-types.html", "lens-black-box.html", "lens-imaging.html", "eye-vision.html", "optical-instruments.html", "dispersion-color.html", "heat-transfer.html", "specific-heat.html", "buoyancy.html", "torque-balance.html", "ice-push.html", "satellite-orbit.html"];
 const EXT = ["https://cdn.tailwindcss.com", "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css", "https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js", "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap", "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap", "https://unpkg.com/@phosphor-icons/web", "https://unpkg.com/lucide@latest"];
 
