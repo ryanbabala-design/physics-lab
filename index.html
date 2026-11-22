@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 全螢幕 App 設定（iPad 加入主畫面後以全螢幕開啟） -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="智忠大人的教學模擬器">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="智忠教學模擬器">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0f172a">
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>智忠大人的教學模擬器</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>">
 <style>
@@ -68,13 +74,33 @@
   .tip b { color: var(--ink); }
   footer { text-align: center; color: #8a93a6; font-size: 13px; padding: 0 20px 30px; }
   [hidden] { display: none !important; }
+
+  /* ── 外框播放器：模擬器在這裡切換，全螢幕不會跳出 ── */
+  #player { position: fixed; inset: 0; z-index: 100; background: #0f172a; }
+  #player iframe { position: absolute; left: 0; right: 0; bottom: 0; top: env(safe-area-inset-top, 0px); width: 100%; height: calc(100% - env(safe-area-inset-top, 0px)); border: 0; background: #fff; }
+  #player.demo iframe { top: 0; height: 100%; }
+  html.playing, html.playing body { overflow: hidden; }
+  .pnav { position: fixed; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 101; display: flex; align-items: stretch; gap: 2px; padding: 3px;
+    border-radius: 999px; background: rgba(15,23,42,.86); box-shadow: 0 4px 14px rgba(0,0,0,.3); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    font: 600 15px/1 system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; -webkit-user-select: none; user-select: none; }
+  .pnav button { display: flex; align-items: center; gap: 5px; min-height: 42px; padding: 0 13px; border-radius: 999px; border: 0; background: transparent;
+    color: #fff; font: inherit; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .pnav button:disabled { opacity: .3; }
+  .pnav .on { background: rgba(255,255,255,.16); }
+  .pnav .min { padding: 0 11px; font-size: 18px; }
+  .pnav.mini > *:not(.min) { display: none; }
+  .ptitle { position: fixed; left: 50%; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 101; padding: 8px 16px; border-radius: 999px;
+    background: rgba(15,23,42,.86); color: #fff; font: 600 15px/1.2 system-ui, "PingFang TC", sans-serif; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
+  .ptitle.show { opacity: 1; }
+  #fs-home { display: none; align-items: center; gap: 6px; margin: 12px 0 0 10px; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.3);
+    background: transparent; color: #fff; font: 600 14px/1.2 inherit; cursor: pointer; vertical-align: top; }
 </style>
 </head>
 <body>
 <header>
   <div class="wrap">
     <h1>🔬 智忠大人的教學模擬器</h1>
-    <p>國中理化互動模擬器：波動與聲音、光學、溫度與熱、力與運動。手機、平板、電腦都能直接開啟，點一下卡片就開始實驗。</p><p style="margin-top:8px;font-size:14px;color:#94a3b8">復旦高中 陳智忠老師 製作</p>
+    <p>國中理化互動模擬器：波動與聲音、光學、溫度與熱、力與運動。手機、平板、電腦都能直接開啟，點一下卡片就開始實驗。</p><p style="margin-top:8px;font-size:14px;color:#94a3b8">復旦高中 陳智忠老師 製作</p><p id="offline-status" hidden style="display:inline-block;margin-top:12px;padding:6px 12px;border-radius:999px;font-size:14px"></p><button type="button" id="fs-home"></button>
   </div>
 </header>
 
@@ -93,52 +119,29 @@
     <b>💡 使用小提醒</b><br>
     ・有聲音的實驗室，請先<b>點一下畫面上的播放／開始按鈕</b>才會發聲；iPad 若沒有聲音，請確認側邊靜音開關已關閉、音量已調大。<br>
     ・高頻聲音請把音量調小，保護聽力。<br>
-    ・在 iPad 的 Safari 按「分享 → 加入主畫面」，就能像 App 一樣從桌面開啟。
+    ・<b>全螢幕上課</b>：在 iPad 的 Safari 或 Chrome 按「分享（⬆）→ 加入主畫面」，之後從主畫面的「智忠教學模擬器」圖示開啟，就是沒有網址列的全螢幕 App。用 Safari 時也可以按「⛶ 全螢幕」，之後切換上一支、下一支都會維持全螢幕。<br>
+    ・<b>🎯 演示</b>：上課講解時按一下，主畫布會放大到整個畫面，控制面板暫時收起；要調整參數時再按「↩ 一般」。左下角的 ☰ 可以把導覽列收成一個小按鈕。
   </div>
 </main>
 
+<div id="player" hidden>
+  <iframe id="frame" title="模擬器" allow="fullscreen; autoplay"></iframe>
+  <nav class="pnav" id="pnav" aria-label="模擬器導覽">
+    <button type="button" class="min" id="p-min" title="收合導覽列" aria-label="收合導覽列">☰</button>
+    <button type="button" id="p-prev">◀ 上一支</button>
+    <button type="button" id="p-home" class="on"><span style="font-size:17px">⌂</span>首頁</button>
+    <button type="button" id="p-next">下一支 ▶</button>
+    <button type="button" id="p-demo">🎯 演示</button>
+    <button type="button" id="p-fs" style="display:none"></button>
+  </nav>
+  <div class="ptitle" id="ptitle"></div>
+</div>
+
 <footer><div style="max-width:760px;margin:0 auto 10px;padding:16px 18px;border-radius:14px;background:#fff;border:1px solid #e3e6ee;color:#5b6478;font-size:14px;line-height:1.8;text-align:left"><b style="color:#0f172a">📘 關於本站</b><br>製作者：復旦高中 陳智忠老師（國中理化／高中化學）<br>學歷：國立彰化師範大學 科學教育研究所 碩士<br>AI 協作來源：教學模擬器程式由 Google Gemini 協助生成；網站整理、iPad 觸控優化與架設由 Anthropic Claude 協助完成。<br>🔗 追蹤我：<a href="https://www.facebook.com/ryanababla" target="_blank" rel="noopener" style="color:#1d4ed8;font-weight:600">Facebook</a> ｜ <a href="https://www.instagram.com/ryanababla/" target="_blank" rel="noopener" style="color:#be185d;font-weight:600">Instagram</a> ｜ <a href="https://www.youtube.com/@ryanbabala" target="_blank" rel="noopener" style="color:#dc2626;font-weight:600">YouTube 智忠大人</a></div>© 2026 智忠大人的教學模擬器</footer>
 
+<script src="sims.js"></script>
 <script>
-const CATS = {
-  sound: { name: "波動與聲音", color: "#0e7490" },
-  light: { name: "光學", color: "#b45309" },
-  heat: { name: "溫度與熱", color: "#be123c" },
-  motion: { name: "力與運動", color: "#4338ca" }
-};
-const SIMS = [
-  {"file": "wave-propagation.html", "cat": "sound", "icon": "〰️", "title": "#1 波動傳播與橫波縱波", "desc": "比較橫波與縱波：振動方向與波前進方向的關係，認識波長、振幅與週期。"},
-  {"file": "sound-medium-speed.html", "cat": "sound", "icon": "🔊", "title": "#2 聲音傳播介質與聲速", "desc": "聲音需要介質才能傳播：比較固體、液體、氣體中的聲速。"},
-  {"file": "echo-sonar.html", "cat": "sound", "icon": "📡", "title": "#3 回聲測距、聲納與超聲波", "desc": "拖曳人物與山壁，用回聲時間算出距離，認識聲納與超聲波的應用。"},
-  {"file": "sound-three-elements.html", "cat": "sound", "icon": "📈", "title": "#4 聲音三要素與示波器", "desc": "用示波器波形看響度、音調與音色的差別。"},
-  {"file": "sound-frequency-20k.html", "cat": "sound", "icon": "🎵", "title": "0–20,000 Hz 樂音頻率實驗室", "desc": "人類聽覺極限與樂理聲學：從低音到超高頻，聽聽看自己聽得到多高的聲音。"},
-  {"file": "sound-spectrum-25k.html", "cat": "sound", "icon": "📊", "title": "0–25,000 Hz 聲波與時頻瀑布圖", "desc": "次聲波、可聽聲、超聲波全頻域模擬，用瀑布圖看見聲音的頻率。"},
-  {"file": "spectrogram-2d.html", "cat": "sound", "icon": "🌈", "title": "二維聲波時頻瀑布圖實驗室", "desc": "看見聲音的響度、音調與音色指紋，比較不同樂器的頻譜。"},
-  {"file": "tuning-fork.html", "cat": "sound", "icon": "🔔", "title": "音叉縱波產生教學模型", "desc": "音叉臂振動推擠空氣，形成向外傳播的疏密縱波。"},
-  {"file": "string-instrument.html", "cat": "sound", "icon": "🎻", "title": "絃樂器聲學互動教學模型", "desc": "調整絃長、張力與粗細，觀察絃的振動與音調高低的關係。"},
-  {"file": "water-glass-tube.html", "cat": "sound", "icon": "🧪", "title": "裝水玻璃管聲學探究", "desc": "敲擊與吹氣為什麼音高變化相反？比較質量負載與空氣柱駐波。"},
-  {"file": "bat-echolocation.html", "cat": "sound", "icon": "🦇", "title": "蝙蝠超聲波定位與捕食", "desc": "回聲測距、測速與都卜勒效應，搭配追擊運動計算器。"},
-  {"file": "pinhole.html", "cat": "light", "icon": "🕳️", "title": "#5 針孔成像", "desc": "光直線前進形成倒立實像：改變物距、像距與孔的大小。"},
-  {"file": "reflection-law.html", "cat": "light", "icon": "📐", "title": "#6 光的反射定律與法線", "desc": "入射角等於反射角：拖曳光線，看法線與角度的關係。"},
-  {"file": "plane-mirror-drawing.html", "cat": "light", "icon": "✏️", "title": "#7 平面鏡作圖順序", "desc": "一步步學會平面鏡成像作圖：找像點、連線、畫出反射光。"},
-  {"file": "plane-mirror-image.html", "cat": "light", "icon": "🪞", "title": "#8 平面鏡成像", "desc": "平面鏡成正立、等大、左右相反的虛像，像距等於物距。"},
-  {"file": "curved-mirrors.html", "cat": "light", "icon": "🥄", "title": "#9 凹凸面鏡成像", "desc": "移動物體位置，比較凹面鏡與凸面鏡的成像性質。"},
-  {"file": "wheel-refraction-model.html", "cat": "light", "icon": "🛞", "title": "#10 車輪寬帶折射模型", "desc": "用車輪滾進草地的比喻，理解光為什麼在介面上偏折。"},
-  {"file": "refraction-total-reflection.html", "cat": "light", "icon": "💎", "title": "#11 光的折射與全反射", "desc": "360° 改變入射方向，觀察折射角變化與臨界角、全反射。"},
-  {"file": "lens-surface-refraction.html", "cat": "light", "icon": "🔍", "title": "#13 透鏡曲面折射本質", "desc": "透鏡會聚或發散的原因：光在兩個曲面上各折射一次。"},
-  {"file": "lens-types.html", "cat": "light", "icon": "🔎", "title": "#14 凸透鏡與凹透鏡分類", "desc": "從透鏡形狀判斷凸透鏡或凹透鏡，比較會聚與發散。"},
-  {"file": "lens-black-box.html", "cat": "light", "icon": "📦", "title": "#15 未知黑盒子組合透鏡", "desc": "從進出光線推理黑盒子裡藏了哪一種透鏡組合。"},
-  {"file": "lens-imaging.html", "cat": "light", "icon": "🖼️", "title": "#16 凸凹透鏡折射成像", "desc": "移動物體與透鏡，觀察實像、虛像、放大與縮小的條件。"},
-  {"file": "eye-vision.html", "cat": "light", "icon": "👁️", "title": "#17 人眼成像與視力矯正", "desc": "近視、遠視的成因，以及凹透鏡、凸透鏡如何矯正視力。"},
-  {"file": "optical-instruments.html", "cat": "light", "icon": "🔭", "title": "#18 四大光學儀器成像", "desc": "照相機、放大鏡、投影機與望遠鏡的成像原理比較。"},
-  {"file": "dispersion-color.html", "cat": "light", "icon": "🌈", "title": "#19 光的色散與物體顏色", "desc": "三稜鏡白光色散、RGB 三原色，以及物體為什麼有顏色。"},
-  {"file": "heat-transfer.html", "cat": "heat", "icon": "🌡️", "title": "#20 熱傳遞與熱平衡", "desc": "傳導、對流、輻射，以及高低溫物體接觸後達到熱平衡。"},
-  {"file": "specific-heat.html", "cat": "heat", "icon": "♨️", "title": "#21 比熱與熱量計算", "desc": "不同物質升溫快慢不同：用 H = m × s × ΔT 計算熱量。"},
-  {"file": "buoyancy.html", "cat": "motion", "icon": "🚢", "title": "#22 阿基米德浮力原理", "desc": "浮力等於排開液體的重量：比較沉體、浮體與液體密度。"},
-  {"file": "torque-balance.html", "cat": "motion", "icon": "⚖️", "title": "#23 轉動平衡與力矩", "desc": "力矩 = 力 × 力臂：斜拉力的垂直力臂作圖與兩側力矩平衡。"},
-  {"file": "ice-push.html", "cat": "motion", "icon": "⛸️", "title": "冰上兩人互推模擬", "desc": "在光滑冰面上互推，體會牛頓第三運動定律與質量、加速度的關係。"},
-  {"file": "satellite-orbit.html", "cat": "motion", "icon": "🛰️", "title": "圓周運動與人造衛星軌道", "desc": "重力就是向心力：探索圓軌道速度與逃逸速度。"}
-];
+const CATS = window.LAB_CATS, SIMS = window.LAB_SIMS;
 
 const host = document.getElementById("sections");
 for (const [key, cat] of Object.entries(CATS)) {
@@ -165,6 +168,117 @@ document.querySelectorAll("nav.filters button").forEach(btn => {
     document.querySelectorAll("#sections section").forEach(sec => { sec.hidden = f !== "all" && sec.dataset.cat !== f; });
   });
 });
+
+/* ── 外框播放器 ── */
+(function () {
+  const d = document, player = d.getElementById('player');
+  let frame = d.getElementById('frame');
+  const prev = d.getElementById('p-prev'), next = d.getElementById('p-next'), demoBtn = d.getElementById('p-demo');
+  const fsBtn = d.getElementById('p-fs'), fsHome = d.getElementById('fs-home'), nav = d.getElementById('pnav'), ttl = d.getElementById('ptitle');
+  let cur = -1, demoOn = false, ttlTimer = 0;
+  window.LAB_SHELL = true;
+
+  function idxOf(file) { return SIMS.findIndex(s => s.file === file); }
+  function showTitle(t) { ttl.textContent = t; ttl.classList.add('show'); clearTimeout(ttlTimer); ttlTimer = setTimeout(() => ttl.classList.remove('show'), 1800); }
+  function setDemoUI(on) { demoOn = on; demoBtn.textContent = on ? '↩ 一般' : '🎯 演示'; demoBtn.classList.toggle('on', on); player.classList.toggle('demo', on); }
+  function safeTop() { const p = d.createElement('div'); p.style.cssText = 'position:fixed;top:0;height:env(safe-area-inset-top,0px)'; d.body.appendChild(p); const h = p.getBoundingClientRect().height; p.remove(); return h; }
+
+  function open(i, how) {
+    if (i < 0 || i >= SIMS.length) return;
+    const keepDemo = demoOn;
+    cur = i;
+    const s = SIMS[i];
+    // 每次換一支都換一個新的 iframe，瀏覽器的「上一頁」才不會卡在模擬器之間
+    const nf = d.createElement('iframe');
+    nf.id = 'frame'; nf.title = s.title; nf.setAttribute('allow', 'fullscreen; autoplay');
+    nf.addEventListener('load', onFrameLoad);
+    nf.src = s.file;
+    frame.replaceWith(nf); frame = nf;
+    player.hidden = false; d.documentElement.classList.add('playing');
+    prev.disabled = i === 0; next.disabled = i === SIMS.length - 1;
+    prev.title = i > 0 ? SIMS[i - 1].title : ''; next.title = i < SIMS.length - 1 ? SIMS[i + 1].title : '';
+    d.title = s.title + '｜智忠大人的教學模擬器';
+    const url = '#' + s.file.replace(/\.html$/, '');
+    if (how === 'push') history.pushState({ sim: s.file }, '', url);
+    else if (how === 'replace') history.replaceState({ sim: s.file }, '', url);
+    setDemoUI(false);
+    frame.dataset.wantDemo = keepDemo ? '1' : '';
+    showTitle(s.title);
+  }
+  function close(how) {
+    cur = -1; const blank = d.createElement('iframe'); blank.id = 'frame'; blank.setAttribute('allow', 'fullscreen; autoplay'); frame.replaceWith(blank); frame = blank; player.hidden = true; d.documentElement.classList.remove('playing');
+    setDemoUI(false); d.title = '智忠大人的教學模擬器';
+    if (how === 'push') history.pushState({}, '', location.pathname);
+  }
+  // 模擬器載入後：套用演示模式（換下一支時延續）
+  function onFrameLoad() {
+    try {
+      const win = frame.contentWindow;
+      win.document.documentElement.style.setProperty('--lab-safe-top', safeTop() + 'px');
+      if (frame.dataset.wantDemo === '1' && win.LAB) setTimeout(() => setDemoUI(win.LAB.demo(true)), 250);
+    } catch (e) {}
+  }
+
+  d.getElementById('sections').addEventListener('click', e => {
+    const a = e.target.closest('a.card'); if (!a) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault(); open(idxOf(a.getAttribute('href')), 'push');
+  });
+  prev.addEventListener('click', () => open(cur - 1, 'replace'));
+  next.addEventListener('click', () => open(cur + 1, 'replace'));
+  d.getElementById('p-home').addEventListener('click', () => { if (history.state && history.state.sim) history.back(); else close('push'); });
+  d.getElementById('p-min').addEventListener('click', () => nav.classList.toggle('mini'));
+  demoBtn.addEventListener('click', () => {
+    try { const L = frame.contentWindow.LAB; if (L) setDemoUI(L.demo(!demoOn)); } catch (e) {}
+  });
+  window.addEventListener('popstate', route);
+  function route() {
+    const h = decodeURIComponent(location.hash.slice(1));
+    const i = h ? idxOf(h.endsWith('.html') ? h : h + '.html') : -1;
+    if (i >= 0) { if (i !== cur) open(i, null); } else if (cur >= 0) close(null);
+  }
+  route();
+
+  // 全螢幕（Safari 等支援的瀏覽器；從主畫面開啟時已是全螢幕，不顯示）
+  const el = d.documentElement;
+  const isApp = navigator.standalone || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
+  const canFs = !!(el.requestFullscreen || el.webkitRequestFullscreen) && !!(d.fullscreenEnabled || d.webkitFullscreenEnabled);
+  const fsOn = () => d.fullscreenElement || d.webkitFullscreenElement;
+  function toggleFs() {
+    if (fsOn()) (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    else { const p = (el.requestFullscreen || el.webkitRequestFullscreen).call(el); if (p && p.catch) p.catch(() => {}); }
+  }
+  function fsLabel() { const t = fsOn() ? '⤡ 退出全螢幕' : '⛶ 全螢幕'; fsBtn.textContent = fsOn() ? '⤡ 退出' : '⛶ 全螢幕'; fsHome.textContent = t; }
+  if (canFs && !isApp) {
+    fsBtn.style.display = 'flex'; fsHome.style.display = 'inline-flex';
+    fsBtn.addEventListener('click', toggleFs); fsHome.addEventListener('click', toggleFs);
+    d.addEventListener('fullscreenchange', fsLabel); d.addEventListener('webkitfullscreenchange', fsLabel); fsLabel();
+  }
+})();
+</script>
+
+<script>
+// 離線快取狀態：顯示在首頁標題下方
+(function () {
+  var box = document.getElementById('offline-status');
+  function show(t, ok) { if (box) { box.textContent = t; box.style.background = ok ? 'rgba(34,197,94,.18)' : 'rgba(255,255,255,.12)'; box.style.color = ok ? '#bbf7d0' : '#cbd5e1'; box.hidden = false; } }
+  if (!('serviceWorker' in navigator) || !window.caches) return;
+  var TOTAL = 31;
+  function check() {
+    caches.keys().then(function (keys) {
+      var k = keys.filter(function (x) { return x.indexOf('lab-') === 0; }).pop();
+      if (!k) return show('⏳ 正在把模擬器存到這台裝置，請保持網路連線…', false);
+      caches.open(k).then(function (c) { return c.keys(); }).then(function (reqs) {
+        var n = reqs.filter(function (r) { return /\.html(\?|$)/.test(r.url) && r.url.indexOf(location.origin) === 0 && !/index\.html/.test(r.url); }).length;
+        if (n >= TOTAL) show('✅ 已可離線使用：' + n + ' 支模擬器都存在這台裝置上', true);
+        else { show('⏳ 正在存到這台裝置（' + n + ' / ' + TOTAL + '），請保持網路連線…', false); setTimeout(check, 1500); }
+      });
+    });
+  }
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').then(function () { return navigator.serviceWorker.ready; }).then(check).catch(function () {});
+  });
+})();
 </script>
 </body>
 </html>
