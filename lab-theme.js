@@ -8,6 +8,9 @@
 (function () {
   'use strict';
   var w = window, d = document;
+  // 光學類模擬器維持原本深色配色（光線在黑底上較清楚）
+  var KEEP_ORIGINAL = { 'pinhole.html': 1, 'reflection-law.html': 1, 'plane-mirror-drawing.html': 1, 'plane-mirror-image.html': 1, 'curved-mirrors.html': 1, 'wheel-refraction-model.html': 1, 'refraction-total-reflection.html': 1, 'three-layer-refraction.html': 1, 'lens-surface-refraction.html': 1, 'lens-types.html': 1, 'lens-black-box.html': 1, 'lens-imaging.html': 1, 'eye-vision.html': 1, 'optical-instruments.html': 1, 'dispersion-color.html': 1 };
+  if (KEEP_ORIGINAL[(location.pathname.split('/').pop() || '').toLowerCase()]) { w.LAB_THEME = { on: false }; return; }
   var off = /[?&]theme=original/.test(location.search);
   try { if (off) sessionStorage.setItem('lab-theme', 'original'); else if (/[?&]theme=beige/.test(location.search)) sessionStorage.removeItem('lab-theme'); off = off || sessionStorage.getItem('lab-theme') === 'original'; } catch (e) {}
   if (off) { w.LAB_THEME = { on: false }; return; }
